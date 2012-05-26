@@ -1,0 +1,15 @@
+
+See the top level README for information on where to find the
+schematic and programmers reference manual for the ARM processor
+on the raspberry pi.
+
+Based on some web searches the gpio is based at address 0x20200000 not
+0x7E200000 as shown in the documentation.  I have to go figure that out.
+
+There is a free-running 64 bit timer, super easy to use, just read it.
+
+Based on a couple of experiments, without messing with anything it
+appears that the timer is runing at about a megahertz, 1 million ticks
+per second.  I am guessing it is divided down from the 700MHz somewhere,
+will dig deeper.
+
