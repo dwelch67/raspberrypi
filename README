@@ -1,0 +1,37 @@
+
+Right, I know...Got my raspberry pi today.
+
+This repo serves as a collection of low level examples.  No operating
+system, embedded or low level embedded or deeply embedded, whatever
+your term is for this.
+
+From what we know so far there is a gpu on chip that boots off of I
+assume an on chip rom.  This goes to the sd card and does things.  it
+appears that the entry point for us as programmers is the kernel.img
+file, which appears to be the memory image copied into the ARM memory
+before releasing reset on the ARM processor.  The name of course because
+this is intended to be a Linux based educational computer, but it is
+just a file name, just a memory image.
+
+You will want to go here
+http://elinux.org/RPi_Hardware
+And get the datasheet for the part
+http://www.raspberrypi.org/wp-content/uploads/2012/02/BCM2835-ARM-Peripherals.pdf
+(might be an old link, find the one on the wiki page)
+And the schematic for the board
+http://www.raspberrypi.org/wp-content/uploads/2012/04/Raspberry-Pi-Schematics-R1.0.pdf
+(might be an old link, find the one on the wiki page)
+
+Ultimately I will make a uart based bootloader.  For now start with
+blinker01
+
+I dont normally use .data nor gcc libraries nor C libraries so you can
+build most if not all of my examples using a gcc cross compilerl.  Basically
+it doesnt matter if you use arm-none-linux-gnueabi or arm-none-eabi.
+what was formerly codesourcery.com still has a LITE version of their
+toolchain which is easy to come by, easy to install and well maybe not
+easy to use but you can use it.  Building your own toolchain from gnu
+sources (binutils and gcc) is fairly straight forward and at some point
+will create a script to do that for you.
+
+

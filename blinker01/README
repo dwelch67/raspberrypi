@@ -1,0 +1,45 @@
+
+See the top level README for information on where to find the
+schematic and programmers reference manual for the ARM processor
+on the raspberry pi.
+
+Based on some web searches the gpio is based at address 0x20200000 not
+0x7E200000 as shown in the documentation.  I have to go figure that out.
+
+Apparently what they have done is have the thing boot using the gpu
+in the part, dont bother, leave it be, they are not going to let us
+program it, not for a while at least.  There is I assume a gpu bootloader
+programmed in the chip, an OTP ROM based on something I read.  This
+searches for the sd card, and I assume loads another gpu bootloader
+from that, at some point, the arm memory is loaded from kernel.img
+on the sd card, then the ARM is released from reset.
+
+This simple example, sets up a small stack, not much to this program, and
+I have not read up on how much memory is actually in this space.  It
+then enables gpio16 as an output.  Then goes into a loop that sets
+the gpio, waits, resets it, waits, repeat.  gpio16 is shown on the
+schematic to connect to the OK led.  One of the bank of leds on the
+corner near the audio out and host usb ports.  The blink rate
+for me is a few blinks a second perhaps.  Future examples will get
+use a timer if there is one and narrow in on the clock setup, etc.
+
+Copy the kernel.img file to the sd card, overwriting whatever you had
+there.  You may wish to backup the one you had there before you started
+playing at this level.
+
+The beauty of this boot design is that it is not (easily) brickable,
+so far as we know.  With ignorance being bliss I will say it is not
+brickable.  Second we have no flash on the card we always run out of
+ram as far as we are concerned.  Making the board cheaper among other
+things.  The negative side to this is the development process is very
+painful.  It goes back to the GBA or NDS days, actually it was more
+painful then.  Here you unplug the rpi, pull the sd card out, put
+the sd card in an sd card reader, plug the sd card reader into the
+computer, wait or mount, copy kernel.img to the sd card, wait or sync,
+unmount the sd card, remove the sd card reader, remove the sd card
+place in rpi, plug in rpi.  And repeat with each new build.  I hope
+to get the uart figured out and a bootloader so that I/we only have
+to do that once, and from there on power off, power on, load the
+program over serial.  Not to dissimilar to the arduino experience.
+
+
