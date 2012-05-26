@@ -1,0 +1,70 @@
+
+//-------------------------------------------------------------------------
+//-------------------------------------------------------------------------
+
+extern void PUT32 ( unsigned int, unsigned int );
+extern unsigned int GET32 ( unsigned int );
+extern void dummy ( unsigned int );
+
+#define ARM_TIMER_LOD 0x2000B400
+#define ARM_TIMER_VAL 0x2000B404
+#define ARM_TIMER_CTL 0x2000B408
+#define ARM_TIMER_DIV 0x2000B41C
+#define ARM_TIMER_CNT 0x2000B420
+
+#define SYSTIMERCLO 0x20003004
+#define GPFSEL1 0x20200004
+#define GPSET0  0x2020001C
+#define GPCLR0  0x20200028
+
+//From experiments and from the manual the freerunning ARM timer is
+//not affected by the timer enable bit.  Not affected by the 0x41C
+//prescaler.  Not affected by bits 3:2 of the control register.
+//And is affected by bits 23:16 of the control register.
+
+//It still appears as if the system timer is 250Mhz as mentioned somewhere
+//in the manual (starts up at 250MHz).
+//If we divide 250MHz/250 we can make the free running clock 1mhz
+//wait for 4 million ticks and the led will change state every 4 seconds
+//Note the free running timer is an up counting timer, the other arm
+//timer is a down counter.
+
+#define TIMEOUT 4000000
+
+
+//-------------------------------------------------------------------------
+int notmain ( void )
+{
+    unsigned int ra;
+    unsigned int rb;
+
+    ra=GET32(GPFSEL1);
+    ra&=~(7<<18);
+    ra|=1<<18;
+    PUT32(GPFSEL1,ra);
+
+    PUT32(ARM_TIMER_CTL,0x00F90000);
+    PUT32(ARM_TIMER_CTL,0x00F90200);
+
+    rb=GET32(ARM_TIMER_CNT);
+    while(1)
+    {
+        PUT32(GPSET0,1<<16);
+        while(1)
+        {
+            ra=GET32(ARM_TIMER_CNT);
+            if((ra-rb)>=TIMEOUT) break;
+        }
+        rb+=TIMEOUT;
+        PUT32(GPCLR0,1<<16);
+        while(1)
+        {
+            ra=GET32(ARM_TIMER_CNT);
+            if((ra-rb)>=TIMEOUT) break;
+        }
+        rb+=TIMEOUT;
+    }
+    return(0);
+}
+//-------------------------------------------------------------------------
+//-------------------------------------------------------------------------
