@@ -13,3 +13,8 @@ appears that the timer is runing at about a megahertz, 1 million ticks
 per second.  I am guessing it is divided down from the 700MHz somewhere,
 will dig deeper.
 
+Hmm, there are comments in the manual about the system clock coming up
+at 250MHz.  I wonder if this system timer is 250MHz/256 = 0.976MHz.
+
+
+
