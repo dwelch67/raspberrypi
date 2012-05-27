@@ -1,0 +1,52 @@
+
+See the top level README for information on where to find the
+schematic and programmers reference manual for the ARM processor
+on the raspberry pi.
+
+Derived from uart02 and code of various ages (yes some from 1996), this
+is a very simple bootloader.  Instead of removing, writing, and replcing
+the sd card numerous times.  This makes that a bit simpler.  Using the
+uart on the card and some sort of uart on the host (see below) you only
+need to load the bootloader (kernel.img derived from bootloader01.elf)
+one time.  From then on just power cycle the raspberry pi and use the
+host loader program (prograspi) to load and start the program under
+development on the raspberry pi.
+
+This bootloader sits at 0x200000 so that you have 0x200000 bytes to
+develop with.  And that way if you like your program you can just
+copy a .bin version to kernel.img on the sd card and use it.  I had
+the bootloader closer to 0x0000000 and test programs would be after it
+but that means to make a real program for the sd card would be another
+link step.  Very easy to change this, both bootloader01.c and prograspi.c
+use the same number 0x200000.
+
+On the host you will want to use something like this:
+http://www.sparkfun.com/products/718
+to connect to the uart pins on the raspi.  Do not connect the raspberry
+pi pins directly to a com port on a computer you will fry the board.
+The above board happens to have pins in the same order as the raspberry
+pi.  On connector P1 on the raspberry pi connect pin 6 to ground on the
+usb to serial board.  Pin 8 on P1 to RX on the usb to serial board, and
+pin 10 on P1 to TX on the usb to serial board.  I use these
+http://www.sparkfun.com/products/8430
+to connect the ftdi board to the raspberry pi.  No soldering required,
+at least not at the moment.  If down the road the raspberri pi does
+not have P1 header pins then there will be some soldering or something
+required.
+
+You do not use a dumb terminal program.  The program on the host
+that loads your ARM program is called prograspi.  There is a test
+program derived from blinker03 called blinker.  Once you have copied
+kernel.img to the sd card on the raspberry pi.  You have hooked up
+the usb to serial board to the raspberry pi.  Plug the usb into
+the usb to serial board and use dmesg to note the /dev/ttyUSBX port.
+Plug in the raspberry pi to power it and then run:
+
+./prograspi blinker.hex /dev/ttyUSBX
+
+where /dev/ttyUSBX is the port you are connecting through, it could
+be a real serial port if you have a tranciever for the raspberry pi
+side. (MAX232 for example).
+
+Now you can go back and try my other examples without the dozens/hundreds
+of sd card insertions it took me to get to this point.
