@@ -1,0 +1,30 @@
+
+See the top level README for information on where to find the
+schematic and programmers reference manual for the ARM processor
+on the raspberry pi.
+
+Based on uart02, the difference is that this is primarily thumb code
+instead of ARM.  ARM in this case meaning the traditional 32 bit
+instruction set and thumb meaning the traditional 16 bit instruction
+subset.  Thumb2 has confused/blurred those definitions though.
+(thumb2 is a mostly 32 bit extension to the thumb instruction set using
+formerly undefined instructions to create variable word length instructions).
+
+You have two choices you can use my bootloader with the uart03.hex file
+or copy the uart02.bin file to (overwrite the) kernel.img on your raspi
+sd card.  (might want to back up that file if you want to go back to
+running linux with it later, or download a replacement from the net).
+
+You will need something like this
+http://www.sparkfun.com/products/718
+to connect to the uart pins on the raspi.  Do not connect the raspberry
+pi pins directly to a com port on a computer you will fry the board.
+The above board happens to have pins in the same order as the raspberry
+pi.  On connector P1 on the raspberry pi connect pin 6 to ground on the
+usb to serial board.  Pin 8 on P1 to RX on the usb to serial board, and
+pin 10 on P1 to TX on the usb to serial board.
+
+Using a dumb terminal (minicom) 115200 board No parity 8 bits 1 stop
+bit, no flow control (might have to exit minicom and start again for
+the flow control setting to take).  What you type on the dumb terminal
+echos back.
