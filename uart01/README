@@ -1,0 +1,25 @@
+
+See the top level README for information on where to find the
+schematic and programmers reference manual for the ARM processor
+on the raspberry pi.
+
+Okay this was incredibly painful.  I might have saved a few hours if
+was at the office with an oscilloscope, I eventually had to fashion
+something to look at the output using an mbed.
+
+The documentation for the chip has some glaring errors.  The IER and
+IIR register descriptions are screwy.  The one that killed me was
+the word length.  The document says that the single bit controls 7
+bits per word vs 8 bits per word.  And that bit 1 and some above
+do not do anything, they might on real 16550's but not here.  Well
+that is wrong.  If bits 1:0 are 00 you get 7 bits if bits 1:0 are 01
+you get 7 bits.  You need bit 1 set to get 8 bits.
+
+This example uses the mini uart, uart1, to transmit characters on
+GPIO14.  You will need a level shifter or something that can receive
+3.3v.  One like this http://www.sparkfun.com/products/718 works perfectly.
+Connect ground to pin 6 of P1 and rx on the FTDI board to tx on the
+raspi which is pin 8 on the P1 connector.
+
+This example sets up the uart for 115200 baud, and blasts the characters
+0123456701234567...forever as fast as it can.
