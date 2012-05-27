@@ -22,9 +22,6 @@ And the schematic for the board
 http://www.raspberrypi.org/wp-content/uploads/2012/04/Raspberry-Pi-Schematics-R1.0.pdf
 (might be an old link, find the one on the wiki page)
 
-Ultimately I will make a uart based bootloader.  For now start with
-blinker01
-
 I dont normally use .data nor gcc libraries nor C libraries so you can
 build most if not all of my examples using a gcc cross compilerl.  Basically
 it doesnt matter if you use arm-none-linux-gnueabi or arm-none-eabi.
@@ -34,4 +31,32 @@ easy to use but you can use it.  Building your own toolchain from gnu
 sources (binutils and gcc) is fairly straight forward and at some point
 will create a script to do that for you.
 
+My first bootloader is working, this will greatly save on wear and tear
+on the sd card socket.  You will need some sort of serial adapter.
+The uart signals on the raspi are not at RS232 levels, you CANNOT
+simply connect them to a "COM port", you will fry your raspberry pi.
+A simple solution is to get these two items at sparkfun or something
+similar (there are many ftdi usb to serial 3.3v solutions out there)
+http://www.sparkfun.com/products/718
+http://www.sparkfun.com/products/8430
+On the raspberry pi, the connector with two rows of a bunch of pins is
+P1.  Starting at that corner of the board, the outside corner pin is
+pin 2.  From pin 2 heading toward the yellow rca connector the pins
+are 2, 4, 6, 8, 10.  Pin 6 connect to gnd on the usb to serial board
+pin 8 is tx out of the raspi connect that to RX on the usb to serial
+board.  pin 10 is rx into the raspi, connect that to TX on the usb to
+serial board.  Careful not to have metal items on the usb to serial
+board touch metal items on the raspberry pi (other than the three
+connections described).  On your host computer you will want to use
+some sort of dumb terminal program, minicom, putty, etc.  Set the
+serial port (usb to serial board) to 115200 baud, 8 data bits, no
+parity, 1 stop bit.  NO flow control.  With minicom you likely have
+to save the config, exit minicom, then restart in order for flow control
+changes to take effect.
 
+going to work on a terminal based bootloder with xmodem, instead of the
+proprietary solution in bootloader01.
+
+I recommend you start with blinker01 and follow the discovery through
+those to uart01, etc.  Now that I have the bootloader working I have
+to go back through these and generate a .hex file as well as a .img file.
