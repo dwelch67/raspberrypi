@@ -1,7 +1,8 @@
 
 See the top level README for information on where to find the
 schematic and programmers reference manual for the ARM processor
-on the raspberry pi.
+on the raspberry pi.  Also find information on how to load and run
+these programs.
 
 This example uses the free running ARM timer, not the 64 bit system
 one as in blinker02 but the so called ARM timer.

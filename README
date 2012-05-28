@@ -22,6 +22,12 @@ And the schematic for the board
 http://www.raspberrypi.org/wp-content/uploads/2012/04/Raspberry-Pi-Schematics-R1.0.pdf
 (might be an old link, find the one on the wiki page)
 
+The manual uses addresses like 0x7Exxxxxx, which is the real address for
+something.  But there is an address translation layer between the ARM
+physical address and the real address.  All of this code will use the
+ARM physical address which is 0x20xxxxxx.  The rest of the address is
+the same so if the manual says 0x7E123456, then from the ARM use 0x20123456
+
 I dont normally use .data nor gcc libraries nor C libraries so you can
 build most if not all of my examples using a gcc cross compilerl.  Basically
 it doesnt matter if you use arm-none-linux-gnueabi or arm-none-eabi.
@@ -30,6 +36,74 @@ toolchain which is easy to come by, easy to install and well maybe not
 easy to use but you can use it.  Building your own toolchain from gnu
 sources (binutils and gcc) is fairly straight forward and at some point
 will create a script to do that for you.
+
+As far as we know so far the Raspberry Pi is not "brickable".  Normally
+what brickable means is the processor relies on a boot flash.  For example
+there may be a bootloader that allows you to re-program the flash.  If you
+make a mistake writing code at this low level and load the boot flash
+with that bad code you may not be able to reload the flash again.  There
+are many ways to prevent this, but there are also still boards that
+can be bricked or at least require more equipment or soldering, etc to
+recover them.  They way this board works is quite interesting.  There
+is a GPU on chip that boots from an on chip flash (in that respect it
+may be brickable, but we dont have access to that GPU boot loader).  The
+GPU on chip bootloader looks for an sd card, the sd card contains more
+GPU code.  That code probably initializes sdram, and then copies the
+contents of kernel.img on the sd card to sdram.  Then releases reset
+on the ARM.  Each of these example programs produce a .bin file.
+kernel.img is nothing more than a .bin file, an image of the flash.
+The filename is special to the raspi bootloder, so you need to use
+that file name.  Backup your original kernel.img if you want to go back
+to playing with linux then copy the .bin file in the example to
+kernel.img on the sd card.  For example
+cp blinker01.bin /media/9876-5432/kernel.img
+sync
+umount /media/9876-5432
+Insert the sd card into the raspi and power.
+
+It wont take you very long to figure out this is going to get painful.
+
+1) power off raspi
+2) remove sd card
+3) insert sd card in reader
+4) plug reader into computer
+5) mount/wait
+6) copy binary file to kernel.img
+7) sync/wait
+8) unmount
+9) insert sd card in raspi
+10) power raspi
+11) repeat
+
+There are ways to avoid this, one is jtag, which is not as expensive
+as it used to be.  It used to be in the thousands of dollars, now it
+is under $50 and the software tools are free.  Now the raspi does have
+jtag on the arm, getting the jtag connected to that is going to require
+some soldering.  I have not done it yet but will and will post info.
+Unfortunately the connection to jtag is not there on power up you have
+to run some code on the arm, so when that happens I will post that
+program.
+
+Another method is a bootloader, typically you connect a serial port.
+The program that actually boots on the processor has some way for you
+to get into a bootloader.  Sometimes that is all that is there, sometimes
+you have to hit a key within a few seconds after it starts to boot.
+The bootloader will have some way for you to use either the serial
+or ethernet to copy a file into memory or flash.  In this case probably
+memory.  I have a bootloader that works.  Am working on a second one
+that will probably be easier/better to use.  With the bootloader method
+at least how I am implementing it for the raspi, you perform the sd
+card dance above one time to copy the bootloader to the sd card.  You
+use some flavor of serial port as described below.  When the board
+boots you can load your programs over the serial connection, never
+needing to do the sd card dance until you want to leave your application
+on the raspi and not the bootloader.  The bootloader step will be
+something like:
+
+1) power off raspi
+2) power on raspi
+3) type command to load and start new program
+
 
 My first bootloader is working, this will greatly save on wear and tear
 on the sd card socket.  You will need some sort of serial adapter.
@@ -58,5 +132,5 @@ going to work on a terminal based bootloder with xmodem, instead of the
 proprietary solution in bootloader01.
 
 I recommend you start with blinker01 and follow the discovery through
-those to uart01, etc.  Now that I have the bootloader working I have
-to go back through these and generate a .hex file as well as a .img file.
+those to uart01, etc.  If you dont have a bootloader, do the sd card
+dance with the .bin file.  If you have a bootloader use the .hex file.

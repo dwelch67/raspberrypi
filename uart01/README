@@ -1,7 +1,8 @@
 
 See the top level README for information on where to find the
 schematic and programmers reference manual for the ARM processor
-on the raspberry pi.
+on the raspberry pi.  Also find information on how to load and run
+these programs.
 
 Okay this was incredibly painful.  I might have saved a few hours if
 was at the office with an oscilloscope, I eventually had to fashion
@@ -15,11 +16,8 @@ do not do anything, they might on real 16550's but not here.  Well
 that is wrong.  If bits 1:0 are 00 you get 7 bits if bits 1:0 are 01
 you get 7 bits.  You need bit 1 set to get 8 bits.
 
-This example uses the mini uart, uart1, to transmit characters on
-GPIO14.  You will need a level shifter or something that can receive
-3.3v.  One like this http://www.sparkfun.com/products/718 works perfectly.
-Connect ground to pin 6 of P1 and rx on the FTDI board to tx on the
-raspi which is pin 8 on the P1 connector.
+See the top level README for information about connecting your host
+computer to the uart on the raspi.
 
 This example sets up the uart for 115200 baud, and blasts the characters
 0123456701234567...forever as fast as it can.
