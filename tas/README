@@ -1,0 +1,22 @@
+
+This is a thumb assembler derived directly from the assembler in my
+thumbulator project.  The thumulator version remains the primary
+version/home.
+
+I added some hardcoded machine code up front to get from arm to thumb
+and then if you bl hexstring, I tack on machine code to implement that
+function.  hexstring takes r0 and prints it out on the uart in ascii.
+
+Since I got it working I dont want to just discard it, but not sure
+what I want to do with this...I provided binaries for the bootloaders
+so that you dont have to have arm tools, which is why you would use tas
+because you want to try asm but dont want to try or have failed to build
+gnu binutils.  tas should build most anywhere.
+
+One simple test program provided, thats it
+
+./tas test.s
+
+then use a bootloader to load test.s.bin.  Since the test program + tas
+require the mini uart to be initialized simply copying test.s.bin to
+kernel.img wont do you any good.
