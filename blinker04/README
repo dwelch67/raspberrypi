@@ -1,0 +1,32 @@
+
+See the top level README for information on where to find the
+schematic and programmers reference manual for the ARM processor
+on the raspberry pi.  Also find information on how to load and run
+these programs.
+
+This example uses the ARM timer, not the free running ARM timer which
+counts up (see blinker03) but the other timer that counts down.
+
+A few more typos in the datasheet.  It is an SP804 not AP804 (page 196).
+Page 197, bit 1 32 bit counter not 23 bit counter.  Page 198 neither
+the raw nor masked IRQ registers are at address 0x40C.
+
+So if you want to poll an arbitrary time with a free running timer you
+take a reference count, and then take a sample, wait for the difference
+between the sample and reference count.  You have to know if it is an
+up or down counter.  You can turn this timer into a free running timer
+by setting the load registers to all ones.  What you can also do with
+this kind of timer that you cannot with a free runing timer is set the
+load registers to some number of ticks (minus 1) and it will roll over
+the counter at that rate.  Often these kinds of timers have an interrupt
+as does this one.  And you can poll the interrupt bit without havingt to
+actually configure an interrupt.  This example sets the prescaler to
+divide by 250.  The clock as running here is 250Mhz, so this takes it
+down to 1Mhz, 1000000 clocks per second.  Now if we set the load registers
+to 4 million counts (minus 1) then every 4 million counts at 1 million
+per second is 4 seconds.  Every 4 seconds the timer interrupt will fire.
+Which you can read in the raw irq (not masked) register.  Once it is
+set you have to write anything to the clear interrupt register.  If you
+were to set up an interrupt service routine, you would clear that
+interrupt in the interrupt handler.
+
