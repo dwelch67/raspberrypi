@@ -1,0 +1,25 @@
+
+See the top level README for information on where to find the
+schematic and programmers reference manual for the ARM processor
+on the raspberry pi.  Also find information on how to load and run
+these programs.
+
+Derived from uart02, this is a very simple bootloader.  Instead of the
+sd dance (see toplevel README), this makes life a bit simpler and greatly
+reduces physical wear and tear on the sd card socket.  Do the sd card
+dance one time with kernel.img.  Get some sort of serial solution to
+connect a dumb termial program (minicom, hyperterm, etc) to the uart on
+the raspberry pi. (see toplevel README)
+
+The difference between bootloader01 and bootloader02 is that this one
+uses xmodem.  So you take the .bin file of your test program, assumed
+to be built based on address 0 and less than 0x200000 bytes.
+
+This bootloader sits at 0x200000 so that you have 0x200000 bytes to
+develop with.  And that way if you like your program you can just
+copy a .bin version to kernel.img on the sd card and use it.  Fairly
+easy to change this address.  bootloader02.c and novectors.s each have
+a copy of this value.
+
+bootloader01 uses .hex files, bootloader02 uses .bin files dont send it
+.hex files, wont work.

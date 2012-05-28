@@ -128,9 +128,10 @@ parity, 1 stop bit.  NO flow control.  With minicom you likely have
 to save the config, exit minicom, then restart in order for flow control
 changes to take effect.
 
-going to work on a terminal based bootloder with xmodem, instead of the
-proprietary solution in bootloader01.
-
 I recommend you start with blinker01 and follow the discovery through
 those to uart01, etc.  If you dont have a bootloader, do the sd card
-dance with the .bin file.  If you have a bootloader use the .hex file.
+dance with the .bin file.
+
+bootloader01 uses the .hex file from the examples and prograspi program
+bootloader02 uses the .bin file from the examples and xmodem from a
+terminal program
