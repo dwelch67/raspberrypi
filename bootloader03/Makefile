@@ -3,7 +3,9 @@ ARMGNU ?= arm-none-eabi
 
 COPS = -Wall -O2 -nostdlib -nostartfiles -ffreestanding 
 
-all : kernel.img blinker.bin
+gcc : kernel.img blinker.bin
+
+all : gcc clang
 
 clean :
 	rm -f *.o
@@ -12,7 +14,9 @@ clean :
 	rm -f *.elf
 	rm -f *.list
 	rm -f *.img
-	rm -f *.hex
+	rm -f *.bc
+	rm -f *.clang.opt.s
+
 
 vectors.o : vectors.s
 	$(ARMGNU)-as vectors.s -o vectors.o
@@ -39,5 +43,41 @@ blinker.bin : memmap start.o blinker.o
 	$(ARMGNU)-objdump -D blinker.elf > blinker.list
 	$(ARMGNU)-objcopy blinker.elf -O ihex blinker.hex
 	$(ARMGNU)-objcopy blinker.elf -O binary blinker.bin
+
+
+
+
+
+
+LOPS = -Wall -m32 -emit-llvm
+LLCOPS = -march=arm -mcpu=arm1176jzf-s
+LLCOPS0 = -march=arm 
+LLCOPS1 = -march=arm -mcpu=arm1176jzf-s
+COPS = -Wall  -O2 -nostdlib -nostartfiles -ffreestanding
+OOPS = -std-compile-opts
+
+clang : bootloader03.clang.hex bootloader03.clang.bin
+
+
+bootloader03.clang.bc : bootloader03.c
+	clang $(LOPS) -c bootloader03.c -o bootloader03.clang.bc
+
+bootloader03.clang.opt.elf : loader vectors.o bootloader03.clang.bc
+	opt $(OOPS) bootloader03.clang.bc -o bootloader03.clang.opt.bc
+	llc $(LLCOPS) bootloader03.clang.opt.bc -o bootloader03.clang.opt.s
+	$(ARMGNU)-as bootloader03.clang.opt.s -o bootloader03.clang.opt.o
+	$(ARMGNU)-ld -o bootloader03.clang.opt.elf -T loader vectors.o bootloader03.clang.opt.o
+	$(ARMGNU)-objdump -D bootloader03.clang.opt.elf > bootloader03.clang.opt.list
+
+bootloader03.clang.hex : bootloader03.clang.opt.elf
+	$(ARMGNU)-objcopy bootloader03.clang.opt.elf bootloader03.clang.hex -O ihex
+
+bootloader03.clang.bin : bootloader03.clang.opt.elf
+	$(ARMGNU)-objcopy bootloader03.clang.opt.elf bootloader03.clang.bin -O binary
+
+
+
+
+
 
 
