@@ -1,0 +1,9 @@
+
+svn co http://llvm.org/svn/llvm-project/llvm/branches/release_30/ llvm30
+cd llvm30
+cd tools
+svn co http://llvm.org/svn/llvm-project/cfe/branches/release_30/ clang
+cd ..
+./configure --enable-optimized --disable-doxygen --prefix=/llvm30
+make -j 4
+make install

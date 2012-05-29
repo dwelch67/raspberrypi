@@ -11,3 +11,7 @@ sudo ./build_gcc
 then put whatever you had in your prefix/bin in the path.  The default
 gnuarm would mean /gnuarm/bin goes in the PATH.
 
+
+clang script I wrote, builds llvm+clang from sources.
+
+
