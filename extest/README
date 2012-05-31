@@ -40,6 +40,16 @@ build this example for myself.
 The good news, is from what I can tell the processor used here does
 appear to work.
 
+On a system that is not giving a strex fail:
 
+00001234 00000000 00000000
+00001234 00000000 00000000
+00001234 00000000 00000000
+00001234 00000000 00000000
 
+On a system that does not support shared memory.
 
+00001234 00000001 00000001
+00001234 00000001 00000001
+00001234 00000000 00000000
+00001234 00000001 00000001
