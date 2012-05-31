@@ -1,0 +1,45 @@
+
+See the top level README for information on where to find the
+schematic and programmers reference manual for the ARM processor
+on the raspberry pi.  Also find information on how to load and run
+these programs.  And how to hook up your host system to the uart on the
+raspberry pi.
+
+This example does a couple of things.  First it is a simple example of
+using the mmu.  It does it such that the physical address = virtual
+address.  Why would you do that?  To turn on the data cache and not
+have memory mapped I/O (uart ports, timers hardware, etc) be cached.
+
+Second, the ldrex/strex instruction pair can and have been improperly
+used by programmers.  The issue is that programmers are told in the
+ARM ARM that ldrex/strex has been added among other reasons to allow
+for atomic protection in memory shared by the multiple processors.
+Programmers are warned that for uniprocessor systems the hardware may
+not have the protection mechanism (which means DONT use ldrex/strex).
+In the AMBA/AXI spec hardware engineers are told that for normal LDR/STR
+type accesses return OKAY, meaning it worked, no problems.  For exclusive
+accesses (LDREX/STREX) return EXOKAY if it was a successfully exclusive
+access.  But if you dont support exclusive accesses in your memory
+controller then just return OKAY.  Well a return of OKAY for an STREX
+is a fail as far as the exclusive access goes.  And you will see in
+very popular, open source, software the LDREX/STREX instruction pair
+used for any ARMv6 or newer processor, uniprocessor or multi.  Dumb
+luck prevails because the L1 cache in the ARMv6 and newer handles the
+LDREX/STREX pair and makes it all work.  So if L1 is off, and the access
+goes out on the AXI bus where the vendor's memory controller hardware
+lives.  You are at the mercy of the hardware vendor, and a very popular
+ARMv6 or newer vendor doesnt necessarily support exclusive access for
+a uniprocessor system.
+
+Now when trying to remember and find all of these details, I figured it
+would be trivial to test a new system to see if it has this problem.
+Simple right, just two instructions, check the result right?  Wrong,
+you need the mmu on.  So I had to go revisit all of that as well and
+build this example for myself.
+
+The good news, is from what I can tell the processor used here does
+appear to work.
+
+
+
+
