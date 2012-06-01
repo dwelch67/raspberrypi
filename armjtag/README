@@ -1,0 +1,227 @@
+
+See the top level README for information on where to find the
+schematic and programmers reference manual for the ARM processor
+on the raspberry pi.  Also find information on how to load and run
+these programs.
+
+This example is an alternate bootloader basically.  The ARM11 on the
+Raspberry Pi has a jtag based debug port for software development.
+Problem is the pins are not by default connected to the outside world
+so you cant for example reset the ARM as that would disconnect the
+jtag.  (there is no SRST available)
+
+All but one signal is available on P1, unfortunately that other signal
+is on the S5 connector.  I was able to solder a wire onto it, had it
+been on P1 as well then you could use the same jumper wires I am using
+to get from P1 to the ARM jtag wiggler.
+
+http://www.sparkfun.com/products/9140
+http://www.sparkfun.com/products/9385
+
+The signal name, gpio pins, schematic name, connector pin
+and direction shown here
+
+ARM_TRST      22 GPIO_GEN3 P1-15  IN (22 ALT4)
+ARM_TDO     5/24 GPIO_GEN5 P1-18 OUT (24 ALT4)
+ARM_TCK    13/25 GPIO_GEN6 P1-22 OUT (25 ALT4)
+ARM_TDI     4/26 GPIO_GCLK P1-7   IN ( 4 ALT5)
+ARM_TMS    12/27 CAM_GPIO  S5-11 OUT (27 ALT4)
+
+In parenthesis is the gpio pin used and the alternate function setting
+needed in the GPIO to connect it to the edge of the BCM chip.
+
+armjtag.c does just that, first it disables pull up or pull down on the
+gpio pins in question.  Then it configures the alternate gpio functions
+for the pins in question.
+
+armjtag.c also configures gpio16 to drive the OK led and sets up a
+timer so that after configuring it blinks an led every 2 seconds.
+
+(copy armjtag.bin to kernel.img on the raspbery pi sd card and power
+the raspberry pi, verify it is right from the blinking led).
+
+fastblink.c is a test program that we will load using jtag, but first.
+
+To do all of this you are going to need a jtag debugger card/board/box.
+Not long ago that meant forking out a few grand, or making something
+with a parallel port (what is a parallel port you ask?).   The one I
+use day in and day out is this one:
+
+http://www.amontec.com/jtagkey-tiny.shtml
+
+Problem is the shipping to the USA makes it not worth it unless you buy
+a bunch or have your boss buy it.  If you are not in the USA then it
+might be cheaper shipping and definitely worth it...
+
+Basically the same thing is:
+
+http://microcontrollershop.com/product_info.php?cPath=154_171&products_id=3124
+
+Which comes with a little ribbon cable, dont worry.  This is the
+signalyzer-lite board.
+
+There is little difference, basically they are ftdi usb to parallel parts
+with some signal conditioning on them.  You could use one of these already
+purchased for usb.
+
+http://www.sparkfun.com/products/718
+
+If you forgo the signal conditioning and probably have to do a little
+work on openocd or some research.  A very nice feature of the ftdi
+parallel/serial parts like this one is that you can, using the ftdi
+driver (linux) bit bang whatever you want.  I have used the above board
+to build a spi flash programmer for example...Go with the signalyzer-lite
+or amontec if you can.
+
+Now the signalyzer lite and amontec are bit banged, so they are slow(er),
+but they work.  The multi thousand dollar solutions are very fast.  Now
+what I found is if you are using it for non-commercial, personal, use.
+You can get a Jlink, which is not a multi-thousand dollar one, but is
+still a bit pricey for home/hobby use.  You can get basicall a jlink at
+educational prices for $60
+
+http://microcontrollershop.com/product_info.php?cPath=154_171&products_id=3647
+
+The title of the page says ARM7/ARM9, the description includes ARM11, I
+have used it on an ARM11 (not the raspi yet).
+
+And the jlink works with openocd and is fast with openocd.  You can also
+use their proprietary software.
+
+The software you want is
+
+http://openocd.sourceforge.net/
+
+Now, I normally download the source, and build specifically with ftdi
+drivers enabled.  And this is on linux.  You might have to do it that
+way, I want to remember that you may have to pick some things at compile
+time.  Try it out see what happens, maybe one size fits all, maybe on
+windows it is different than linux.
+
+Openocd (sources) come with a number of configuration files, just like
+my boot code and linker script I like to carry my openocd configs with
+the project.  I have provided the jtag debugger files for the ones
+mentioned and then a file for the ARM itself.  If you are running with
+the amontec you would run:
+
+openocd -f amontec.cfg -f raspi.cfg
+
+and should see something like this:
+
+Open On-Chip Debugger 0.5.0 (2011-09-20-21:55)
+Licensed under GNU GPL v2
+For bug reports, read
+    http://openocd.berlios.de/doc/doxygen/bugs.html
+Info : only one transport option; autoselect 'jtag'
+1000 kHz
+adapter_nsrst_delay: 400
+jtag_ntrst_delay: 400
+none separate
+raspi.arm
+Info : clock speed 1000 kHz
+Info : JTAG tap: raspi.arm tap/device found: 0x07b7617f (mfg: 0x0bf, part: 0x7b76, ver: 0x0)
+Info : found ARM1176
+Info : raspi.arm: hardware has 6 breakpoints, 2 watchpoints
+
+This is a client server type of thing, the openocd program itself is
+the server.  I recommend you are in the directory that contains the
+programs you want to run when you start openocd.  The reason is the
+binaries are in the same path, you dont have to type a full path
+to a file.  One client is gdb, which you are welcome to use, I have
+no use for it, can barely spell it.  I prefer to telnet into openocd
+and use openocd's native commands (This is where the path thing comes
+in).
+
+With the openocd server running in one terminal/window I telnet to it
+in another:
+
+telnet localhost 4444
+
+and see:
+
+Trying ::1...
+Trying 127.0.0.1...
+Connected to localhost.
+Escape character is '^]'.
+Open On-Chip Debugger
+>
+
+Be careful here, as the first command you type is halt and if you are
+root on a normal command line prompt (linux) and type halt it will
+halt your computer.  So dont just type blindly, wait and watch.
+
+So the first thing you type is halt
+
+> halt
+target state: halted
+target halted in ARM state due to debug-request, current mode: Supervisor
+cpsr: 0x800001d3 pc: 0x0000007c
+
+your cpsr and pc might be different.
+
+Since the armjtag program already set up the led you can manually
+change the gpio pin now:
+
+> mww 0x2020001C 0x10000
+
+and
+
+> mww 0x20200028 0x10000
+
+The led should turn on or off depending on which command.  Note these
+are the GPSET0 and GPCLR0 registers, the 0x10000 is bit 16 which is
+GPIO16 the led register.
+
+mww means memory write word.  mdw is a memory read word
+
+> mdw 0
+0x00000000: eaffffff
+
+Type the help command to see more fun stuff.  Be careful, this is a
+powerful interface you dont want to just poke around at any memory
+address unless you know what it is...
+
+Also note that for example if you have left the instruction cache on
+on the ARM.  The ARM cache has some instruction in it probably.  The
+jtag debug port goes directly to memory not through the cache so
+if you halt the ARM and load another program and run it you can get
+a mixture of new isntructions and old instructions from the prior
+program which is probably going to result in a crash.  When messing
+with the mmu or cache, just power cycle the board to try again.
+
+This directory also contains the fastblink example which is just
+blinker03 basically.  I only built the .elf not the .bin because with
+openocd I rarely use .bin files.  If you use the .elf then openocd can
+read that file and put the programs in the proper place.  For example
+if you wanted to run from 0x20000 instead of 0 and built your binary
+to run from that memory address just load the elf and start execution
+at that address.  What the elf saves you most of the time is typing
+in an address which you already had in the linker script.
+
+So
+
+> halt
+> load_image fastblink.elf
+216 bytes written at address 0x00000000
+downloaded 216 bytes in 0.063038s (3.346 KiB/s)
+> resume 0
+
+What I tend to do is have yet another terminal open.  One for openocd
+server, one for the telnet client and one to re-build the binary (.elf)
+file.  I type the above three commands (with the appropriate binary
+file name and resume with the starting address).  Then I can quickly
+
+up, up, up, enter
+up, up, up, enter
+up, up, up, enter
+
+In the telnet window to re-load and re-run a new build of the program.
+
+Maybe if we all ask very nicely they will connect GPIO12 or 27 to
+the P1 connector and we wont have any soldering (well unless the
+final production version of the board is without P1 pins.
+
+If you ctrl-c in the openocd window it kills both openocd and the telnet
+session.  If you power cycle the board without doing this the two windows
+freak out.  I have had them work once the board is back up and jtag is
+available, but I prefer to stop openocd and start fresh anyway.
