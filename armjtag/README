@@ -21,11 +21,13 @@ http://www.sparkfun.com/products/9385
 The signal name, gpio pins, schematic name, connector pin
 and direction shown here
 
+ARM_VREF                   P1-1
 ARM_TRST      22 GPIO_GEN3 P1-15  IN (22 ALT4)
 ARM_TDO     5/24 GPIO_GEN5 P1-18 OUT (24 ALT4)
 ARM_TCK    13/25 GPIO_GEN6 P1-22 OUT (25 ALT4)
 ARM_TDI     4/26 GPIO_GCLK P1-7   IN ( 4 ALT5)
 ARM_TMS    12/27 CAM_GPIO  S5-11 OUT (27 ALT4)
+ARM_GND                    P1-25
 
 In parenthesis is the gpio pin used and the alternate function setting
 needed in the GPIO to connect it to the edge of the BCM chip.
