@@ -1,0 +1,182 @@
+
+See the top level README for information on where to find the
+schematic and programmers reference manual for the ARM processor
+on the raspberry pi.  Also find information on how to load and run
+these programs.
+
+This example serves many purposes. First it is a real world library/
+application demonstrated in a bare-metal embedded format.  This example
+as with extest demonstrates the use of the mmu so that the data cache
+can be safely turned on.  One of the main goals though is that over the
+years all to often based on questions in person or in forums I have come
+to believe that many programmers live under the myth that there is a one
+to one relationship between high level code and the compiled binary, if
+you want to change the performance of you code you need to change your
+code.  That is no truth of any kind to that.  Likewise a belief that any
+two compilers can or should be expected to produce the same compiled
+machine code from the same high level source code.  Likewise, that is
+no reason to expect such a thing.  Think about it this way, take 100
+programmers, 100 students, whatever.  Give them the same programming
+assignment, a homework project or semester project, whatever, do you end
+up with all 100 producing the exact same source code?  No, of course not
+you might have solutions that fall into defineable categories, but you
+are going to see many solutions.  No different here, each compiler is
+created by different people for different reasons with different skills
+and different goals.  And the output is not exactly the same.  Sure for
+some simple programs, there may be an ideal solution and two compilers
+might converge on that solution, but on average, esp as the project
+gets large, the solutions will vary.
+
+What I have here is the zlib library, in the Linux world it is on a
+par with gcc as far as being a cornerstone holding the whole thing up
+in the air.  Not unlike gcc you really dont want to actually look at
+the code.  The jumping around from longs to ints, and how variables are
+declared is not consistent, basically it makes your compiler work a
+little harder at least.  I have some text that I am going to compress
+and then uncompress, making a nice self-checking test.  And going to
+compare three compilers using different compiler options, and going
+to turn on and off the caches.
+
+With respect to the zlib licence this zlib library is not mine, I have
+though made modifications to it.  I have commented out the includes
+so that it wont interfere with trying to compile bare-metal (just makes
+it easier to know what I have to manage and not manage).  I do not use
+a C library so there are a few C library functions that had to be
+implemented malloc, calloc, memset, memcpy, free.  Very very simple
+malloc, free does nothing, this is a once through test, no need to actually
+manage memmory allocation just need to give the code what it asks for.
+Fortunately the raspberry pi is well endowed with memory.
+
+I have two versions of gcc, 4.6.1 from the CodeSourcery folks (now
+mentor graphics).  And 4.7.0 built from sources using the build script
+in the buildgcc directory.  The third is clang/llvm built using the
+build script in the buildgcc directory.  This is a completely separate
+compiler from gcc, different goals, different construction.  Thanks to
+the Apple iPhone and Apple the llvm compiler tools have had a big boost
+in quality, the code produced is approaching the speed of gcc.  In tests
+I did a while back other compilers, pay-for compilers, blew gcc out
+of the water.  Gcc is an average good compiler for many targets, but not
+great at any particular target.  Other compilers are better.
+
+For gcc going to play with the obvious optimizations -Ox, a few of them
+to show they actually do something.  Also leave the default arm arch
+setting and specify the proper architecture specifically to see what that
+does.  There are many many knobs you can play with, I dont even need
+to mess with this many combinations to completely demonstrate that
+the same compiler or different compilers can create binaries that execute
+at different speeds from the same high level source code.
+
+So the gcc knobs are -O1, -O2 and -O3 plus in the code commenting and
+uncommenting defines that enable the instruction cache, mmu and data
+cache (need the mmu on to enable the data cache).
+
+COPS0 = -Wall -O1 -nostdlib -nostartfiles -ffreestanding
+COPS1 = -Wall -O2 -nostdlib -nostartfiles -ffreestanding
+COPS2 = -Wall -O3 -nostdlib -nostartfiles -ffreestanding
+COPS3 = -Wall -O2 -nostdlib -nostartfiles -ffreestanding -mcpu=arm1176jzf-s
+COPS4 = -Wall -O2 -nostdlib -nostartfiles -ffreestanding -mcpu=arm1176jzf-s -mtune=arm1176jzf-s
+COPS5 = -Wall -O3 -nostdlib -nostartfiles -ffreestanding -mcpu=arm1176jzf-s -mtune=arm1176jzf-s
+
+arm-none-eabi-gcc --version
+arm-none-eabi-gcc (Sourcery CodeBench Lite 2011.09-69) 4.6.1
+Copyright (C) 2011 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+Using the 4.6.1 compiler, going to just dive in.  The code compresses
+some known data.  The decompresses some known data.  The data has
+been pre-computed on the host computer to know what the expected
+compressed result should be.  A system timer is used to time how long
+it takes to compress then decompress, then it checks the results after
+the timer has been sampled.  So in addition to looking at the time
+result need to also make sure the test actually passed.
+
+cops icache mmu dcache
+
+COPS0  no no no     0xD0D08A
+COPS1  no no no     0xB92BA4
+COPS2  no no no     0xA410E1
+COPS3  no no no     0xB4DC8A
+COPS4  no no no     0xB4D11B
+COPS5  no no no     0xA450DB
+
+COPS0  yes no no    0x9DC2DF
+COPS1  yes no no    0x8F5ECF
+COPS2  yes no no    0x8832F2
+COPS3  yes no no    0x8F9C79
+COPS4  yes no no    0x8F9ED4
+COPS5  yes no no    0x8AE077
+
+COPS3  yes yes no   0x174FA4
+COPS4  yes yes no   0x175336
+COPS5  yes yes no   0x162750
+
+COPS3  yes yes yes  0x176068
+COPS4  yes yes yes  0x175CB0
+COPS5  yes yes yes  0x162590
+
+The first interesting thing we see is that even though the data cache
+is not enabled in the control register, it is obviously on in some
+form or fashion.  Other interesting things are that optimization -O3 when
+specifying the actual processor vs -O3 using a generic ARMv5 or whatever
+the generic arm binary was a little faster.  The reason is more
+complicated than just architecture, will get to that in a bit.
+
+Note that these results were all collected by hand so there is a possibility
+for human error.  Ideally you will use this info to learn from and not
+actually care about the specific numbers.
+
+arm-none-eabi-gcc (GCC) 4.7.0
+Copyright (C) 2012 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+COPS0  no no no     0xD1360B
+COPS1  no no no     0xB7683E
+COPS2  no no no     0xA83E6F
+COPS3  no no no     0xBB1436
+COPS4  no no no     0xBB0B60
+COPS5  no no no     0xA6CF10
+
+COPS0  yes no no    0x9CFAAD
+COPS1  yes no no    0x8DA3D1
+COPS2  yes no no    0x84B7C5
+COPS3  yes no no    0x8E6FDB
+COPS4  yes no no    0x8E73A6
+COPS5  yes no no    0x86156D
+
+COPS3  yes yes no   0x17EA80
+COPS4  yes yes no   0x17FA4B
+COPS5  yes yes no   0x15B210
+
+COPS3  yes yes yes  0x17F0C8
+COPS4  yes yes yes  0x17FB53
+COPS5  yes yes yes  0x15B55E
+
+work in progress...you are here...
+
+
+COPS4  yes no no 0  0x8E7665    0x8E711F    0x8E73CB
+COPS4  yes no no 1  0x8E735E
+COPS4  yes no no 2  0x8E29A6    0x8E2DB9
+COPS4  yes no no 3  0x8E220D
+COPS4  yes no no 4  0x8E2859
+COPS4  yes no no 5  0x8E6691    0x8E68CB
+COPS4  yes no no 6  0x8E6ACC
+COPS4  yes no no 7  0x8E7713    0x8E7786
+COPS4  yes no no 8  0x8E735A
+
+clang version 3.0 (branches/release_30 152644)
+Target: x86_64-unknown-linux-gnu
+Thread model: posix
+
+LLCOPS0 no no no    0xDF11BB
+LLCOPS1 no no no    0xDEF420
+
+LLCOPS0 yes no no   0xABA6AC
+LLCOPS1 yes no no   0xAB97C6
+
+LLCOPS0 yes yes no  0x1A49FE
+LLCOPS1 yes yes no  0x19F911
+
+
