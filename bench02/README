@@ -1,0 +1,112 @@
+
+See the top level README for information on where to find the
+schematic and programmers reference manual for the ARM processor
+on the raspberry pi.  Also find information on how to load and run
+these programs.
+
+This is actually the second benchmark program, twain is the first but
+called it twain not bench01.
+
+Just experimenting with the execution time of the processor.  The
+raspberry pi faq says
+
+
+What SoC are you using?
+
+The SoC is a Broadcom BCM2835. This contains an ARM1176JZFS, with
+floating point, running at 700Mhz...
+
+
+The BCM2835 docs provided plus the blinker experiments lean heavily
+toward the system clock running at 250MHz.  What is the ARM doing?
+Is it really 700MHz?  Let's see what we see.
+
+
+12345678
+02DB6DF3    ARMTEST0
+02DB6E15    ARMTEST0
+00AB6E32    ARMTEST1
+00836E31    ARMTEST2
+037000D7    ARMTEST3
+02DB6E25    THUMBTEST0
+00AB6E26    THUMBTEST1
+037000A7    THUMBTEST2
+
+ARMTEST0
+0x01000000 subs instructions
+0x01000000 bne  instructions
+0x02000000 instructions
+02DB6E15 system clocks
+1.43 clocks per instruction.  175Mips.
+
+ARMTEST1
+0x01000000 sub instructions
+0x00200000 bne instructions
+0x01200000 instructions
+00AB6E32 system clocks
+1.68 instructions per clock. 420Mips
+
+ARMTEST2
+0x01000000 sub instructions
+0x00100000 bne instructions
+0x01100000 instructions
+00836E31 system clocks
+2.07 instructions per clock. 517Mips
+
+ARMTEST3
+0x01000000 sub instructions
+0x08000000 nop instructions
+0x00100000 bne instructions
+0x09100000 instructions
+037000D7 system clocks
+2.64 instructions per clock. 659Mips
+
+THUMBTEST0
+0x01000000 subs instructions
+0x01000000 bne  instructions
+0x02000000 instructions
+02DB6E25 system clocks
+1.43 clocks per instruction.  175Mips.
+
+THUMBTEST1
+0x01000000 sub instructions
+0x00200000 bne instructions
+0x01200000 instructions
+00AB6E26 system clocks
+1.68 instructions per clock. 420Mips
+
+THUMBTEST3
+0x01000000 sub instructions
+0x08000000 nop instructions
+0x00100000 bne instructions
+0x09100000 instructions
+037000A7 system clocks
+2.64 instructions per clock. 659Mips
+
+Being super scalar I was hoping to find more than 700 million instructions
+per second.  So far no luck.  Since the thumb instructions I am using
+are mostly 16 bit, was curious to know if because you can fetch twice
+as many thumb instructions in the same number of memory cycles vs arm
+instructions is there a thumb performance boost, so far have not seen
+any of that either.  this could still be gated by execution and not
+fetching from cache.  Or they could be fetching each thumb instruction
+separately even if it is the same memory location read twice.
+
+It appears that the gpu bootloader along with loading the arm and
+releasing reset, you can use a config.txt file to make some adjustments
+before the arm boots.  The arm frequency is one of those.  Now the
+web pages talk about /boot/config.txt from an on chip linux viewpoint
+if you actually boot linux and go to /boot you find it is the fat
+partition on the sd card with start.elf and the other gpu bootloader
+files along with the arm boot file kernel.img.  So you dont need to
+go through all of that go to the place where you have kernel.img, do
+NOT make a boot dir, stay in that dir and create/modify the file
+config.txt, create/modify a line that says:
+
+arm_freq=200
+
+Where the number is in megahertz.  You can re-run these or other tests
+and see that you did in fact change the freqency.  remove the config.txt
+file, comment the line with a # or change it to 700 and you will get
+700mhz the default.  I would still like to see 700 million instructions
+per second that I can measure, will see what happens.
