@@ -3,7 +3,7 @@
 //-------------------------------------------------------------------------
 #define ICACHE
 #define MMU
-//#define DCACHE
+#define DCACHE
 
 extern void PUT32 ( unsigned int, unsigned int );
 extern unsigned int GET32 ( unsigned int );

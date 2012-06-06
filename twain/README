@@ -153,8 +153,115 @@ COPS3  yes yes yes  0x17F0C8
 COPS4  yes yes yes  0x17FB53
 COPS5  yes yes yes  0x15B55E
 
-work in progress...you are here...
+Some things to talk about at this point...First off I was using jtag
+to load and run these programs.  Think about this for a second when
+you have the instruction cache on and the data cache off.  If you stop
+the ARM and use data transactions to load data into ram.  Not cached,
+whatever instructions were in the cache when you stopped are still there
+instructions laying around.  If you have changed the program you want
+to run then the instructions in the instruction cache do not match
+the new program.  If you start up, are now mixing two programs and
+nothing good comes from that.  Although my start_l1cache init invalidates
+the whole cache, and I stop the instruction cache when the program ends
+there is evidence if you run the same program over and over again that
+the i cache is playing a role.  Ideally doing something like this with
+some sort of bootloader be it serial or using jtag (using data cycles
+to place instructions) you want to completely stop the icache and
+clean it before starting again, if that doesnt appear to be working then
+just power cycle between each test, come up the same way every time.
 
+The mmu and data cache is worse than the icache, just power cycle between
+each test.  This stop, reload, stop, reload is not normal use of a
+system, normal development sure, but how much do you put into your code
+for something that is not runtime?  Another factor is during development
+you need to make sure you are actually initializing everything.  Say
+the 12th build of the afternoon set some bit somewhere to make something
+work.  You didnt think that code was working (because some other bit
+somewhere else was not set) so you remove it.  Later, without power cycles
+you find that other bit, now you think you have it figured out.  Eventually
+you power cycle and it doesnt work.  One thing your code must do is
+be able to come up out of a reset.  Being able to re-run hot is not
+as important. might save development time sure, and may have some
+value, but nowhere near as important as power on initialization.
+
+If you read up on the raspberry pi you know that the memory is SDRAM
+which is at its core DRAM, the first thing to know about DRAM is that
+it has to be refreshed.  Think of each bit as a rechargeable battery
+if you want to remember that that bit is charged you have to every
+so often give it a little boost, if it discharges too much you might
+not notice that the bit has changed.  Well you cant access that memory
+from the processor while the DRAM controller is refreshing memory.
+Basically DRAM performance is not deterministic, it changes a little.
+Which means if you run the same benchmark several times you should not
+be surprised if the results are not the same, even bare metal like this
+where there are no interrupts and no other code running.  Now you can
+make dram deterministic if you access it slow enough to insure that
+you get the result in the same number of clock cycles every time.
+For all we know the gpu or other parts of the chip may be sharing
+a bus or interfering with each other affecting performance and certainly
+making it a bit random.  If you run the same binary over and over
+you will see that it varies some, but not a huge amount, so that
+is good it is somewhat consistent as far as this code/task goes.
+if you were to run on say a microcontroller or even a gameboy advance
+or other systems where the flash and ram access times are a known
+number of clocks every time, then you should at worst only see a
+difference of one count either way.  For some of the runs below
+I ran them multiple times to show the times were not exactly the same.
+
+Another topic related to doing this kind of benchmarking is how caches
+work.  Quite simply if you think about it programs tend to run a number
+of instructions in a row before they branch, and when you do stuff
+with data you either tend to reuse the same data or access data in
+chunks or in some linear order.  The cache will basically read a number
+of words at a time from slow memory to fast memory (the fast memory is
+very deterministic BTW) so that if you happen to read that instruction
+again in the relatively near future you dont have to suffer a slow
+memory cycle but can have a relatively fast memory cycle.  Certainly
+if you have a few instructions in a row, the first one in the cache line
+(the chunk of ram the cache fetches in one shot) causes the cache
+line to be read, really really slow, but the second and third are
+really really fast, if that code is used again, say in a loop, before
+it is kicked out of the cache to make room for other code, then it
+remains really fast until it finally gets replaced with other code.
+So lets pretend that our cache has a cache line of 4 instructions and
+is aligned on a 4 word boundary, say for example 0x1000, 0x1004, 0x1008
+and 0x100C all being in the same cache line.  Now lets say we have
+two instructions that are called often, someting branches to the first
+one it does something then the second one is a branch elsewhere, maybe
+not the most efficient, but it happens.  If the first instruction
+is at address 0x1000, then when you branch to it if there is a cache
+miss then it reads the four instructions from main memory, really
+slow, then the second instruction is really fast but we basically
+read 4 instructions to execute two (lets not think about the
+prefetch right now).  Now if I were to remove one instruction somewhere
+just before this code, say I optimized one instruction out of something
+even the startup code.  Well, it can actually cause many changes when
+you link but lets assume what it does to these instructions is put
+one at 0xFFC and the other at 0x1000.  Now every time I hit these
+two instructions I have to read two cache lines one at 0xFF0 and the
+other at 0x1000, I have to read 8 instructions to execute 2.  If those
+two instructions are used often enough and they happen to line up with
+other code that is used often enough to evict one or both of these cache
+lines then for these two instructions the cache can be making life worse
+if we were to put back a nop somewhere to move these two back into
+the same cache line, focusing on those two only our performance would
+improve.  Of course it is not at all that simple, you have a big program
+there are tons of cache lines across the program that are evicting each
+other and you have this alignment problem all over the place, by optimizing
+one group of instructions by aligning them you might move another or
+many other groups so they are not optimally aligned.  The bottom line
+to this very long subject is that by simply adding and removing nops
+to the beginning of the program, and re-compiling and re-linking you
+move the instructions relative to their addresses and change this
+cache alignment and as a result change the performance, even if the
+instructions were all position independent and identical but moved over
+one address location the peformance of your program, even with a
+deterministic memory system will vary.  Lets try, the fifth column is
+the number of nops added to vectors.s.  This sample ships with three
+you can add or remove them at will.  With these numbers the changes
+are actually less than one percent, but despite that you can still
+see that something is going on, and that something has to do with how
+things line up relative to the cache lines for the instruction cache.
 
 COPS4  yes no no 0  0x8E7665    0x8E711F    0x8E73CB
 COPS4  yes no no 1  0x8E735E
@@ -165,6 +272,38 @@ COPS4  yes no no 5  0x8E6691    0x8E68CB
 COPS4  yes no no 6  0x8E6ACC
 COPS4  yes no no 7  0x8E7713    0x8E7786
 COPS4  yes no no 8  0x8E735A
+
+Another topic is the mmu.  How does an mmu work?  Ideally an mmu is
+there to take a virtual address, the address the processor thinks it
+is using, and convert that to a physical address, the real address
+in memory.  You can do things for example like have your linux
+program be compiled for the same address, all linux programs think they
+start at the same address, but it is virtual.  One program may think
+it is running code at 0x9000 but it is really 0x12345678, another
+running at 0x9000 might really be 0x200100.  the mmu also helps with
+protecting programs from each other and other things.  You can also
+tune what is cached or not, in our case here, we dont want hardware
+registers like the timer and uart to be cached, so we use the mmu to
+mark that address space as non-cached and our programs memory space
+as cached.  In this case the virtual address and physical address are
+the same to make things easier.  Now how does the mmu do what it does?
+It has tables, think of it as nested arrays (an array whose index is
+another array with some other index).  In addition to all the cache
+business going on when you go to have a memory cycle there is another
+kind of cache in the mmu that remembers some small number of virtual
+to physical address conversions.  If your new address is not in that
+list then it has to compute an offset in the first level of the mmu
+table, and perform that memory cycle. waiting...waiting... then some
+of the bits in that first table tell you where to go in the next
+table, so you compute another address and do another slow memory read.
+Now, finally you can actually go after the thing you were first looking
+for three memory cycles later.  This is repeated for almost everything.
+Just like the repetitive nature of things makes the caches additional
+reads (fetching a whole cache line even if I only need one item) faster
+overall, the cache like table in the mmu cuts down on the constant
+table lookups to smooth things out.  As the results show by enabling
+the mmu with the data cache on a program like this which is loop heavy
+and data heavy runs quite a bit faster when the data cache is on.
 
 clang version 3.0 (branches/release_30 152644)
 Target: x86_64-unknown-linux-gnu
@@ -179,4 +318,64 @@ LLCOPS1 yes no no   0xAB97C6
 LLCOPS0 yes yes no  0x1A49FE
 LLCOPS1 yes yes no  0x19F911
 
+A simple experiment to show the mmu overhead.  Changing the code from this
 
+    if(add_one(0x00000000,0x0000|8|4)) return(1);
+    if(add_one(0x00100000,0x0000|8|4)) return(1);
+    if(add_one(0x00200000,0x0000|8|4)) return(1);
+
+to this
+
+    if(add_one(0x00000000,0x0000)) return(1);
+    if(add_one(0x00100000,0x0000)) return(1);
+    if(add_one(0x00200000,0x0000)) return(1);
+
+Which disables the data cache for our program space, basically no data
+cache anywhere.  The program goes from 0x19Fxx to 0xE5Bxxx which is
+slower than the slowest clang program by quite a bit 885% slower.
+
+Llvm and clang are getting better, not quite caught up to gcc, but
+compared to version 27 for example against whatever the gcc was at the
+time it is converging.  The best clang time is 20% slower than the
+best gcc time for this particular benchmark.
+
+As mentioned at the beginning this is demonstrating that the same
+source code compled with different compiler options using the same
+compiler and different versions of the same compiler and differen
+compilers are showing dramatically different results.  The worst
+clang time is 858% slower (8.5 times slower) than the fastests clang
+time.  The worst gcc time is 964% slower than the fastest gcc time.
+A newer version of gcc is not automatically producing faster code,
+nor is it making the same speed code, something is changing and it is
+not always better.  Newer doesnt mean better.  We also saw what the
+mmu does, what the cache does, that tiny changes to the location of the
+same sets of instructions can do, etc.  Notice that we didnt have to
+do any disassembly and comparison to understand that there are definitely
+differences running the same source code on the same computer.  When
+you go to tomshardware and look at benchmarks, those are a single binary
+run one time one way on top of an operating system.  Yes the hard drive
+maybe different and everything else held the same, but did they run that
+test 100 times and average or one time?  Had they run it more than once
+what is the run to run difference on the same system?  Is that difference
+greater than say the same system with a different hard drive?  it probably
+says somewhere in the fine print, the point is though that you need to
+understand the nature of benchmarking.
+
+Another thing that is hopefully obvious now.  Take any other library
+or program, basically change the source code, and the peformance changes
+again.  There are no doubt programs that llvm/clang is better at
+compiling that a benchmark like this would show, take the same code compile
+it several different ways, different compilers, etc.  And see how they
+play out, you will find code llvm is good at and code that gcc is good
+at and some programs may run at X number of instructions per second
+on average and another Y number of instructions per second on average
+on the same hardware.
+
+What this benchmark has shown is that the same source code compiled with
+different compilers and different settings produces dramatically different
+performance results which implies that the code generated is not the
+same, there is no one to one relationship between high level programs
+and the machine code generated.  We also got to play with the caches
+and mmu in a simplified fashion.
+
+(yes this is too wordy and I need to proof/rewrite)
