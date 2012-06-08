@@ -2,14 +2,6 @@
 //-------------------------------------------------------------------------
 //-------------------------------------------------------------------------
 
-//The raspberry pi wants you to not have your kernel.img file loaded
-//at address 0x0000.  Using a bootloader like this it works just fine
-//but to avoid having example binaries that are at 0x8000 for running
-//from the sd card and a binary at 0x0000 for loading with the
-//bootloader, instead the bootloader is going to default to 0x8000
-//as well.
-#define ARMBASE 0x8000
-
 extern void PUT32 ( unsigned int, unsigned int );
 extern void PUT16 ( unsigned int, unsigned int );
 extern void PUT8 ( unsigned int, unsigned int );
@@ -41,6 +33,11 @@ extern void dummy ( unsigned int );
 
 //GPIO14  TXD0 and TXD1
 //GPIO15  RXD0 and RXD1
+//------------------------------------------------------------------------
+unsigned int uart_lcr ( void )
+{
+    return(GET32(AUX_MU_LSR_REG));
+}
 //------------------------------------------------------------------------
 unsigned int uart_recv ( void )
 {
@@ -85,17 +82,9 @@ void hexstring ( unsigned int d )
     uart_send(0x0A);
 }
 //------------------------------------------------------------------------
-unsigned char xstring[256];
-//------------------------------------------------------------------------
-int notmain ( void )
+void uart_init ( void )
 {
     unsigned int ra;
-    //unsigned int rb;
-    unsigned int rx;
-    unsigned int addr;
-    unsigned int block;
-
-    unsigned int crc;
 
     PUT32(AUX_ENABLES,1);
     PUT32(AUX_MU_IER_REG,0);
@@ -117,84 +106,19 @@ int notmain ( void )
     for(ra=0;ra<150;ra++) dummy(ra);
     PUT32(GPPUDCLK0,0);
     PUT32(AUX_MU_CNTL_REG,3);
-
+}
+//------------------------------------------------------------------------
+void  timer_init ( void )
+{
+    //0xF9+1 = 250
+    //250MHz/250 = 1MHz
     PUT32(ARM_TIMER_CTL,0x00F90000);
     PUT32(ARM_TIMER_CTL,0x00F90200);
-
-    hexstring(0x12345678);
-
-//SOH 0x01
-//ACK 0x06
-//NAK 0x15
-//EOT 0x04
-
-//block numbers start with 1
-
-//132 byte packet
-//starts with SOH
-//block number byte
-//255-block number
-//128 bytes of data
-//checksum byte (whole packet)
-//a single EOT instead of SOH when done, send an ACK on it too
-
-
-//this is a very crude solution, worked for a small test program though
-//if it slips one byte it is all over.  Need to make a more robust
-//solution.
-
-    rx=GET32(ARM_TIMER_CNT);
-    while(1)
-    {
-        ra=GET32(ARM_TIMER_CNT);
-        if((ra-rx)>=4000000)
-        {
-            uart_send(0x15);
-            rx+=4000000;
-        }
-        if(GET32(AUX_MU_LSR_REG)&0x01) break;
-    }
-    block=1;
-    addr=ARMBASE;
-    while(1)
-    {
-        xstring[0]=uart_recv();
-        if(xstring[0]==0x04)
-        {
-            uart_send(0x06);
-            break;
-        }
-        if(xstring[0]!=0x01) break;
-        crc=0x01;
-        for(ra=1;ra<132;ra++)
-        {
-            xstring[ra]=uart_recv();
-            crc+=xstring[ra];
-        }
-        if(xstring[2]!=(255-xstring[1])) break;
-        crc-=xstring[131];
-        crc&=0xFF;
-        if(xstring[131]!=crc)
-        {
-            uart_send(0x15);
-        }
-        for(ra=0;ra<128;ra++)
-        {
-            PUT8(addr++,xstring[ra+3]);
-        }
-        if(addr>0x200000)
-        {
-            uart_send(0x15);
-            break;
-        }
-        uart_send(0x06);
-        block=(block+1)&0xFF;
-    }
-    if(xstring[0]==0x04)
-    {
-        BRANCHTO(ARMBASE);
-    }
-    return(0);
+}
+//-------------------------------------------------------------------------
+unsigned int timer_tick ( void )
+{
+    return(GET32(ARM_TIMER_CNT));
 }
 //-------------------------------------------------------------------------
 //-------------------------------------------------------------------------

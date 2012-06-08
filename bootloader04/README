@@ -1,0 +1,9 @@
+
+Same as bootloader03, except it uses the config.txt file to load to
+0x06000000 leaving much more room (than you would probably want to
+use xmodem to load) for development.
+
+Copy both kernel.img and config.txt to the sd card.  Remove or modify
+config.txt when you change to some other kernel.img.  The main drawback
+to this version is remembering to copy and then remove/replace both
+files.

@@ -1,17 +1,32 @@
 
-Right, I know...Got my raspberry pi today.
-
 This repo serves as a collection of low level examples.  No operating
-system, embedded or low level embedded or deeply embedded, whatever
-your term is for this.
+system, embedded or low level embedded or deeply embedded or bare metal,
+whatever your term is for this.
 
-From what we know so far there is a gpu on chip that boots off of I
-assume an on chip rom.  This goes to the sd card and does things.  it
-appears that the entry point for us as programmers is the kernel.img
-file, which appears to be the memory image copied into the ARM memory
-before releasing reset on the ARM processor.  The name of course because
-this is intended to be a Linux based educational computer, but it is
-just a file name, just a memory image.
+I am in no way shape or form associated with the raspberry pi organization
+nor broadcom.  I just happen to own one (some) and am sharing my
+experiences.  The raspberry pi is about education, and I feel low
+level education is just as important as Python programming.
+
+From what we know so far there is a gpu on chip which:
+
+1) boots off of an on chip rom of some sort
+2) reads the sd card and looks for additional gpu specific boot files
+bootcode.bin, loader.bin, start.elf in the root dir of the first partition
+(fat formatted)
+3) in the same dir it looks for config.txt which you can do things like
+change the arm speed from the default 700MHz, change the address where
+to load kernel.img, and many others
+4) it reads kernel.img the arm boot binary file and copies it to memory
+5) releases reset on the arm such that it runs from the address where
+the kernel.img data was written
+
+I have tried a few things for example incorrectly assuming kernel.img
+was loaded at address 0x00000000 as a default.  If you tell it zero you
+still get 0x8000.  The arm and gpu share memory I am guessing the gpu
+is using that first part of memory, dont really know.  0x8000 being
+familiar to linux folks and this is intended to be first a linux
+computer so this makes sense.
 
 You will want to go here
 http://elinux.org/RPi_Hardware
@@ -22,46 +37,87 @@ And the schematic for the board
 http://www.raspberrypi.org/wp-content/uploads/2012/04/Raspberry-Pi-Schematics-R1.0.pdf
 (might be an old link, find the one on the wiki page)
 
-The manual uses addresses like 0x7Exxxxxx, which is the real address for
-something.  But there is an address translation layer between the ARM
-physical address and the real address.  All of this code will use the
-ARM physical address which is 0x20xxxxxx.  The rest of the address is
-the same so if the manual says 0x7E123456, then from the ARM use 0x20123456
+Early in the BCM2835 document you see a memory map.  I am going to
+operate based on the middle map, this is how the ARM comes up.  The
+left side is the system which we dont have direct access to in that
+form, the gpu probably, not the ARM.  The ARM comes up with a memory
+space that is basically 0x40000000 bytes in size as it mentions in
+the middle chart.  256MBytes is 0x10000000, I am guessing they gave
+room to add memory as peripherals are mapped into arm address space at
+0x20000000.  When you see 0x7Exxxxxx in the manual replace that with
+0x20xxxxxx as your ARM physical address.  Experimentally I have seen
+the memory repeats every 0x40000000, read 0x40008000 and you see the
+data from 0x8000.  I wouldnt rely on this, just an observation (likely
+ignoring the upper address bits in the memory controller).
 
-I dont normally use .data nor gcc libraries nor C libraries so you can
-build most if not all of my examples using a gcc cross compilerl.  Basically
+Now this memory map shows that somewhere within the SDRAM address space
+there is a boundary between the ARM memory in the lower addresses and
+the GPU memory in the upper addresses.  That boundary is not explained
+in that document.  There are at the moment three gpu start.elf files
+to choose from.  A or the difference between them is where this boundary
+lies.  The default is a 50/50 split the arm gets 128MBytes, and the gpu
+128MBytes.  arm224_start.elf for example gives 224MBytes to the ARM
+and 32MBytes to the GPU.  They say that you dont get full gpu performance
+if you limit the gpu memory this much.  These examples are all going
+to assume that the ARM only has 128MBytes and the default boot setting
+of 0x8000 for the kernel_address.
+
+I do not normally use .data nor gcc libraries nor C libraries so you can
+build most if not all of my examples using a gcc cross compiler.  Basically
 it doesnt matter if you use arm-none-linux-gnueabi or arm-none-eabi.
-what was formerly codesourcery.com still has a LITE version of their
+What was formerly codesourcery.com still has a LITE version of their
 toolchain which is easy to come by, easy to install and well maybe not
 easy to use but you can use it.  Building your own toolchain from gnu
-sources (binutils and gcc) is fairly straight forward and at some point
-will create a script to do that for you.
+sources (binutils and gcc) is fairly straight forward see the build_gcc
+directory for a build script.
 
 As far as we know so far the Raspberry Pi is not "brickable".  Normally
-what brickable means is the processor relies on a boot flash.  For example
-there may be a bootloader that allows you to re-program the flash.  If you
-make a mistake writing code at this low level and load the boot flash
-with that bad code you may not be able to reload the flash again.  There
-are many ways to prevent this, but there are also still boards that
-can be bricked or at least require more equipment or soldering, etc to
-recover them.  They way this board works is quite interesting.  There
-is a GPU on chip that boots from an on chip flash (in that respect it
-may be brickable, but we dont have access to that GPU boot loader).  The
-GPU on chip bootloader looks for an sd card, the sd card contains more
-GPU code.  That code probably initializes sdram, and then copies the
-contents of kernel.img on the sd card to sdram.  Then releases reset
-on the ARM.  Each of these example programs produce a .bin file.
-kernel.img is nothing more than a .bin file, an image of the flash.
-The filename is special to the raspi bootloder, so you need to use
-that file name.  Backup your original kernel.img if you want to go back
-to playing with linux then copy the .bin file in the example to
-kernel.img on the sd card.  For example
-cp blinker01.bin /media/9876-5432/kernel.img
-sync
-umount /media/9876-5432
-Insert the sd card into the raspi and power.
+what brickable means is the processor relies on a boot flash and with
+that flash it is possible to change/erase it such that the processor will
+not boot normally.  Brickable and bricked sometimes excludes things
+like jtag or speciall programming headers.  From the customers perspective
+a bricked board is...bricked.  But on return to the vendor they may
+have other equipment that is able to recover the board without doing
+any soldering, perhaps plugging in jtag or some other cable on pins/pads
+they have declared as reserved.  Take apart a tv remote control or
+calculator, etc and you may see some holes or pads on the circuit board,
+for some of these devices just opening the battery case you have a view
+of some of the pcboard.  This is no doubt a programming header.  Long
+story short, so far as I know the Raspberry Pi is not brickable because
+the rom/flash that performs the initial boot is for the gpu and we dont
+have access to the gpu nor its boot rom/flash.  The gpu relies on the
+sd card to complete the boot, so the sd card flash is really the boot
+flash for the system.  And it is very easy for the customer to remove
+and replace/modify that boot flash.  So from a software perspective
+unless you/we accidentally figure out how to change/erase the gpu boot
+code (my guess is it is a one time programmable) you cant brick it.
 
-It wont take you very long to figure out this is going to get painful.
+To use my samples you do not need a huge sd card.  Nor do you need nor
+want to download one of the linux images, takes a while to download,
+takes a bigger sd card to use, and takes forever to write to the sd card.
+AND I am not able to run with the firmware on those cards.  I use the
+firmware from http://github.com/raspberrypi.  The minimum configuration
+you need to get started at this level is:
+
+go to http://github.com/raspberrypi, you DO NOT need to download
+the repo, they have some large files in there you will not need (for
+my examples).  go to the firmware directory and then the boot directory.
+For each of these files, bootcode.bin, loader.bin, start.elf (NOT
+kernel.img, dont need it, too big).  Click on the file name, it will
+go to another page then click on View Raw and it will let you download
+the file.
+
+bootcode.bin is about 2MBytes, the other files are smaller, so you will
+want an sd card that is at least a few meg, probably a full 128MBytes or
+256MBytes or larger (gigabytes are just fine) for the gpu files plus
+the sample files here.  ARM memory for these samples is assumed 128MB
+so they wont be even that large.
+
+What I do is setup the sd card with a single partition, fat32.  And
+copy the above files.  bootcode.bin, loader.bin and start.elf.  From
+there you take .bin files from my examples and place them on the sd card
+with the name kernel.img.  It wont take you very long to figure out this
+is going to get painful.
 
 1) power off raspi
 2) remove sd card
@@ -79,59 +135,69 @@ There are ways to avoid this, one is jtag, which is not as expensive
 as it used to be.  It used to be in the thousands of dollars, now it
 is under $50 and the software tools are free.  Now the raspi does have
 jtag on the arm, getting the jtag connected to that is going to require
-some soldering.  I have not done it yet but will and will post info.
-Unfortunately the connection to jtag is not there on power up you have
-to run some code on the arm, so when that happens I will post that
-program.
+some soldering.  (this is described later and in the armjtag sample).
 
-Another method is a bootloader, typically you connect a serial port.
-The program that actually boots on the processor has some way for you
-to get into a bootloader.  Sometimes that is all that is there, sometimes
-you have to hit a key within a few seconds after it starts to boot.
-The bootloader will have some way for you to use either the serial
-or ethernet to copy a file into memory or flash.  In this case probably
-memory.  I have a bootloader that works.  Am working on a second one
-that will probably be easier/better to use.  With the bootloader method
-at least how I am implementing it for the raspi, you perform the sd
-card dance above one time to copy the bootloader to the sd card.  You
-use some flavor of serial port as described below.  When the board
-boots you can load your programs over the serial connection, never
-needing to do the sd card dance until you want to leave your application
-on the raspi and not the bootloader.  The bootloader step will be
-something like:
+Another method is a bootloader, typically you use a serial port connected
+to the target processor.  That processor boots a bootloader program that
+in some way, shape, or form allows you to interact with the bootloader
+and load programs into memory (that the bootloader is not using itself)
+and then the bootloader branches/jumps to your program.  If your program
+is still being debugged and you want to try again, you reboot the processor
+the bootloader comes up and you can try again without having to move any
+sd cards, etc.  The sd card dance above is now replaced with the
+bootloader dance:
 
 1) power off raspi
 2) power on raspi
 3) type command to load and start new program
 
+I have working bootloader examples.  bootloader03 is the currently
+recommended version.  But you need more hardware (no soldering is
+required).  For those old enough to know what a serial port is, you
+CANNOT connect your raspberry pi directly to this port, you will fry
+the raspberry pi.  You need some sort of serial port at 3.3V either
+a level shifter of some sort (transceiver like a MAX232) or a usb
+serial port where the signals are 3.3V (dont need to use RS232 just
+stay at the logic level).  The solution I recommend is a non-solder
+solution:
 
-My first bootloader is working, this will greatly save on wear and tear
-on the sd card socket.  You will need some sort of serial adapter.
-The uart signals on the raspi are not at RS232 levels, you CANNOT
-simply connect them to a "COM port", you will fry your raspberry pi.
-A simple solution is to get these two items at sparkfun or something
-similar (there are many ftdi usb to serial 3.3v solutions out there)
+http://www.sparkfun.com/products/9873
+plus some male/female wire
+http://www.sparkfun.com/products/9140
+
+Solutions that may involve soldering
 http://www.sparkfun.com/products/718
 http://www.sparkfun.com/products/8430
+
+Or this for level shifting to a real com port.
+http://www.sparkfun.com/products/449
+
 On the raspberry pi, the connector with two rows of a bunch of pins is
 P1.  Starting at that corner of the board, the outside corner pin is
 pin 2.  From pin 2 heading toward the yellow rca connector the pins
 are 2, 4, 6, 8, 10.  Pin 6 connect to gnd on the usb to serial board
-pin 8 is tx out of the raspi connect that to RX on the usb to serial
-board.  pin 10 is rx into the raspi, connect that to TX on the usb to
+pin 8 is TX out of the raspi connect that to RX on the usb to serial
+board.  pin 10 is RX into the raspi, connect that to TX on the usb to
 serial board.  Careful not to have metal items on the usb to serial
 board touch metal items on the raspberry pi (other than the three
 connections described).  On your host computer you will want to use
 some sort of dumb terminal program, minicom, putty, etc.  Set the
 serial port (usb to serial board) to 115200 baud, 8 data bits, no
-parity, 1 stop bit.  NO flow control.  With minicom you likely have
-to save the config, exit minicom, then restart in order for flow control
-changes to take effect.
+parity, 1 stop bit.  NO flow control.  With minicom to get no flow
+control you normally have to save the config, exit minicom, then
+restart minicom and load the config in order for flow control
+changes to take effect.  Once you have a saved config you dont have
+to mess with it any more.
 
-I recommend you start with blinker01 and follow the discovery through
-those to uart01, etc.  If you dont have a bootloader, do the sd card
-dance with the .bin file.
+Read more about the bootloaders in their local README files.  Likewise
+if you are able to do some soldering on electronics see the armjtag
+README file.  Other than chewing up a few more GPIO pins, and another
+thing you have to buy, the jtag solution is the most powerful and useful.
+My typical setup is the armjtag binary as kernel.img, a usb to jtag
+board like the amontec jtag-tiny and a usb to serial using minicom.
 
-bootloader01 uses the .hex file from the examples and prograspi program
-bootloader02 uses the .bin file from the examples and xmodem from a
-terminal program
+As far as these samples go I recommend starting with blinker01 then
+follow the discovery of the chip into uart01, etc.  You will need some
+sort of cross compiler (well maybe a native compiler on a raspberry pi
+or other arm system).  See the build_gcc directory if you cant get
+the LITE version from codesourcery.com (now mentor graphics).

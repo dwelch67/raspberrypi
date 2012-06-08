@@ -1,21 +1,20 @@
 
-See the top level README for information on where to find the
-schematic and programmers reference manual for the ARM processor
-on the raspberry pi.  Also find information on how to load and run
-these programs.
+See the top level README file for more information on documentation
+and how to run these programs.
 
 Derived from bootloader02, this is a very simple bootloader.  Instead
 of the sd dance (see toplevel README), this makes life a bit simpler
 and greatly reduces physical wear and tear on the sd card socket.  Do
 the sd card dance one time with kernel.img.  Get some sort of serial
-solution to connect a dumb termial program (minicom, hyperterm, etc)
-with xmodem capabilities to the uart on the raspberry pi. (see toplevel
-README)
+solution to connect a dumb termial program with xmodem capabilities
+to the uart on the raspberry pi. (see the toplevel README for more
+information).
 
 The difference between bootloader02 and bootloader03 is that this one
 uses a state machine for xmodem, maybe it will recover from a lost byte
-if there is ever one.  You take the .bin file of your test program,
-assumed to be built based on address 0 and less than 0x200000 bytes.
+if there is ever one, maybe not.  You take the .bin file of your test
+program, assumed to be built based on address 0x8000 and less than
+0x200000-0x8000 bytes in size.
 With uart connected to a terminal
 1) power off raspberry pi
 2) power on raspberry pi
@@ -26,7 +25,10 @@ This bootloader sits at 0x200000 so that you have 0x200000 bytes to
 develop with.  And that way if you like your program you can just
 copy a .bin version to kernel.img on the sd card and use it.  Fairly
 easy to change this address.  bootloader03.c and vectors.s each have
-a copy of this value.
+a copy of this value.  bootloader04 will use a rasberry pi specific
+config file to move much deeper in memory giving you much more room
+if you want more room use that bootloader.
 
 bootloader01 uses .hex files, bootloader02 and bootloader03 use .bin
-files, .hex files wont work.
+files, .hex files wont work.  Consider bootloader01 and 02 to be
+obsolete.

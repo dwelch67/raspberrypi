@@ -1,7 +1,10 @@
 
 ARMGNU ?= arm-none-eabi
 
-COPS = -Wall -O2 -nostdlib -nostartfiles -ffreestanding 
+AOPS = --warn --fatal-warnings 
+COPS = -Wall -Werror -O2 -nostdlib -nostartfiles -ffreestanding 
+
+
 
 gcc : blinker04.hex blinker04.bin
 
@@ -37,6 +40,7 @@ blinker04.hex : blinker04.elf
 
 
 
+
 LOPS = -Wall -m32 -emit-llvm
 LLCOPS = -march=arm -mcpu=arm1176jzf-s
 LLCOPS0 = -march=arm 
@@ -62,9 +66,5 @@ blinker04.clang.hex : blinker04.clang.opt.elf
 
 blinker04.clang.bin : blinker04.clang.opt.elf
 	$(ARMGNU)-objcopy blinker04.clang.opt.elf blinker04.clang.bin -O binary
-
-
-
-
 
 

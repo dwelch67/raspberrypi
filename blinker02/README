@@ -6,7 +6,7 @@ these programs.
 
 There is a free-running 64 bit timer, super easy to use, just read it.
 
-Based on a couple of experiments, without messing with anything it
+Based on a couple of experiments, without messing with anything else it
 appears that the timer is runing at about a megahertz, 1 million ticks
 per second.
 

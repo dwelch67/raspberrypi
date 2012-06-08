@@ -5,7 +5,7 @@ on the raspberry pi.  Also find information on how to load and run
 these programs.
 
 This example uses the free running ARM timer, not the 64 bit system
-one as in blinker02 but the so called ARM timer.
+timer as in blinker02 but the so called ARM timer.
 
 The system clock appears to come up at 250MHz as documented.  Divide that
 by 250 to get 1Mhz on this free running ARM timer.  Then count to four

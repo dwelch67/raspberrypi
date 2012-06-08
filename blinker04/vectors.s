@@ -1,10 +1,7 @@
 
 .globl _start
 _start:
-    b reset
-
-reset:
-    mov sp,#0x1000
+    mov sp,#0x8000
     bl notmain
 hang: b hang
 
