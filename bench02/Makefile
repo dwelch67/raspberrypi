@@ -3,7 +3,7 @@ ARMGNU ?= arm-none-eabi
 
 COPS = -mthumb-interwork -Wall -O2 -nostdlib -nostartfiles -ffreestanding 
 
-all : bench02.hex bench02.bin
+all : bench02.bin
 
 clean :
 	rm -f *.o
@@ -11,7 +11,6 @@ clean :
 	rm -f *.hex
 	rm -f *.elf
 	rm -f *.list
-	rm -f *.img
 
 novectors.o : novectors.s
 	$(ARMGNU)-as novectors.s -o novectors.o
@@ -28,8 +27,5 @@ bench02.elf : memmap novectors.o bench02.o uart.o
 
 bench02.bin : bench02.elf
 	$(ARMGNU)-objcopy bench02.elf -O binary bench02.bin
-
-bench02.hex : bench02.elf
-	$(ARMGNU)-objcopy bench02.elf -O ihex bench02.hex
 
 

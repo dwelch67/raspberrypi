@@ -3,14 +3,9 @@
 
 .globl _start
 _start:
-    b reset
-reset:
-    ldr sp,stack_start
-    ldr r0,thumb_start_add
-    bx r0
-
-stack_start: .word 0x10000
-thumb_start_add: .word thumb_start
+    mov sp,#0x8000
+    bl notmain
+    b .
 
 .globl start_l1cache
 start_l1cache:
