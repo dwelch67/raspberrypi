@@ -379,3 +379,6 @@ and the machine code generated.  We also got to play with the caches
 and mmu in a simplified fashion.
 
 (yes this is too wordy and I need to proof/rewrite)
+based on new discoveries, changed the start address to 0x8000 for the
+whole thing so that messes with cache lines and results have some
+differences to the numbers above (for reasons described above).

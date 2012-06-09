@@ -1,30 +1,13 @@
 
 .globl _start
 _start:
-    b reset
-    b hang
-    b hang
-    b hang
-    b hang
-    b hang
-    b hang
-    b hang
-    b hang
-    b hang
-    b hang
-    b hang
-    b hang
-    b hang
-    b hang
 
-reset:
 
 ;@ add/remove nops here
     nop
     nop
     nop
-
-
+;@ add/remove nops here
 
     mov sp,#0x00200000
     bl notmain
