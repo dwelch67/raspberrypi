@@ -21,8 +21,6 @@ extern void dummy ( unsigned int );
 #define GPSET0  0x2020001C
 #define GPCLR0  0x20200028
 
-#define TIMEOUT 4000000
-
 //-------------------------------------------------------------------------
 int notmain ( void )
 {

@@ -1,0 +1,107 @@
+
+See the top level README for information on where to find the
+schematic and programmers reference manual for the ARM processor
+on the raspberry pi.  Also find information on how to load and run
+these programs.
+
+This is derived from blinker04.
+
+I dont understand why but way too many blinker examples use interrupts.
+In short only use interrupts if you have to, usually you dont have to.
+If you feel you have to this example shows you a little about enabling
+and handling interrupts on a raspberry pi.
+
+Interrupts are an advanced programming topic, no matter how simple
+this example makes it appear, there is a long list of things that can
+and will go wrong.  I definitely didnt get this working on the first
+or second or third try.  It took many.  Fortunately on this system
+we have a few layers we can play with before actually interrupting
+the processor.  This is both a blessing and a curse, some systems
+have a number of layers, not all easy to find in the docs if in the
+docs and all layers have to have the right enables, etc to route the
+interrupt from the peripheral to processor.  blinker03 showed a timer
+with a raw interrupt status register, basically the interrupt signal
+near its source.  The interrupt enable bit is the first layer you
+have to enable the signal through.  This example kills three birds with
+one stone.  Instead of three examples I enable one layer at a time
+and show a few blinks with each layer before completely connecting
+the interrupt to the processor.
+
+The first problem we have with the raspberry pi is where the binary
+is loaded.  I have had the most success by not mucking with settings
+which means that our program is loaded at address 0x8000.  To service
+an interrupt we need to have our exception table at address 0x0000.
+If you have been reading your ARM documents as you should by this point
+you will know that for an interrupt on this processor it executes
+the instruction at address 0x0001C.  Also the interrupt mode has
+a different r13 or stack pointer than supervisor mode.  So if we plan
+to use the stack at all in the interrupt handler we need to prepare
+that stack pointer before any interrupts come along.  Before we get
+to that looking at vectors.s.  We know that 0x8000 is our entry point
+where _start will be.  We know that is not the exception table but I
+have made one there anyway, why?  Using the ldr pc,label instruction
+I am letting the assembler do the work of creating the machine code
+for a relative load.  Offset 0x0000 loads into the program counter
+(same as doing a branch if you are not switching modes) the address at
+offset 0x0020 which is filled in (by the assembler) the address for
+the reset label.  This repeats one for one for 8 handlers 0x0004 gets
+address in 0x0024, etc.  I happen to know and you can look up the
+fact that ldr pc,label when used this way uses relative addressing
+
+    8000:   e59ff018    ldr pc, [pc, #24]   ; 8020 <reset_handler>
+    ...
+00008020 <reset_handler>:
+    8020:   00008040    andeq   r8, r0, r0, asr #32
+
+The machine instruction 0xe59ff018 when placed at address 0x1000 will
+read from address 0x1000+0x20, basically pc+0x20 (the disassembly is
+misleading).  So if I were to copy the instruction at 0x8000 to 0x0000
+and the address at 0x8020 to 0x0020, then it still works, a reset exception
+if we could create one would read 0x8040 in this case and put that in
+the pc, causing a jump to 0x8040.  Same is true for all 8 instructions and
+all 8 addresses.  So the first thing the code does after reset is
+copy those 16 words from 0x8000 to 0x0000, we didnt have to figure out
+addresses for functions and didnt have to generate machine code this
+approach let the assembler do the work.
+
+The next thing the reset code does is set up the stack pointer, not
+much different than the other example programs except in this case
+we need to setup both the supervisor mode, which we normally run
+these examples in, and interrupt mode.  The modes determine which
+registers are used, the stack pointer being one that has a different
+register for each mode.  The trick is to use the mrs instruction to
+change some of the bits in the program status register (psr) the bits
+in particular we care about are the mode bits.  Change the mode to
+interrupt, set the interrupt stack pointer, change the mode back to
+supervisor and change the stack pointer, then continue by calling the
+entry C function, notmain().
+
+Just like blinker04, blinker05 configures the gpio pin for driving the
+led and sets up the timer.  Different from blinker05, interrupts are
+enabled in the control register (bit 5).  Using the assumption that this
+program was run just after reset, either as kernel.img on the sd card
+or using one of my bootloaders that doesnt mess with enabling interrupts,
+etc. The interrupt will leave the timer but get stopped at the next layer.
+Since it is leaving the timer we will be able to see it in the masked
+interrupt status register.  So the first 5 blinks, once state change
+per second, are based on polling the MIS register.
+
+The next layer is between the timer and the ARM.  Each chip vendor and
+model can vary wildly as to how many layers and how to use them.  In
+this case we have a relatively simple interrupt enable .  By setting
+a bit in the irq enable register we are allowing the arm timer interrupt
+to pass through to the ARM core.  Because our early cpsr registers
+manipulation (to set up the interrupt stack) forced the interrupt
+enable for the ARM core to a one, ARM core interrupts are disabled.
+The next 5 blinks at 2 seconds per state change poll the interrupt
+status register at this layer.
+
+The last step is to enable the interrupts to the arm core by changing
+the I bit in the cpsr to a zero.  Because we had prepared the exception
+table when the interrupt comes the code at address 0x1C is executed
+which eventually hits the c_irq_handler function, remember this is
+an interrupt handler, you are soemwhat running parallel.  Dont take
+very long and dont mess with resources in use by the foreground
+application.  typically you want to be in and out fast.  At some
+point in the isr you need to clear the source of the isr.
+
