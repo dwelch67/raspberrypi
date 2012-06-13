@@ -1,0 +1,13 @@
+
+See the README one level up about where to find the reference manual
+for the stm32f4 and schematics for the board.
+
+Just having some fun.  Curious to know how the hardware fpu compared
+to TestFloat.  Extracted only the add function which is easy/boring
+and it looks good.  A NaN is not a fixed bit pattern so not surprising
+they dont match.  I guess I could have said if this is a nan and that
+is a nan then pass, instead I said if TestFloat says nan, continue;
+
+llvm likes to throw memcpy()'s into code with structures where gcc
+doesnt.  Very ugly memcpy() implementation, which probably hurts llvm's
+overall slowfloat performance.
