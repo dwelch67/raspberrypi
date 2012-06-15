@@ -3,20 +3,25 @@ This is a thumb assembler derived directly from the assembler in my
 thumbulator project.  The thumulator version remains the primary
 version/home.
 
-I added some hardcoded machine code up front to get from arm to thumb
-and then if you bl hexstring, I tack on machine code to implement that
-function.  hexstring takes r0 and prints it out on the uart in ascii.
+I added the .include directive in the original thumbulator this one has
+a base address, still flushing that out.
 
-Since I got it working I dont want to just discard it, but not sure
-what I want to do with this...I provided binaries for the bootloaders
-so that you dont have to have arm tools, which is why you would use tas
-because you want to try asm but dont want to try or have failed to build
-gnu binutils.  tas should build most anywhere.
+This is headed towards a learn assembly tutorial using this easy to
+compile tool if building binutils is not working for you or too
+intimidating right now.  Also binutils separates assemble and link
+and linker scripts are a programming language themselves.
 
-One simple test program provided, thats it
+by adding .include things like the little bit of arm code needed to
+get you into thumb mode.  And a pre-compiled implementation of hexstring
+and uart_init so you dont have to have tools or understand how that
+code works to get started in the environment I invision for a learn
+asm tutorial.
 
-./tas test.s
+If you dont have anything to talk to the uart (see top level readme)
+then the blinker example should work at a minimum
 
-then use a bootloader to load test.s.bin.  Since the test program + tas
-require the mini uart to be initialized simply copying test.s.bin to
-kernel.img wont do you any good.
+./tas blinker01.s
+
+gives you blinker01.s.bin which you should be able to copy to kernel.img
+on your sd card and when you power cycle it should come up and blink the
+led.
