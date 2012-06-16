@@ -1,0 +1,24 @@
+
+See the top level README for information on where to find the
+schematic and programmers reference manual for the ARM processor
+on the raspberry pi.  Also find information on how to load and run
+these programs.
+
+So when surfing through the linux source for the raspberry pi I found
+some watchdog timer registers that dont appear to be in the datasheet.
+
+So I played with the registers a bit and it appears that from reset
+and/or using the settings as configured in this code, the watchdog
+timer is a divide by 4000 of the system timer, so 250,000,000/4000 =
+62500 Hz.
+
+Based on assumptions from the linux code the biggest timer is 0xFFFFF
+which is 16.8 seconds.  If you do not reprogram the timer and let it
+run out, then it resets the chip, down to re-reading the sd card and
+bringing the ARM up using kernel.img.
+
+This example simply uses the watchdog timer to time the led state
+changes.  Because it reprograms the watchdog timer with a new time
+the timer does not timeout and reset the chip.  Comment out or remove
+the break in the loop and it will timeout and reset the chip.
+
