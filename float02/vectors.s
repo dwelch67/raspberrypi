@@ -94,7 +94,9 @@ m4add:
 .globl m4ftoi
 m4ftoi:
     vmov s0,r0
-    vcvt.s32.f32 s2,s0
+;@    vcvt.s32.f32 s2,s0
+;@ftosis s2,s0
+    vcvtr.s32.f32 s2,s0
     vmov r0,s2
     bx lr
 
@@ -107,4 +109,7 @@ m4itof:
     bx lr
 
 
+vcvt.s32.f32 s2,s0
+ftosis s2,s0
+ftosizs s2,s0
 
