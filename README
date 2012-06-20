@@ -105,7 +105,8 @@ my examples).  go to the firmware directory and then the boot directory.
 For each of these files, bootcode.bin, loader.bin, start.elf (NOT
 kernel.img, dont need it, too big).  Click on the file name, it will
 go to another page then click on View Raw and it will let you download
-the file.
+the file.  For reference, I do not use nor have a config.txt file on my
+sd card.  I only have the four files.
 
 bootcode.bin is about 2MBytes, the other files are smaller, so you will
 want an sd card that is at least a few meg, probably a full 128MBytes or
