@@ -66,7 +66,7 @@ void hexstring ( unsigned int d )
     uart_putc(0x0A);
 }
 //------------------------------------------------------------------------
-int notmain ( void )
+int notmain ( unsigned int earlypc )
 {
     unsigned int ra;
 
@@ -95,6 +95,7 @@ int notmain ( void )
     PUT32(AUX_MU_CNTL_REG,3);
 
     hexstring(0x12345678);
+    hexstring(earlypc);
 
     while(1)
     {
