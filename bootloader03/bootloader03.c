@@ -2,12 +2,12 @@
 //-------------------------------------------------------------------------
 //-------------------------------------------------------------------------
 
-//The raspberry pi wants you to not have your kernel.img file loaded
-//at address 0x0000.  Using a bootloader like this it works just fine
-//but to avoid having example binaries that are at 0x8000 for running
-//from the sd card and a binary at 0x0000 for loading with the
-//bootloader, instead the bootloader is going to default to 0x8000
-//as well.
+// The raspberry pi firmware at the time this was written defaults
+// loading at address 0x8000.  Although this bootloader could easily
+// load at 0x0000, it loads at 0x8000 so that the same binaries built
+// for the SD card work with this bootloader.  Change the ARMBASE
+// below to use a different location.
+
 #define ARMBASE 0x8000
 
 extern void PUT32 ( unsigned int, unsigned int );
@@ -163,4 +163,17 @@ int notmain ( void )
     return(0);
 }
 //-------------------------------------------------------------------------
+//-------------------------------------------------------------------------
+
+
+//-------------------------------------------------------------------------
+//
+// Copyright (c) 2012 David Welch dwelch@dwelch.com
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+//
 //-------------------------------------------------------------------------
