@@ -1,0 +1,69 @@
+
+blinker01.clang.opt.elf:     file format elf32-littlearm
+
+
+Disassembly of section .text:
+
+00008000 <_start>:
+    8000:	e3a0d902 	mov	sp, #32768	; 0x8000
+    8004:	eb000005 	bl	8020 <notmain>
+
+00008008 <hang>:
+    8008:	eafffffe 	b	8008 <hang>
+
+0000800c <PUT32>:
+    800c:	e5801000 	str	r1, [r0]
+    8010:	e12fff1e 	bx	lr
+
+00008014 <GET32>:
+    8014:	e5900000 	ldr	r0, [r0]
+    8018:	e12fff1e 	bx	lr
+
+0000801c <dummy>:
+    801c:	e12fff1e 	bx	lr
+
+00008020 <notmain>:
+    8020:	e92d4010 	push	{r4, lr}
+    8024:	e59f4060 	ldr	r4, [pc, #96]	; 808c <notmain+0x6c>
+    8028:	e1a00004 	mov	r0, r4
+    802c:	ebfffff8 	bl	8014 <GET32>
+    8030:	e3c00707 	bic	r0, r0, #1835008	; 0x1c0000
+    8034:	e3801701 	orr	r1, r0, #262144	; 0x40000
+    8038:	e1a00004 	mov	r0, r4
+    803c:	ebfffff2 	bl	800c <PUT32>
+    8040:	e59f0048 	ldr	r0, [pc, #72]	; 8090 <notmain+0x70>
+    8044:	e3a01801 	mov	r1, #65536	; 0x10000
+    8048:	ebffffef 	bl	800c <PUT32>
+    804c:	e3a04000 	mov	r4, #0
+    8050:	e1a00004 	mov	r0, r4
+    8054:	ebfffff0 	bl	801c <dummy>
+    8058:	e2844001 	add	r4, r4, #1
+    805c:	e3540601 	cmp	r4, #1048576	; 0x100000
+    8060:	1afffffa 	bne	8050 <notmain+0x30>
+    8064:	e59f0028 	ldr	r0, [pc, #40]	; 8094 <notmain+0x74>
+    8068:	e3a01801 	mov	r1, #65536	; 0x10000
+    806c:	ebffffe6 	bl	800c <PUT32>
+    8070:	e3a04000 	mov	r4, #0
+    8074:	e1a00004 	mov	r0, r4
+    8078:	ebffffe7 	bl	801c <dummy>
+    807c:	e2844001 	add	r4, r4, #1
+    8080:	e3540601 	cmp	r4, #1048576	; 0x100000
+    8084:	1afffffa 	bne	8074 <notmain+0x54>
+    8088:	eaffffec 	b	8040 <notmain+0x20>
+    808c:	20200004 	eorcs	r0, r0, r4
+    8090:	2020001c 	eorcs	r0, r0, ip, lsl r0
+    8094:	20200028 	eorcs	r0, r0, r8, lsr #32
+
+Disassembly of section .ARM.attributes:
+
+00000000 <.ARM.attributes>:
+   0:	00002141 	andeq	r2, r0, r1, asr #2
+   4:	61656100 	cmnvs	r5, r0, lsl #2
+   8:	01006962 	tsteq	r0, r2, ror #18
+   c:	00000017 	andeq	r0, r0, r7, lsl r0
+  10:	01080206 	tsteq	r8, r6, lsl #4
+  14:	020a0109 	andeq	r0, sl, #1073741826	; 0x40000002
+  18:	01150114 	tsteq	r5, r4, lsl r1
+  1c:	01180317 	tsteq	r8, r7, lsl r3
+  20:	Address 0x00000020 is out of bounds.
+
