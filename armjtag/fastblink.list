@@ -1,0 +1,103 @@
+
+fastblink.elf:     file format elf32-littlearm
+
+
+Disassembly of section .text:
+
+00008000 <_start>:
+    8000:	e3a0d902 	mov	sp, #32768	; 0x8000
+    8004:	eb000005 	bl	8020 <notmain>
+
+00008008 <hang>:
+    8008:	eafffffe 	b	8008 <hang>
+
+0000800c <PUT32>:
+    800c:	e5801000 	str	r1, [r0]
+    8010:	e12fff1e 	bx	lr
+
+00008014 <GET32>:
+    8014:	e5900000 	ldr	r0, [r0]
+    8018:	e12fff1e 	bx	lr
+
+0000801c <dummy>:
+    801c:	e12fff1e 	bx	lr
+
+00008020 <notmain>:
+    8020:	e92d4070 	push	{r4, r5, r6, lr}
+    8024:	e59f008c 	ldr	r0, [pc, #140]	; 80b8 <notmain+0x98>
+    8028:	ebfffff9 	bl	8014 <GET32>
+    802c:	e3c01707 	bic	r1, r0, #1835008	; 0x1c0000
+    8030:	e3811701 	orr	r1, r1, #262144	; 0x40000
+    8034:	e59f007c 	ldr	r0, [pc, #124]	; 80b8 <notmain+0x98>
+    8038:	ebfffff3 	bl	800c <PUT32>
+    803c:	e59f0078 	ldr	r0, [pc, #120]	; 80bc <notmain+0x9c>
+    8040:	e3a018f9 	mov	r1, #16318464	; 0xf90000
+    8044:	ebfffff0 	bl	800c <PUT32>
+    8048:	e59f006c 	ldr	r0, [pc, #108]	; 80bc <notmain+0x9c>
+    804c:	e59f106c 	ldr	r1, [pc, #108]	; 80c0 <notmain+0xa0>
+    8050:	ebffffed 	bl	800c <PUT32>
+    8054:	e59f0068 	ldr	r0, [pc, #104]	; 80c4 <notmain+0xa4>
+    8058:	ebffffed 	bl	8014 <GET32>
+    805c:	e59f4064 	ldr	r4, [pc, #100]	; 80c8 <notmain+0xa8>
+    8060:	e1a05000 	mov	r5, r0
+    8064:	e59f0060 	ldr	r0, [pc, #96]	; 80cc <notmain+0xac>
+    8068:	e3a01801 	mov	r1, #65536	; 0x10000
+    806c:	ebffffe6 	bl	800c <PUT32>
+    8070:	e59f004c 	ldr	r0, [pc, #76]	; 80c4 <notmain+0xa4>
+    8074:	ebffffe6 	bl	8014 <GET32>
+    8078:	e0650000 	rsb	r0, r5, r0
+    807c:	e1500004 	cmp	r0, r4
+    8080:	9afffffa 	bls	8070 <notmain+0x50>
+    8084:	e2856a3d 	add	r6, r5, #249856	; 0x3d000
+    8088:	e59f0040 	ldr	r0, [pc, #64]	; 80d0 <notmain+0xb0>
+    808c:	e3a01801 	mov	r1, #65536	; 0x10000
+    8090:	e2866090 	add	r6, r6, #144	; 0x90
+    8094:	ebffffdc 	bl	800c <PUT32>
+    8098:	e59f0024 	ldr	r0, [pc, #36]	; 80c4 <notmain+0xa4>
+    809c:	ebffffdc 	bl	8014 <GET32>
+    80a0:	e0662000 	rsb	r2, r6, r0
+    80a4:	e1520004 	cmp	r2, r4
+    80a8:	9afffffa 	bls	8098 <notmain+0x78>
+    80ac:	e2855a7a 	add	r5, r5, #499712	; 0x7a000
+    80b0:	e2855e12 	add	r5, r5, #288	; 0x120
+    80b4:	eaffffea 	b	8064 <notmain+0x44>
+    80b8:	20200004 	eorcs	r0, r0, r4
+    80bc:	2000b408 	andcs	fp, r0, r8, lsl #8
+    80c0:	00f90200 	rscseq	r0, r9, r0, lsl #4
+    80c4:	2000b420 	andcs	fp, r0, r0, lsr #8
+    80c8:	0003d08f 	andeq	sp, r3, pc, lsl #1
+    80cc:	2020001c 	eorcs	r0, r0, ip, lsl r0
+    80d0:	20200028 	eorcs	r0, r0, r8, lsr #32
+
+Disassembly of section .ARM.attributes:
+
+00000000 <.ARM.attributes>:
+   0:	00002c41 	andeq	r2, r0, r1, asr #24
+   4:	61656100 	cmnvs	r5, r0, lsl #2
+   8:	01006962 	tsteq	r0, r2, ror #18
+   c:	00000022 	andeq	r0, r0, r2, lsr #32
+  10:	4d524105 	ldfmie	f4, [r2, #-20]	; 0xffffffec
+  14:	54347620 	ldrtpl	r7, [r4], #-1568	; 0xfffff9e0
+  18:	08020600 	stmdaeq	r2, {r9, sl}
+  1c:	12010901 	andne	r0, r1, #16384	; 0x4000
+  20:	15011404 	strne	r1, [r1, #-1028]	; 0xfffffbfc
+  24:	18031701 	stmdane	r3, {r0, r8, r9, sl, ip}
+  28:	2c011a01 	stccs	10, cr1, [r1], {1}
+  2c:	Address 0x0000002c is out of bounds.
+
+
+Disassembly of section .comment:
+
+00000000 <.comment>:
+   0:	3a434347 	bcc	10d0d24 <notmain+0x10c8d04>
+   4:	6f532820 	svcvs	0x00532820
+   8:	65637275 	strbvs	r7, [r3, #-629]!	; 0xfffffd8b
+   c:	43207972 	teqmi	r0, #1867776	; 0x1c8000
+  10:	4265646f 	rsbmi	r6, r5, #1862270976	; 0x6f000000
+  14:	68636e65 	stmdavs	r3!, {r0, r2, r5, r6, r9, sl, fp, sp, lr}^
+  18:	74694c20 	strbtvc	r4, [r9], #-3104	; 0xfffff3e0
+  1c:	30322065 	eorscc	r2, r2, r5, rrx
+  20:	302e3131 	eorcc	r3, lr, r1, lsr r1
+  24:	39362d39 	ldmdbcc	r6!, {r0, r3, r4, r5, r8, sl, fp, sp}
+  28:	2e342029 	cdpcs	0, 3, cr2, cr4, cr9, {1}
+  2c:	00312e36 	eorseq	r2, r1, r6, lsr lr
