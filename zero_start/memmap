@@ -1,0 +1,13 @@
+
+MEMORY
+{
+    ram : ORIGIN = 0x0000, LENGTH = 0x1000
+}
+
+SECTIONS
+{
+    .text : { *(.text*) } > ram
+    text_size = SIZEOF(.text);
+    .bss : { *(.bss*) } > ram
+
+}

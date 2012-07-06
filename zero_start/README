@@ -1,0 +1,23 @@
+
+See the top level README for information on where to find the
+schematic and programmers reference manual for the ARM processor
+on the raspberry pi.  Also find information on how to load and run
+these programs.
+
+There are two programs here one is blinker05 and the other uart02.
+The difference from their originals is the boot code.  In attempt
+to not care about where the gpu loads our program (so long as it is
+not really close to zero), the startup code looks to see if we booted
+at zero, if not, it copies the program from where it is to zero, then
+branches to zero.  Some linker script items were required to make this
+work.  First ram starts at 0x0000, that is where we are going to
+copy our file.  Second, the size of .text is added as a variable.
+We can use this variable to connect to the startup code (vectors.s).
+
+The bootcode for blinker05 had another modification, since the linker
+is going to think that 0x0000 is the entry point it is going to make
+the reset_handler variable contain some number like 0x0040, so right after
+you start running that program it branches to zero which has who knows
+what code, and you are stuck.  That first instruction needs to be a
+branch not an ldr pc of some linker filled in value.
+
