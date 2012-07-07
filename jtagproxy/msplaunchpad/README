@@ -1,0 +1,81 @@
+
+So as the directory one level up mentioned this is a jtag solution
+where a bit banged back end to open ocd is sent over a serial port
+to a microcontroller board.
+
+This microcontroller board:
+http://ti.com/launchpad
+or
+http://www.sparkfun.com/products/10020
+
+From the top of my raspberry pi repo refer to the README file and
+maybe the armjtag directory and one of the uart directories.  You are
+looking for info on the wire you need to solder to the raspberry pi
+for jtag.  As well as the usb to serial or serial level shifter you
+need to talk 3.3V levels to the uart in the msp430.  You will want
+two now one for talking to the msp430 the other for talking to the
+raspberry pi.  both use 3.3V serial interfaces.
+
+So first get the openocd sources, in openocd/src/jtag/drivers/ backup
+the original parport.c and replace it with the one you find here.
+The serial port itself is hardcoded so you might want to work around
+that or at least remember to change it to match your computer/setup.
+
+If you use git for the cutting edge openocde sources then the first
+step is
+
+./bootstrap
+
+which basically creates the configure script, then
+
+./configure --enable-parport
+make
+
+openocd.texi:12: @include `version.texi': No such file or directory.
+openocd.texi:37: warning: undefined flag: VERSION.
+openocd.texi:38: warning: undefined flag: UPDATED.
+openocd.texi:58: warning: undefined flag: VERSION.
+openocd.texi:59: warning: undefined flag: UPDATED.
+
+Now when it WORKS, my make fails with the above close to the last thing
+output.  If there is a file src/openocd then you have the tool.
+Now I dont make install because it will overwrite the one I use with
+the amontec or other openocd supported usb based device.
+
+
+I have provided a binary as well as sources for the msp430 portion.
+You will need an msp430 launchpad with the msp430g2553 chip on it.
+You will want to download and/or otherwise install mspdebug.
+
+To program the msp430 board, plug it into your computer (usb cable)
+then
+
+mspdebug rf2500
+
+when that comes up to a prompt
+
+> prog out.hex
+> exit
+
+
+You will need to use the raspi.cfg file in this directory not the
+one in the armjtag directory.
+
+/path/to/openocd/src/openocd -f raspi.cfg
+Open On-Chip Debugger 0.6.0-dev-00611-g6d639b0-dirty (2012-07-06-22:00)
+Licensed under GNU GPL v2
+For bug reports, read
+    http://openocd.sourceforge.net/doc/doxygen/bugs.html
+Warn : Adapter driver 'parport' did not declare which transports it allows; assuming legacy JTAG-only
+Info : only one transport option; autoselect 'jtag'
+1000 kHz
+none separate
+raspi.arm
+Info : clock speed 500 kHz
+Info : JTAG tap: raspi.arm tap/device found: 0x07b7617f (mfg: 0x0bf, part: 0x7b76, ver: 0x0)
+Info : found ARM1176
+Info : raspi.arm: hardware has 6 breakpoints, 2 watchpoints
+
+That means it worked!
+
+see the armjtag directory for more info on what to do now.

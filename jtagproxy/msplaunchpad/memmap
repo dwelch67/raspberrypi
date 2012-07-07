@@ -1,0 +1,17 @@
+/* memmap */
+MEMORY
+{
+    rom : ORIGIN = 0xC000, LENGTH = 0xFFE0-0xC000
+    ram : ORIGIN = 0x0200, LENGTH = 0x400-0x200
+    vect : ORIGIN = 0xFFE0, LENGTH = 0x20
+}
+
+SECTIONS
+{
+    VECTORS : { startup.o } > vect
+    .text :  { *(.text*) } > rom
+    .rodata : { *(.rodata*) } > rom
+    .data : { *(.data*) } > ram
+    .bss : { *(.bss*) } > ram
+}
+

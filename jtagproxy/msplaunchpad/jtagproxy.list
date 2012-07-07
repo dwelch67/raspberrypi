@@ -1,0 +1,175 @@
+
+jtagproxy.elf:     file format elf32-msp430
+
+
+Disassembly of section VECTORS:
+
+0000ffe0 <VECTORS>:
+    ffe0:	0a c0       	bic	r0,	r10	
+    ffe2:	0a c0       	bic	r0,	r10	
+    ffe4:	0a c0       	bic	r0,	r10	
+    ffe6:	0a c0       	bic	r0,	r10	
+    ffe8:	0a c0       	bic	r0,	r10	
+    ffea:	0a c0       	bic	r0,	r10	
+    ffec:	0a c0       	bic	r0,	r10	
+    ffee:	0a c0       	bic	r0,	r10	
+    fff0:	0a c0       	bic	r0,	r10	
+    fff2:	0a c0       	bic	r0,	r10	
+    fff4:	0a c0       	bic	r0,	r10	
+    fff6:	0a c0       	bic	r0,	r10	
+    fff8:	0a c0       	bic	r0,	r10	
+    fffa:	0a c0       	bic	r0,	r10	
+    fffc:	0a c0       	bic	r0,	r10	
+    fffe:	00 c0       	bic	r0,	r0	
+
+Disassembly of section .text:
+
+0000c000 <reset>:
+    c000:	31 40 ff 03 	mov	#1023,	r1	;#0x03ff
+    c004:	b0 12 fa c0 	call	#0xc0fa	
+    c008:	00 3c       	jmp	$+2      	;abs 0xc00a
+
+0000c00a <hang>:
+    c00a:	ff 3f       	jmp	$+0      	;abs 0xc00a
+
+0000c00c <asmdelay>:
+    c00c:	1f 83       	dec	r15		
+    c00e:	fe 23       	jnz	$-2      	;abs 0xc00c
+    c010:	30 41       	ret			
+
+0000c012 <uart_init>:
+    c012:	f2 f0 f9 ff 	and.b	#-7,	&0x0058	;#0xfff9
+    c016:	58 00 
+    c018:	c2 43 60 00 	mov.b	#0,	&0x0060	;r3 As==00
+    c01c:	f2 40 c0 ff 	mov.b	#-64,	&0x0061	;#0xffc0
+    c020:	61 00 
+    c022:	f2 42 62 00 	mov.b	#8,	&0x0062	;r2 As==11
+    c026:	c2 43 63 00 	mov.b	#0,	&0x0063	;r3 As==00
+    c02a:	f2 40 b1 ff 	mov.b	#-79,	&0x0064	;#0xffb1
+    c02e:	64 00 
+    c030:	c2 43 65 00 	mov.b	#0,	&0x0065	;r3 As==00
+    c034:	c2 43 5d 00 	mov.b	#0,	&0x005d	;r3 As==00
+    c038:	c2 43 01 00 	mov.b	#0,	&0x0001	;r3 As==00
+    c03c:	f2 d0 06 00 	bis.b	#6,	&0x0026	;#0x0006
+    c040:	26 00 
+    c042:	f2 d0 06 00 	bis.b	#6,	&0x0041	;#0x0006
+    c046:	41 00 
+    c048:	30 41       	ret			
+
+0000c04a <uart_putc>:
+    c04a:	5e 42 03 00 	mov.b	&0x0003,r14	
+    c04e:	2e f3       	and	#2,	r14	;r3 As==10
+    c050:	fc 27       	jz	$-6      	;abs 0xc04a
+    c052:	c2 4f 67 00 	mov.b	r15,	&0x0067	
+    c056:	30 41       	ret			
+
+0000c058 <uart_getc>:
+    c058:	5f 42 03 00 	mov.b	&0x0003,r15	
+    c05c:	1f f3       	and	#1,	r15	;r3 As==01
+    c05e:	fc 27       	jz	$-6      	;abs 0xc058
+    c060:	5f 42 66 00 	mov.b	&0x0066,r15	
+    c064:	30 41       	ret			
+
+0000c066 <hexstrings>:
+    c066:	3d 40 10 00 	mov	#16,	r13	;#0x0010
+    c06a:	2d 82       	sub	#4,	r13	;r2 As==10
+    c06c:	0e 4f       	mov	r15,	r14	
+    c06e:	4c 4d       	mov.b	r13,	r12	
+    c070:	7c f0 0f 00 	and.b	#15,	r12	;#0x000f
+    c074:	04 24       	jz	$+10     	;abs 0xc07e
+    c076:	12 c3       	clrc			
+    c078:	0e 10       	rrc	r14		
+    c07a:	7c 53       	add.b	#-1,	r12	;r3 As==11
+    c07c:	fc 23       	jnz	$-6      	;abs 0xc076
+    c07e:	3e f0 0f 00 	and	#15,	r14	;#0x000f
+    c082:	3e 90 0a 00 	cmp	#10,	r14	;#0x000a
+    c086:	13 28       	jnc	$+40     	;abs 0xc0ae
+    c088:	3e 50 37 00 	add	#55,	r14	;#0x0037
+    c08c:	4e 4e       	mov.b	r14,	r14	
+    c08e:	5c 42 03 00 	mov.b	&0x0003,r12	
+    c092:	2c f3       	and	#2,	r12	;r3 As==10
+    c094:	fc 27       	jz	$-6      	;abs 0xc08e
+    c096:	c2 4e 67 00 	mov.b	r14,	&0x0067	
+    c09a:	0d 93       	tst	r13		
+    c09c:	e6 23       	jnz	$-50     	;abs 0xc06a
+    c09e:	5f 42 03 00 	mov.b	&0x0003,r15	
+    c0a2:	2f f3       	and	#2,	r15	;r3 As==10
+    c0a4:	fc 27       	jz	$-6      	;abs 0xc09e
+    c0a6:	f2 40 20 00 	mov.b	#32,	&0x0067	;#0x0020
+    c0aa:	67 00 
+    c0ac:	30 41       	ret			
+    c0ae:	3e 50 30 00 	add	#48,	r14	;#0x0030
+    c0b2:	ec 3f       	jmp	$-38     	;abs 0xc08c
+
+0000c0b4 <hexstring>:
+    c0b4:	b0 12 66 c0 	call	#0xc066	
+    c0b8:	5f 42 03 00 	mov.b	&0x0003,r15	
+    c0bc:	2f f3       	and	#2,	r15	;r3 As==10
+    c0be:	fc 27       	jz	$-6      	;abs 0xc0b8
+    c0c0:	f2 40 0d 00 	mov.b	#13,	&0x0067	;#0x000d
+    c0c4:	67 00 
+    c0c6:	5f 42 03 00 	mov.b	&0x0003,r15	
+    c0ca:	2f f3       	and	#2,	r15	;r3 As==10
+    c0cc:	fc 27       	jz	$-6      	;abs 0xc0c6
+    c0ce:	f2 40 0a 00 	mov.b	#10,	&0x0067	;#0x000a
+    c0d2:	67 00 
+    c0d4:	30 41       	ret			
+
+0000c0d6 <longerdelay>:
+    c0d6:	0b 12       	push	r11		
+    c0d8:	0a 12       	push	r10		
+    c0da:	09 12       	push	r9		
+    c0dc:	0a 4f       	mov	r15,	r10	
+    c0de:	09 4e       	mov	r14,	r9	
+    c0e0:	0f 93       	tst	r15		
+    c0e2:	07 24       	jz	$+16     	;abs 0xc0f2
+    c0e4:	0b 43       	clr	r11		
+    c0e6:	0f 49       	mov	r9,	r15	
+    c0e8:	b0 12 0c c0 	call	#0xc00c	
+    c0ec:	1b 53       	inc	r11		
+    c0ee:	0b 9a       	cmp	r10,	r11	
+    c0f0:	fa 23       	jnz	$-10     	;abs 0xc0e6
+    c0f2:	39 41       	pop	r9		
+    c0f4:	3a 41       	pop	r10		
+    c0f6:	3b 41       	pop	r11		
+    c0f8:	30 41       	ret			
+
+0000c0fa <notmain>:
+    c0fa:	b2 40 80 5a 	mov	#23168,	&0x0120	;#0x5a80
+    c0fe:	20 01 
+    c100:	c2 43 56 00 	mov.b	#0,	&0x0056	;r3 As==00
+    c104:	d2 42 f9 10 	mov.b	&0x10f9,&0x0057	
+    c108:	57 00 
+    c10a:	d2 42 f8 10 	mov.b	&0x10f8,&0x0056	
+    c10e:	56 00 
+    c110:	b0 12 12 c0 	call	#0xc012	
+    c114:	5f 42 66 00 	mov.b	&0x0066,r15	
+    c118:	f2 d0 2f 00 	bis.b	#47,	&0x002a	;#0x002f
+    c11c:	2a 00 
+    c11e:	f2 f0 ef ff 	and.b	#-17,	&0x002a	;#0xffef
+    c122:	2a 00 
+    c124:	f2 d0 21 00 	bis.b	#33,	&0x0029	;#0x0021
+    c128:	29 00 
+    c12a:	f2 f0 0e 00 	and.b	#14,	&0x0029	;#0x000e
+    c12e:	29 00 
+    c130:	5f 42 03 00 	mov.b	&0x0003,r15	
+    c134:	1f f3       	and	#1,	r15	;r3 As==01
+    c136:	fc 27       	jz	$-6      	;abs 0xc130
+    c138:	5f 42 66 00 	mov.b	&0x0066,r15	
+    c13c:	7f 93       	cmp.b	#-1,	r15	;r3 As==11
+    c13e:	0c 24       	jz	$+26     	;abs 0xc158
+    c140:	7f f0 2f 00 	and.b	#47,	r15	;#0x002f
+    c144:	c2 4f 29 00 	mov.b	r15,	&0x0029	
+    c148:	5f 42 03 00 	mov.b	&0x0003,r15	
+    c14c:	1f f3       	and	#1,	r15	;r3 As==01
+    c14e:	f0 27       	jz	$-30     	;abs 0xc130
+    c150:	5f 42 66 00 	mov.b	&0x0066,r15	
+    c154:	7f 93       	cmp.b	#-1,	r15	;r3 As==11
+    c156:	f4 23       	jnz	$-22     	;abs 0xc140
+    c158:	5f 42 28 00 	mov.b	&0x0028,r15	
+    c15c:	7f f0 10 00 	and.b	#16,	r15	;#0x0010
+    c160:	5e 42 03 00 	mov.b	&0x0003,r14	
+    c164:	2e f3       	and	#2,	r14	;r3 As==10
+    c166:	fc 27       	jz	$-6      	;abs 0xc160
+    c168:	c2 4f 67 00 	mov.b	r15,	&0x0067	
+    c16c:	e1 3f       	jmp	$-60     	;abs 0xc130

@@ -1,0 +1,58 @@
+
+Here is my problem.  Using the ARM's hardware debugger that is accessed
+through JTAG is very useful and worth demonstrating.  Historically
+the JTAG hardware needed cost thousands of dollars.  Way beyond many
+companys and certainly most individuals hobby projects.  But that
+changed with openocd and parallel port wigglers like the macraigor
+wiggler.  Well parallel ports went away but ftdi makes all kinds of
+usb to whatever chips.  There are a number of jtag boards that are
+under $100, but I feel that is too pricey, not something I can talk
+most folks into after spending halft that on the development board.
+
+The amontek jtag-tiny is good, problem with it is the shipping cost
+to the USA if you live in the usa.  The signalyzer lite was good but
+I may have bought the last one from microcontrollershop.com and was
+told they are discontinued.  I am still on the hunt for a good solution
+with decent shipping prices, etc.
+
+Now I am a fan of the msp430, and with the launchpad (ti.com/launchpad)
+at $4.30 and free shipping you almost have to just get a few to try.
+So it is the first solution here.  But there will be others, although it
+is $4.30 you need a serial interface which is around $15.  Arduinos
+will work if you get a 3.3v one (NOT THE TYPICAL ARDUINO WHICH IS 5V)
+and can do serial through the usb port.  The mbed and stm32f4 discovery
+and many others will work as well.  Just needs a serial port, needs to
+be 3.3v and needs 6 I/O lines (5 out, 1 in).
+
+On the raspberry pi side unfortunately some soldering is required, they
+didnt put all the signals we need on the P1 jumper.  See the armjtag
+directory in this repository.  And not trivial soldering, so that may
+end your curiosity with jtag and the raspberry pi.  It is only one
+signal though, all of the rest you can do with jumper wires that
+require no soldering.
+
+So openocd http://openocd.sf.net is the software that knows the ARM
+jtag protocol for getting at the hardware debugger.  It is open source.
+There are/were parallel port solutions basically bit banging the jtag
+through the parallel port.  It is very easy to take over one file
+in the openocd sources and do whatever you want so long as you can
+find something to bit bang a number of signals with.  What I did is
+very simple.  Instead of writing from the openocd software directly
+to some gpio/parallel port on something, I take the bits being
+written and send them out a serial port (to some microcontroller for
+example that takes the byte and hits a port with it.  For reading the
+one input (tdo), I write a 0xFF and that tells the microcontroller to
+read and send back a character with the bit of interest.  It is that
+simple.  And it works, really slow but it is functional.
+
+Until I find the ultimate solution I may from time to time add boards
+to this directory.  The first board is the msp430 launchpad
+http://ti.com/launchpad.  See the msplaunchpad directory.
+
+BEWARE, you are taking chances with your raspberry pi, I will not be
+responsible for the damage done.  You should use the same computer for
+all the things connected via usb so that you are sure they grounds are
+all the same, going from one computer to another you might have a
+problem.  Also, real jtag boards have some electronics that protect
+you from these differences as well as protect you from say using 3.3v
+on 1.8v I/O lines or allow 5V systems to use 5Volts, etc.
