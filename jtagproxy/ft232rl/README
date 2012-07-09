@@ -147,3 +147,30 @@ and it should allow the arm to resume and continue blinking.
 See the armjtag directory for more info on loading programs, etc.
 
 
+UPDATE
+
+added parport_fast.c, this version buffers up ftdi writes.  copy this
+file to parport.c in the proper place in the openocd sources.  It
+is not perfect but at the same time is noticeably faster.
+
+I get warnings like this.
+
+> load_image blinker02.elf
+Data transfer failed. Expected end address 0x00008088, got 0x00008089
+use 'arm11 memwrite burst disable' to disable fast burst mode
+in procedure 'load_image'
+
+But the file runs.
+
+> resume 0x8000
+
+If you use the parport.c file instead of parport_fast.c then it works
+without warning but is slow
+
+> load_image blinker02.elf
+136 bytes written at address 0x00008000
+downloaded 136 bytes in 10.351526s (0.013 KiB/s)
+> resume 0x8000
+
+
+
