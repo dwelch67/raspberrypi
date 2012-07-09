@@ -56,3 +56,42 @@ all the same, going from one computer to another you might have a
 problem.  Also, real jtag boards have some electronics that protect
 you from these differences as well as protect you from say using 3.3v
 on 1.8v I/O lines or allow 5V systems to use 5Volts, etc.
+
+UPDATE, I have a couple of lower cost solutions, first for generic
+serial or serial to the msp430
+
+http://jim.sh/ftx/
+
+Looking at the documentation on that page I took the ftdi_sio kernel
+sources and added the ftx part manually, was pretty easy, the built
+the kernel image and used it.  Basically my linux is not the latest
+greatest-cutting edge ubuntu, so it doesnt have the ftdi mods.  All you
+are really doing when you modify the driver is adding yet another
+ftdi part to the list of devices supported by that driver, many places
+where it says if this ftdi part or that ftdi part, or that ftdi part,
+you are just adding another to the list.
+
+The possibly more interesting thing is that I have taken an ftdi ft232rl
+board
+
+http://www.sparkfun.com/products/718
+
+And using the abitility to bit bang the pins on that device.  It is no
+longer a serial port, while being bitbanged, the ft232rl does not have
+enough stuff in it to do both.  So dont hook up the rxd and txd to
+your raspi serial port, if you have a second one sure, but the jtag
+one is only jtag.
+
+Now it is not super fast, pretty slow in fact, but it is $15 plus some
+wire.
+
+Stay tuned, when I solder some pins on an ftx board I am going to try
+to bit bang it and use it for jtag, resulting in a sub $10 jtag board.
+
+Also I ordered a $18, supposedly jlink compatible board from china, it
+may take a while to arrive.
+
+Eventually you are going to want a faster and designed for jtag board
+like the amontec boards or the flyswatter from tin can tools (do not
+hook that serial port up to your raspberry pi you will fry the rasberry
+pi) or others.

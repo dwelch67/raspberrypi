@@ -21,7 +21,7 @@ the original parport.c and replace it with the one you find here.
 The serial port itself is hardcoded so you might want to work around
 that or at least remember to change it to match your computer/setup.
 
-If you use git for the cutting edge openocde sources then the first
+If you use git for the cutting edge openocd sources then the first
 step is
 
 ./bootstrap

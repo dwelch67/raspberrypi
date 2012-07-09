@@ -1,0 +1,149 @@
+
+I have been wanting to do this for a long time and doing some googling
+so have others.
+
+Now ARM jtag on the raspberry pi, is not without risk.  First some
+soldering is required, not trivial soldering, not hard but not trivial.
+Then you are connecting things between two boards, if you miscount the
+pin numbers on either side you might short something like power to
+ground and may melt one or both boards.  Third, this jtag solution
+does not provide level shifters, nor any isolation.  You need to make
+sure you have both the raspberry pi and the ftdi breakout board connected
+to the same computer, or same usb hub, preferrably ports on the same
+card or near each other to insure they use the same ground.
+
+This example is based on this board:
+
+http://www.sparkfun.com/products/718
+
+In addition to being a serial port many of the ftdi usb devices have
+a bitbang mode.  This one has 8 pins that you can bit bang, ftdi has
+an app note, or you can just use trial and error to figure out what bit
+goes with what pin.
+
+Now you will have to solder a wire on the raspberry pi to use the
+ARM jtag anyway (see the armjtag directory) so you wont have a problem
+soldering pins on this ftdi breakout board.  The breakout board has
+pins labelled, I am using these pins for JTAG.
+
+#define BIT_TXD_TDI     0
+#define BIT_DTR_TMS     4
+#define BIT_RTS_TCK     2
+#define BIT_RXD_TDO     1
+
+TXD, DTR, RTS, RXD are the labels on the ftdi breakout board.  TDI,
+TMS, TCK, TDO are the JTAG signals provided by those pins.  Map that
+to the raspberry pi pins
+
+ARM_TDI  GPIO_GCLK P1-7   IN ( 4 ALT5)
+ARM_TMS  CAM_GPIO  S5-11 OUT (27 ALT4)
+ARM_TCK  GPIO_GEN6 P1-22 OUT (25 ALT4)
+ARM_TDO  GPIO_GEN5 P1-18 OUT (24 ALT4)
+
+P1 pin 7, 22, and 18 and S5 (ribbon connector) pin 11.
+
+For generic ARM jtag you may want these as well which are supported
+but I am not necessarily using them as I have other ftdi boards I am
+going to try out which dont have more than 4 bitbang pins.
+
+#define BIT_RI__TRST    7
+#define BIT_DSR_SRST    5
+
+The raspberry pi does need something tied to TRST for it to work.
+
+ARM_TRST      22 GPIO_GEN3 P1-15  IN (22 ALT4)
+
+TRST is asserted low so tie TRST to 3.3v on the ftdi breakout board.
+
+So first get the openocd sources, in openocd/src/jtag/drivers/ backup
+the original parport.c and replace it with the one you find here.
+
+If you use git for the cutting edge openocd sources then the first
+step is
+
+./bootstrap
+
+which basically creates the configure script, then
+
+./configure --enable-parport
+
+Now, I didnt take too much time to fix this the right way, you will
+get a link error complaining about ftdi_something_something functions.
+Dig in and find the Makefile (openocd/src/jtag/Makefile maybe or
+openocd/src/jtag/drivers/Makefile, or openocd/src/Makefile, etc) and
+change LIB from -ldl to -ldl -lftdi.
+
+You will need the libftdi development files as well
+apt-get install libftdi-dev
+
+Keep trying to make
+make
+the project from the top openocd directory until you see this
+
+openocd.texi:12: @include `version.texi': No such file or directory.
+openocd.texi:37: warning: undefined flag: VERSION.
+openocd.texi:38: warning: undefined flag: UPDATED.
+openocd.texi:58: warning: undefined flag: VERSION.
+openocd.texi:59: warning: undefined flag: UPDATED.
+
+I have not figured what to do to make the docs build.
+
+So the src directory will contain an openocd binary.  You might want
+to do a make install, but since this is a bit of a custom one I have
+not I use the path to the binary.
+
+As discussed in the armjtag directory it is much easier if you change
+to the directory where you have the programs you want to load, that
+way at the openocd prompt you dont need to specify a path it uses
+the local directory (to the openocd SERVER).  You need to use the
+raspi.cfg from this directory when using this ftdi breakout board
+(or some other ft232rl device)
+
+cd raspberrypi/blinker01/
+/path/to/openocd/src/openocd -f ../jtagproxy/ft232rl/raspi.cfg
+
+If everything is wired up right and powered you should see this:
+
+Info : clock speed 10000 kHz
+Info : JTAG tap: raspi.arm tap/device found: 0x07b7617f (mfg: 0x0bf, part: 0x7b76, ver: 0x0)
+Info : found ARM1176
+
+In another terminal you can
+
+telnet localhost 4444
+
+and it should respond with something like this
+
+Trying ::1...
+Trying 127.0.0.1...
+Connected to localhost.
+Escape character is '^]'.
+Open On-Chip Debugger
+>
+
+If you get the > prompt then you can try this command, dont confuse
+this prompt with your normal command line prompt, you dont want to be
+halting your host computer
+
+> halt
+target state: halted
+target halted in ARM state due to debug-request, current mode: Supervisor
+cpsr: 0x800001d3 pc: 0x00008144
+
+Your cpsr and pc will vary.
+
+Oh, right, of course you need to get the armjtag.bin file from the
+armjtag directory and boot the raspberry pi using that file as your
+kernel.img.  The green led will blink if it is running that image.
+When you halt the arm the blinking will stop either on or off depending
+on when you halted the arm.  So long as you have not done anything
+to mess up the memory or program counter in openocd you can use
+the resume command:
+
+> resume
+
+and it should allow the arm to resume and continue blinking.
+
+See the armjtag directory for more info on loading programs, etc.
+
+
