@@ -13,11 +13,11 @@ rm -rf binutils-*
 
 # Get archives
 wget http://ftp.gnu.org/gnu/binutils/binutils-2.22.tar.bz2
-wget http://ftp.gnu.org/gnu/gcc/gcc-4.7.0/gcc-4.7.0.tar.bz2
+wget http://ftp.gnu.org/gnu/gcc/gcc-4.7.1/gcc-4.7.1.tar.bz2
 
 # Extract archives
 bzip2 -dc binutils-2.22.tar.bz2 | tar -xf -
-bzip2 -dc gcc-4.7.0.tar.bz2 | tar -xf -
+bzip2 -dc gcc-4.7.1.tar.bz2 | tar -xf -
 
 # Build binutils
 mkdir build-binutils
@@ -29,7 +29,7 @@ make install
 # Build GCC
 mkdir ../build-gcc
 cd ../build-gcc
-../gcc-4.7.0/configure --target=$TARGET --prefix=$PREFIX --without-headers --with-newlib  --with-gnu-as --with-gnu-ld
+../gcc-4.7.1/configure --target=$TARGET --prefix=$PREFIX --without-headers --with-newlib  --with-gnu-as --with-gnu-ld
 make all-gcc
 make install-gcc
 
