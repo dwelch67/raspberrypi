@@ -1,0 +1,17 @@
+
+MEMORY
+{
+    calvin : ORIGIN = 0x1000, LENGTH = 0x1000
+    hobbes : ORIGIN = 0x2000, LENGTH = 0x1000
+    susie : ORIGIN = 0x3000, LENGTH = 0x1000
+    rosalyn : ORIGIN = 0x4000, LENGTH = 0x1000
+}
+
+SECTIONS
+{
+    .text : { *(.text*) } > calvin
+    .bss : { *(.bss*) } > hobbes
+    .rodata : { *(.rodata*) } > susie
+    .data : { *(.data*) } > rosalyn
+}
+

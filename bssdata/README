@@ -1,0 +1,710 @@
+
+See the top level README for information on where to find the
+schematic and programmers reference manual for the ARM processor
+on the raspberry pi.  Also find information on how to load and run
+these programs.
+
+Based on uart02, the purpose of this example is to demonstrate what
+you would need to do if you assume .bss is zeros or use .data.  And
+you are asking, what does that even mean?  As stated in the top level
+README I personally write code so I dont have to mess with what I am
+about to show you.
+
+Although not carved in stone, many toolchains (assembler, compiler (C),
+linker) use terms .text and .data and .bss to describe where things
+go in a binary created by the toolchain.  Now I have seen other names
+for segments, you will just have to translate.
+
+These are all chunks of memory if you want to think of it that way, esp
+with bare metal embedded you will eventually find a system where some
+of the memory range is a rom, and your program is there and some of the
+memory range is ram and you want your read/write variables there, etc.
+
+The toolchain keeps these segments of memory separate from each other
+and the linker places these items in the binary depending on what the
+linker is told to do through a configuraiton file, script, command line,
+whatever mechanism.  What kind of binary output is affected by this
+as well.  How can there be more than one kind of binary output file?
+Most of the "binary" files we run today are more than just the machine
+code and data that makes up our program.  The files tend to have some
+sort of header so we can detect that is what they are, if you look at
+a windows/microsoft .exe file the first to letters are or at least used
+to be MZ, an elf file popular with linux starts with the letters ELF.
+Then depending on the file format there are lots of things that might
+be in the file, for example a bunch of stuff related to debugging, if
+you compile for debugging or compile with debugging symbols the file
+can have extra info to help the debugger find things in the code to show
+you on the debugger gui to allow you to understand where you are in
+the higher level source code (the binary file contains machine code).
+You will see in the disassembly below of a .elf file, there are some
+global names like _start and fun, etc.  These strings are in the
+elf binary just in case we want to do things like disassemble.  Otherwise
+without those symbols in the .elf file all we would see are some
+hex numbers, no ascii names.  Depending on the binary format and how
+you liked things each segment may be in separate parts of the binary
+file, and the binary file would have information for the loader to
+place these things at the right addresses so that the code will run
+properly, or at least it puts it where you told it, right or wrong.
+
+.text refers to the code itself, the machine code that is your program.
+note that your program, the machine code, is considered read-only.
+
+.bss is used for storage of global stuff (variables, structs, etc)
+that were not initialized in the program (this will be explained).
+
+.data is used for storage of global stuff that was initialized in the
+program.
+
+.rodata is read only data, this is global stuff that was declared to
+be variables or whatever but declared to be read only (const).  Depending
+on the flavor and version of toolchain or linker script you are using
+.rodata might be combined in the .text segment since both are read-only
+segments as far as the toolchain is concerned, bugs in your code may
+say otherwise.
+
+so we take the fun.c program in this directory.  Note the fun.c part
+of this example is non-functional, dont load it, dont run it.
+
+unsigned int fun2 ( unsigned int );
+const unsigned int x=2;
+unsigned int y;
+unsigned int z=7;
+void fun ( unsigned int a )
+{
+    unsigned int n;
+
+    n=5;
+    fun2(a);
+    fun2(x);
+    fun2(y);
+    fun2(z);
+    fun2(n);
+}
+
+Here is the linker script used.
+
+MEMORY
+{
+    calvin : ORIGIN = 0x1000, LENGTH = 0x1000
+    hobbes : ORIGIN = 0x2000, LENGTH = 0x1000
+    susie : ORIGIN = 0x3000, LENGTH = 0x1000
+    rosalyn : ORIGIN = 0x4000, LENGTH = 0x1000
+}
+
+SECTIONS
+{
+    .text : { *(.text*) } > calvin
+    .bss : { *(.bss*) } > hobbes
+    .rodata : { *(.rodata*) } > susie
+    .data : { *(.data*) } > rosalyn
+}
+
+
+When compiled, linked with the simple linker script and disassembled it
+looks like this
+
+Disassembly of section .text:
+
+00001000 <_start>:
+    1000:   eb000001    bl  100c <fun>
+    1004:   eafffffe    b   1004 <_start+0x4>
+
+00001008 <fun2>:
+    1008:   e12fff1e    bx  lr
+
+0000100c <fun>:
+    100c:   e92d4008    push    {r3, lr}
+    1010:   ebfffffc    bl  1008 <fun2>
+    1014:   e3a00002    mov r0, #2
+    1018:   ebfffffa    bl  1008 <fun2>
+    101c:   e59f3020    ldr r3, [pc, #32]   ; 1044 <fun+0x38>
+    1020:   e5930000    ldr r0, [r3]
+    1024:   ebfffff7    bl  1008 <fun2>
+    1028:   e59f3018    ldr r3, [pc, #24]   ; 1048 <fun+0x3c>
+    102c:   e5930000    ldr r0, [r3]
+    1030:   ebfffff4    bl  1008 <fun2>
+    1034:   e3a00005    mov r0, #5
+    1038:   ebfffff2    bl  1008 <fun2>
+    103c:   e8bd4008    pop {r3, lr}
+    1040:   e12fff1e    bx  lr
+    1044:   00002000    andeq   r2, r0, r0
+    1048:   00004000    andeq   r4, r0, r0
+
+Disassembly of section .bss:
+
+00002000 <y>:
+    2000:   00000000    andeq   r0, r0, r0
+
+Disassembly of section .rodata:
+
+00003000 <x>:
+    3000:   00000002    andeq   r0, r0, r2
+
+Disassembly of section .data:
+
+00004000 <z>:
+    4000:   00000007    andeq   r0, r0, r7
+
+I have all the types represented
+
+const unsigned int x=2;
+unsigned int y;
+unsigned int z=7;
+void fun ( unsigned int a )
+{
+    unsigned int n;
+
+the variable x is declared using const, this tells the compiler that
+this is a variable, it has this name, I want it initialized to some
+value before my program starts, but I will only ever read from it I
+will never change this variables contents.  You will find this variable
+end up in either .rodata or .text
+
+The variable y, is a global variable, that has not been initialized.  We
+are supposed to be able to assume that when our program starts this
+variable will be initialized to zero.  This variable will be found in
+the .bss segment.
+
+The variable z is a global variable as well, but it is initialized. We
+expect it to be this value when our program starts.
+
+Variable a is a parameter, it is passed in based on the compiler rules
+for that processor, etc.  typically it lives in a register or on the
+stack.
+
+Lastly variable n is a local variable, it also does not have a named
+segment, but typically lives on the stack or in registers or both.  In
+this case with such a simple program the optimizer completely removed
+the variable from having a home, the constant that we loaded the variable
+with then used the variable in a function call was replaced with a constant
+being fed right into the register used to send the parameter to a function.
+
+    unsigned int n;
+    n=5;
+    ...
+    fun2(n);
+
+Was optimized to a simple mov 5 and call the function:
+
+    1034:   e3a00005    mov r0, #5
+    1038:   ebfffff2    bl  1008 <fun2>
+
+The variable n's home if you will is embedded in the bits in the
+instruction itself (note the lower bits of that instruction).
+
+The simple linker script defined four separate memory regions, and then
+associated those regions with the various segment definitions.  Many times
+in a linker script you will see the words rom and ram and flash and eeprom
+to define the memory regions.  I intentionally used non-computer like
+names both in simple and in memmap, to get you over this idea that those
+names have any special meaning to the linker tool.  This would be a
+mistake to think the linker knows eeprom from ram and does something
+for you as a result.
+
+Because of the linker script we saw that our variables landed where we
+told the toolchain to put them.
+
+
+    calvin : ORIGIN = 0x1000, LENGTH = 0x1000
+    ...
+    .text : { *(.text*) } > calvin
+
+results in .text starting at address 0x1000
+
+Disassembly of section .text:
+
+00001000 <_start>:
+    1000:   eb000001    bl  100c <fun>
+
+
+    hobbes : ORIGIN = 0x2000, LENGTH = 0x1000
+
+    .bss : { *(.bss*) } > hobbes
+
+results in .bss starting at address 0x2000
+
+Disassembly of section .bss:
+
+00002000 <y>:
+    2000:   00000000    andeq   r0, r0, r0
+
+
+and x is in .rodata in the disassembly I created above
+
+and z is in .data.
+
+note that both .text .data and .rodata segments the data in the binary
+are filled with non-zero values.  doesnt mean you cant have some zeros
+there, point being the z varaiable is shown as a 7 in the binary as we
+wanted.
+
+if you can read the assembly you will also note that even though the
+compiler knows that we initialized x to a 2 and z to a 7, the code
+reads their values from the proper memory locations and does not
+optimize them away like it did with the y variable.
+
+So it appears that the .elf file we created has all the parts defined
+to be in all the right places.  for this to work though there needs
+to be a progrm that reads the .elf file and places these items in
+memory at the right places, before allowing the program to run.   This
+comes in may forms but can be called a loader.  When running a .exe
+file in windows or a .elf file or other file format in linux, there is
+a loader in the operating system that reads this extra info in the
+binary file and places the bits and bytes in the right place in ram.
+
+We dont have a loader, we are running bare metal embedded here, we have
+to do these things ourselves.  How this is solved on the raspberry pi
+for example is that when you use the toolchain to convert your program
+from a .elf to a .bin file.  A .bin file is for the most part or commonly
+assumed to be just the bits and bytes of your program, a literal image
+of your memory.  Now to clarify the kernel.img file for the raspberry
+pi may not represent memory starting at ARM's address zero, in fact these
+programs are compiled as .bin files to be loaded at address 0x8000, and
+the gpu that boots the raspberry pi does that unless told otherwise
+using a script file that it looks for.  if you have dabbled in these
+things before you may have found this can be dangerous.  For example
+what if you defined one segment to be at address 0x10000000 and another
+at address 0x70000000.  Lets say you have 0x100 bytes at 0x10000000
+and only two bytes at 0x70000000, if you want to make a single file
+that holds the memory image of these two segments that file will need
+to be 0x70000002 - 0x10000000 = 0x60000002 bytes in size, that is a huge
+file.  all to hold 0x102 bytes.  Maybe you can see why most of the time
+our operating systems, etc dont actually use memory images of the
+programs but these hybrid files which are part machine code, part raw
+data and part descriptions of where things are to go.
+
+Imagine the typical bare metal embedded situation.  your processor
+powers up and boots off of a rom of some flavor (rom, prom, eprom, eeprom,
+flash) something that is non-volatile and as a result read only or at
+least for practial purposes of booting your processor that memory
+space is read only.  The memory in your bare metal system comes up filled
+with random garbage because that is what the transistors that store that
+ram do, they have not been initialized, and there is no rule that says
+they have to be or have to be initialized to a specific value.  Many
+systems use dram, which often has to be initialized in some form or
+fashion and as a result you might end up filling that memory with some
+value, or leave it with the last value you used during initialization.
+So we have our rom and that really needs to have .text in it, we have
+some ram that will no doubt be the home for .bss and .data.  But we have
+a problem.  how is the ram at the .bss and .data addresses going to
+get loaded with the zeros or non-zero values we are expecting?  We dont
+have an operating system here?  The answer is a bit complicated, at some
+point before we start using any of the .bss or .data variables in our
+program (which we as C programmers assumed would be zero or whatever
+value we initialized them to) we need to prepare that memory to meet
+those expectations.  And we need to do it in a way that doesnt require
+any .bss or .data variables.  even worse, the non-zero items in .data
+need to be saved somewhere in the non-volatile memory so that we dont
+lose that information, we need to somehow get that data saved in the
+rom and get it copied to ram in the right place.
+
+The typical solution is to have the bootstrap or startup code do this,
+this isnt necessarily the boot code for the processor.  Even when running
+a program on an operating system, the solution may be to have the .bss
+code initialized by the first bit of asm in your program before main()
+is called.  The toolchain often supplies this startup code, if you dont
+tell it not to the toolchain will use its default linker script and
+default startup code (which as we complicate things have an intimate
+relationship) it will use them.  Assume we dont want to compile everything
+count up how many bytes are in each segment, and then hardcode thse
+numbers by hand into some asm, re-build, make sure the sizes and offsets
+have not changed, repeat until they dont, and have startup code that
+is custom this program.  Add or remove a variable somewhere or re-arrange
+them in the code and you would ahve to then re-touch your startup code.
+Possible but not wise, the better answer is generic startup code.  But
+to have generic startup code we need to know where all these segments
+are and what size they are etc.  The gnu solution has two parts, first
+you use the linker script langauge to define some variables these
+variables are filled in by the linker and will ultimately contain the
+starting address for a segment like .bss or .data and the size and
+or ending address or both.  In the case of .data we also need to tell
+the linker script two things. One is here is the non-volatile memory
+space we want the .data to live in when the power is off, and here
+is the ram address space where we want it to live when we are running,
+our variables are read-write they just happen to be initialized to
+some number on start, then we can change them in our program later.
+
+So if you look at the real example in this directory and the memmap
+file
+
+
+MEMORY
+{
+    bob : ORIGIN = 0x8000, LENGTH = 0x1000
+    ted : ORIGIN = 0xA000, LENGTH = 0x1000
+}
+
+SECTIONS
+{
+   .text : { *(.text*) } > bob
+   __data_rom_start__ = .;
+   .data : {
+    __data_start__ = .;
+    *(.data*)
+   } > ted AT > bob
+   __data_end__ = .;
+   __data_size__ = __data_end__ - __data_start__;
+   .bss  : {
+   __bss_start__ = .;
+   *(.bss*)
+   } > bob
+   __bss_end__ = .;
+   __bss_size__ = __bss_end__ - __bss_start__;
+}
+
+you see there is more stuff in the SECTIONS section of the linker script
+I dont really want to explain all of it, it is fairly straightforward
+including the ted at bob thing we are pretending here that bob is rom
+or flash (where .text lives) and ted is ram, sram, dram, whatever.  You
+have to be super careful to place these variables inside or outside
+of the right brackets to have it all work, this takes practice and some
+iterations to get right.  I may not have it right, but the above works
+today.  As mentioned way above, I intentioally did not use memory segnemt
+names like rom and ram to demonstrate that the linker script sees those
+as ascii labels and for the most part doesnt care what you call them.
+
+Now this example is strange because I wanted to try to show the problems
+you will face with a single program, not having to have you load more
+than one program, etc.  Notice how above I carefully stated that you need
+to initialized .bss and .data at some point before you use them and not
+using them to get to that point.  Most of the time you are going to see
+some sort of assembly solution in the assembly code that is used before
+your main() C function is called.  This assembly code in haromny with
+the linker script variables.  The __bss_start__ and such variables are
+addresses as far as the toolchain is concerned, not values.  When developing
+I tried to have the program display the value of __bss_start__ by
+declaring it an external global variable.  What the compiler did was take
+the address __bss_start__ read that memory location and print that
+value.  So in vectors.s I made some other global variables and then
+initialized them to the other variables.  These are in the .text section
+so they are filled in for us and .bss and .data are not required to
+find these values and use them to prepare .bss and .data.  Where my
+weird solution comes in is that I dont have asm code that zeros .bss
+and copies .data from point a to point b.  I do this in the C code late
+in my program.  As mentioned the reason why is I want to show you that
+when you display these global variables before preparing memory they
+well, as you now expect, have the wrong value.  Then once we copy
+and zero things they then have the right values.
+
+//display before initialized
+    hexstring(x);
+    hexstring(y);
+    hexstring(z);
+//zero out .bss
+    for(ra=bss_start;ra<bss_end;ra+=4) PUT32(ra,0);
+//copy .data from non-volatile .text to its home where the code expects it
+//to be.
+    for(ra=data_start,rb=data_rom_start;ra<data_end;ra+=4,rb+=4) PUT32(ra,GET32(rb));
+//display the varialbes again now that ram is prepped.
+    hexstring(x);
+    hexstring(y);
+    hexstring(z);
+
+I used my serial bootloader, xmodemed the program over and ran it
+the last part, interesting part, of the output is:
+
+12345678
+0000A008
+000082EC
+0000A000
+00000000
+00000000
+00000000
+00000000
+00000002
+00000007
+
+here again with comments
+
+12345678
+0000A008 this is basically __bss_start__
+000082EC __data_rom_start__
+0000A000 __data_start__
+00000000 display of the x variable before memory prep
+00000000 display of the y variable before memory prep
+00000000 display of the z variable before memory prep
+00000000 display of x after memory prep
+00000002 display of y after memory prep
+00000007 display of z after memory prep
+
+In this case apparently memory was zeroed by someone, so the .bss
+data actually looks right even though that was just dumb luck.  you could
+easily modify my bootloader (or I should have) to make that memory
+random or non-zero further demonstrating the problem.
+
+
+
+
+So after all of that, I repeat, I dont do this with my code.  Why dont
+I do this?  First and foremost, these days I try to write portable code.
+This code is not portable if you do this, you have to start messing with
+a gnu toolchain specific and even worse sometimes the version of binutils
+specific linker scripts, then your startup code that comes before the
+first call to a C function relies on gnu linker and linker version specific
+linker script variables.  The linker script goes from pretty to very
+ugly very fast, and warrants extra explaining as to what it is doing.
+it is just not portable, and it is ugly.  (remember beauty is in the
+eye of the beholder, you may find all of my code ugly, but then you
+probably wouldnt be reading this far down into this file if that were
+the case).  Instead of this
+
+
+unsigned int fun2 ( unsigned int );
+const unsigned int x=2;
+unsigned int y;
+unsigned int z=7;
+void fun ( unsigned int a )
+{
+    unsigned int n;
+
+    n=5;
+    fun2(a);
+    fun2(x);
+    fun2(y);
+    fun2(z);
+    fun2(n);
+}
+
+write your code like this:
+
+unsigned int fun2 ( unsigned int );
+const unsigned int x;
+unsigned int y;
+unsigned int z;
+void fun ( unsigned int a )
+{
+    unsigned int n;
+
+    n=5;
+    x=2;
+    y=0;
+    z=7;
+    fun2(a);
+    fun2(x);
+    fun2(y);
+    fun2(z);
+    fun2(n);
+}
+
+and guess what, you dont have a .data segment anymore, you can remove
+that from the linker script and all the baggage that goes with it.  Now
+you do need .bss but you dont need to zero it out you just need to
+have it acurratly defined in the linker script to an address range that
+is actually ram.  .rodata if your toolchain needs it, well the example
+was demonstrating things, I simply have .rodata also part of the
+same space as .text so after changing those few lines of C code I would
+then go from this
+
+
+MEMORY
+{
+    bob : ORIGIN = 0x8000, LENGTH = 0x1000
+    ted : ORIGIN = 0xA000, LENGTH = 0x1000
+}
+
+SECTIONS
+{
+   .text : { *(.text*) } > bob
+   .rodata : { *(.rodata*) } > bob
+   __data_rom_start__ = .;
+   .data : {
+    __data_start__ = .;
+    *(.data*)
+   } > ted AT > bob
+   __data_end__ = .;
+   __data_size__ = __data_end__ - __data_start__;
+   .bss  : {
+   __bss_start__ = .;
+   *(.bss*)
+   } > ted
+   __bss_end__ = .;
+   __bss_size__ = __bss_end__ - __bss_start__;
+}
+
+
+to this
+
+MEMORY
+{
+    bob : ORIGIN = 0x8000, LENGTH = 0x1000
+    ted : ORIGIN = 0xA000, LENGTH = 0x1000
+}
+
+SECTIONS
+{
+   .text : { *(.text*) } > bob
+   .rodata : { *(.rodata*) } > bob
+   .bss : { *(.bss*) } > ted
+}
+
+and painfully simple startup code
+
+    mov sp,#0x8000
+    mov r0,pc
+    bl notmain
+
+yes there is a cost.  Some of those initializations that are not in
+.text can take up more room than they used to.  Worst case for these
+32 bit or smaller variables is you have one instruction that gets the
+value from .text, one instruction that gets the address for it in ram,
+an instruction that writes the value to ram.  Plus a location in .text
+to hold the address in ram for that variable and a location to hold
+the constant we want to write to it, kind of like this
+
+    1010:   e59f503c    ldr r5, [pc, #60]   ; 1054 <fun+0x48>
+    1014:   e59f403c    ldr r4, [pc, #60]   ; 1058 <fun+0x4c>
+    1018:   e3a03000    mov r3, #0
+    101c:   e5853000    str r3, [r5]
+    1020:   e3a03007    mov r3, #7
+    1024:   e5843000    str r3, [r4]
+
+    1054:   00002004    andeq   r2, r0, r4
+    1058:   00002000    andeq   r2, r0, r0
+
+because this example used small variables the mov r3,#0 for example was
+capable of holding the constant in the instruction encoding itself.
+Same for the #7 but had it been some other number say z = 0x1234;
+
+    1010:   e59f503c    ldr r5, [pc, #60]   ; 1054 <fun+0x48>
+    1014:   e3a03000    mov r3, #0
+    1018:   e59f4038    ldr r4, [pc, #56]   ; 1058 <fun+0x4c>
+    101c:   e5853000    str r3, [r5]
+    1020:   e59f3034    ldr r3, [pc, #52]   ; 105c <fun+0x50>
+    1024:   e5843000    str r3, [r4]
+
+    1054:   00002004    andeq   r2, r0, r4
+    1058:   00002000    andeq   r2, r0, r0
+    105c:   00001234    andeq   r1, r0, r4, lsr r2
+
+For this particular processor family, other processors like x86 manage
+constants differently...
+
+Now the two locations in .text for example
+
+    1054:   00002004    andeq   r2, r0, r4
+    1058:   00002000    andeq   r2, r0, r0
+
+Are not additional costs because those would have been used by the code
+that reads the variables as well (I have .bss and .data separate here)
+
+
+    101c:   e59f3020    ldr r3, [pc, #32]   ; 1044 <fun+0x38>
+    1020:   e5930000    ldr r0, [r3]
+    1024:   ebfffff7    bl  1008 <fun2>
+
+    1028:   e59f3018    ldr r3, [pc, #24]   ; 1048 <fun+0x3c>
+    102c:   e5930000    ldr r0, [r3]
+    1030:   ebfffff4    bl  1008 <fun2>
+
+
+    1044:   00002000    andeq   r2, r0, r0
+    1048:   00004000    andeq   r4, r0, r0
+
+The point here is that the address to each of these variables still took
+up the same amount of .text space.  What we didnt have when we used
+a .data and assumed .bss was zeroed for us, is the code to initialize
+each variable one at a time.  there would have been a small loop for .bss
+and a small loop for .data, if .bss and/or .data were of any decent size
+then there is a lot less waste.
+
+Another thing that may be gnawing at you is that this whole thing is
+about global variables.  Raise your hand if you use global variables.
+Many folks go out of their way not to.  I happen to use them from time
+to time, used to always and only use them.  But now it is a bit of
+a mixture.  Local variables you have to initialize inline one at a time
+and that is as costly as the solution I am proposing, so you are already
+likely programming using that one at a time solution.  So you are already
+in tune with my solution to this .bss and .data problem.
+
+The most important thing though is when you use local variables and
+do those initializations locally, and manage the size of your functions.
+The optimizer (if you use it) will remove a lot of this extra code and
+memory.
+
+for example:
+
+unsigned int fun2 ( unsigned int );
+const unsigned int x=2;
+unsigned int y;
+unsigned int z=7;
+void fun ( unsigned int a )
+{
+    unsigned int n;
+
+    n=5;
+    fun2(a);
+    fun2(x);
+    fun2(y);
+    fun2(z);
+    fun2(n);
+}
+
+the variable x is a read-only variable.  variable n is local and only
+used to feed the fun2() function.
+
+    1014:   e3a00002    mov r0, #2
+    1018:   ebfffffa    bl  1008 <fun2>
+
+    1034:   e3a00005    mov r0, #5
+    1038:   ebfffff2    bl  1008 <fun2>
+
+The compiler did not waste the .text space and clock cycles to fetch
+x from rom, it simply encoded it inline.  Likewise the local variable
+n did not consume stack space, there was no stack frame created at all
+in fact, the value was encoded directly in the instruciton as well.
+When you use globals you can see that it has to get the address then
+read the contents of that address then it can do something with your
+variable.  If you change the variable it can go through those steps
+to save the variable.
+
+
+This whole example and lengthy README is here to hopefully help you
+to realize when you take one of my examples:
+
+unsigned int fun2 ( unsigned int );
+const unsigned int x=2;
+unsigned int y;
+unsigned int z;
+void fun ( unsigned int a )
+{
+    unsigned int n;
+
+    y=0;
+    z=2;
+    n=5;
+    fun2(a);
+    fun2(x);
+    fun2(y);
+    fun2(z);
+    fun2(n);
+}
+
+And start adding things or changing things:
+
+
+unsigned int fun2 ( unsigned int );
+const unsigned int x=2;
+unsigned int y;
+unsigned int z;
+unsigned int m=12;
+void fun ( unsigned int a )
+{
+    unsigned int n;
+
+    y=0;
+    z=2;
+    n=5;
+    fun2(a);
+    fun2(x);
+    fun2(y);
+    fun2(z);
+    fun2(n);
+    fun2(m);
+}
+
+And then spend a sleepless night or weekend struggling to understand
+why m is not 12 when used in the code...Well now you know.  And now
+you know why I dont do it (not all the reasons but some), you are
+welcome to do your own thing.  And now you know what my statement in
+the top level readme is all about.
+

@@ -1,0 +1,24 @@
+
+MEMORY
+{
+    bob : ORIGIN = 0x8000, LENGTH = 0x1000
+    ted : ORIGIN = 0xA000, LENGTH = 0x1000
+}
+
+SECTIONS
+{
+   .text : { *(.text*) } > bob
+   __data_rom_start__ = .;
+   .data : {
+    __data_start__ = .;
+    *(.data*)
+   } > ted AT > bob
+   __data_end__ = .;
+   __data_size__ = __data_end__ - __data_start__;
+   .bss  : {
+   __bss_start__ = .;
+   *(.bss*)
+   } > ted
+   __bss_end__ = .;
+   __bss_size__ = __bss_end__ - __bss_start__;
+}
