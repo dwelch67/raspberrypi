@@ -1,0 +1,46 @@
+
+See the top level README file for more information on documentation
+and how to run these programs.
+
+Derived from bootloader03, this is a very simple bootloader.  Instead
+of the sd dance (see toplevel README), this makes life a bit simpler
+and greatly reduces physical wear and tear on the sd card socket.  Do
+the sd card dance one more time with kernel.img.  Get some sort of serial
+solution to connect a dumb termial program with xmodem capabilities
+to the uart on the raspberry pi. (see the toplevel README for more
+information).
+
+The difference between bootloader03 and bootloader05 is very subtle,
+first I dont like the config.txt thing and didnt want bootloader04 to
+be the biggest numbered bootloader.  Second I use minicom and lrzsz
+as a dumb terminal and for xmodem transfers, there is a delay as
+lrzsz is ending and returning back to minicom so there is a delay.
+Bootloader05 has a loop that prints some numbers before it branches
+to the downloaded program.
+
+You take the .bin file of your test program, assumed to be built based
+on address 0x8000 and less than 0x200000-0x8000 bytes in size.
+
+With uart connected to a terminal
+1) power off raspberry pi
+2) power on raspberry pi
+3) use xmodem to transfer binary file
+Repeat for each new program to test
+
+This bootloader sits at 0x200000 so that you have 0x200000 bytes to
+develop with.  And that way if you like your program you can just
+copy a .bin version to kernel.img on the sd card and use it.  Fairly
+easy to change this address.  bootloader05.c and vectors.s each have
+a copy of this value.  bootloader04 uses a rasberry pi specific
+config file to move much deeper in memory giving you much more room
+if you want more room use that bootloader.
+
+bootloader01 uses .hex files, bootloader02 through bootloader05 use .bin
+files, .hex files wont work.  Consider bootloader01 and 02 to be
+obsolete.
+
+I normally do not deliver binaries.  In this case I have included all
+of the build files so that you can at least get started without having
+to build the bootloader.  Backup whatever kernel.img file you are using
+and replace with the kernel.img file in this repo (on your sd card).
+
