@@ -83,7 +83,7 @@ Disassembly of section .text:
   2000bc:	e59f0010 	ldr	r0, [pc, #16]	; 2000d4 <uart_flush+0x1c>
   2000c0:	ebffffd7 	bl	200024 <GET32>
   2000c4:	e3100c01 	tst	r0, #256	; 0x100
-  2000c8:	0afffffb 	beq	2000bc <uart_flush+0x4>
+  2000c8:	1afffffb 	bne	2000bc <uart_flush+0x4>
   2000cc:	e8bd4008 	pop	{r3, lr}
   2000d0:	e12fff1e 	bx	lr
   2000d4:	20215054 	eorcs	r5, r1, r4, asr r0

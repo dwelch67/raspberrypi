@@ -61,7 +61,7 @@ void uart_flush ( void )
 {
     while(1)
     {
-        if(GET32(AUX_MU_LSR_REG)&0x100) break;
+        if((GET32(AUX_MU_LSR_REG)&0x100)==0) break;
     }
 }
 //------------------------------------------------------------------------
