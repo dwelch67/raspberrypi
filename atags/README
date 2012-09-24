@@ -1,0 +1,8 @@
+
+See the top level README file for more information on documentation
+and how to run these programs.
+
+Derived from bootloader05.  This is to demonstrate the contents of the
+r0, r1, and r2 registers when kernel.img is entered...
+
+
