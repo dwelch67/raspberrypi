@@ -708,3 +708,145 @@ you know why I dont do it (not all the reasons but some), you are
 welcome to do your own thing.  And now you know what my statement in
 the top level readme is all about.
 
+
+UPDATE:
+
+Since the ARM runs completely out of ram on the raspberry pi and usually
+there is no reason to split the different segments around we can pack
+them all up, here is a simple solution for this platform.
+
+bootstrap.s
+
+.globl _start
+_start:
+    mov sp,#0x00010000
+    bl notmain
+hang: b hang
+
+notmain.c
+
+const unsigned int readonly=7;
+unsigned int dotdata=9;
+unsigned int dotbss[16];
+void notmain ( void )
+{
+    dotbss[3]+=readonly;
+}
+
+lscript
+
+MEMORY
+{
+    ram : ORIGIN = 0x8000, LENGTH = 0x18000
+}
+
+SECTIONS
+{
+    .text : { *(.text*) } > ram
+    .bss : { *(.bss*) } > ram
+    .rodata : { *(.rodata*) } > ram
+    .data : { *(.data*) } > ram
+}
+
+> arm-none-eabi-as bootstrap.s -o bootstrap.o
+> arm-none-eabi-gcc -O2 -c notmain.c -o notmain.o
+> arm-none-eabi-ld -T lscript bootstrap.o notmain.o -o hello.elf
+> arm-none-eabi-objdump -D hello.elf
+
+hello.elf:     file format elf32-littlearm
+
+
+Disassembly of section .text:
+
+00008000 <_start>:
+    8000:   e3a0d801    mov sp, #65536  ; 0x10000
+    8004:   eb000000    bl  800c <notmain>
+
+00008008 <hang>:
+    8008:   eafffffe    b   8008 <hang>
+
+0000800c <notmain>:
+    800c:   e59f300c    ldr r3, [pc, #12]   ; 8020 <notmain+0x14>
+    8010:   e593200c    ldr r2, [r3, #12]
+    8014:   e2822007    add r2, r2, #7
+    8018:   e583200c    str r2, [r3, #12]
+    801c:   e12fff1e    bx  lr
+    8020:   00008024    andeq   r8, r0, r4, lsr #32
+
+Disassembly of section .bss:
+
+00008024 <dotbss>:
+    ...
+
+Disassembly of section .rodata:
+
+00008064 <readonly>:
+    8064:   00000007    andeq   r0, r0, r7
+
+Disassembly of section .data:
+
+00008068 <dotdata>:
+    8068:   00000009    andeq   r0, r0, r9
+
+
+> arm-none-eabi-objcopy hello.elf -O binary kernel.img
+> ls -al kernel.img
+-rwxr-xr-x 1 root root 108 Sep 23 20:47 kernel.img
+> hexdump -C kernel.img
+00000000  01 d8 a0 e3 00 00 00 eb  fe ff ff ea 0c 30 9f e5  |.............0..|
+00000010  0c 20 93 e5 07 20 82 e2  0c 20 83 e5 1e ff 2f e1  |. ... ... ..../.|
+00000020  24 80 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |$...............|
+00000030  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
+*
+00000060  00 00 00 00 07 00 00 00  09 00 00 00              |............|
+0000006c
+
+
+This:
+
+MEMORY
+{
+    ram : ORIGIN = 0x8000, LENGTH = 0x18000
+}
+
+SECTIONS
+{
+    .text : { *(.text*) } > ram
+    .bss : { *(.bss*) } > ram
+    .rodata : { *(.rodata*) } > ram
+    .data : { *(.data*) } > ram
+}
+
+Is not nearly as ugly as this:
+
+SECTIONS
+{
+   .text : { *(.text*) } > bob
+   __data_rom_start__ = .;
+   .data : {
+    __data_start__ = .;
+    *(.data*)
+   } > ted AT > bob
+   __data_end__ = .;
+   __data_size__ = __data_end__ - __data_start__;
+   .bss  : {
+   __bss_start__ = .;
+   *(.bss*)
+   } > bob
+   __bss_end__ = .;
+   __bss_size__ = __bss_end__ - __bss_start__;
+}
+
+Both are using compiler/linker tricks to reach a goal.  The less
+ugly one gives you everything you want, you get your .bss code already
+zeroed, you get .data where you can use it.   With that simpler
+linker script "all you have to do is" make sure that you have at least
+one .data item or .rodata item so that objcopy is forced to place them
+after .bss in the image and forced to pad .bss with zeros in the image
+in order to place .data and/or .rodata in the right place.
+
+You can use this on the Raspberry Pi and it will work just fine, on other
+embedded platforms where you have novolatile memory (rom/flash) for
+booting the code and a separate place for ram and you want to keep your
+code in rom and data in ram, you have to use the more ugly solutions or
+do as I do and simply dont have .data and dont care if .bss is zeroed.
