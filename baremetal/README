@@ -1947,13 +1947,627 @@ much faster than ARM mode on that platform.  That platform is/was
 the Nintendo Gameboy Advance.
 
 There are very specific rules for switching modes between the two modes.
-Specifically you have to use the bx instruction.
+Specifically you have to use the bx instruction.  When you use
+the bx instruction the least significant bit of the address in the
+register you are using determines if the mode you switching to as
+you branch is arm mode or thumb mode.  Arm mode the bit is zero,
+thumb mode the bit is a 1.  This may not be obvious and the ARM
+documents are a little misleading or incorrect as to what valid
+bits you can have in that register.  Note that that lower bit
+is stripped off it is only used by the bx instruction itself the
+address in the program counter always has the lower two bits zero
+for ARM mode (4 byte instructions) and the lower bit zero for
+thumb instructions (2 or 4 byte instructions).
+
+Here again the goal is not to teach assembly but you may want to
+get the ARM Architectural Reference Manual for this platform
+(see the top level README file) so that you can look at the
+ARM and thumb instructions as well as other things that describe at
+least in part what I am talking about.  For example this flavor of
+ARM boots in a normal ARM way meaning the exception table is filled
+with 32 bit ARM instructions that get executed.  address 0x00000000
+contains the instruction executed on reset, 0x00000004 some other
+exception and so on, one for interrupt one for fast interrupt one
+for data abort, one for prefetch abort, etc.  At least the traditional
+ARM exception table, in recent years both the Cortex-M which is different
+and the ARM exception table are seeing changes from the past.  Anyway,
+I bring this up because it is important to know that in this case all
+exceptions are entered in ARM mode, even if you were in thumb mode
+when you were interrupted or otherwise had an exception.  The cpsr
+contains a T bit which is the mode bit, when you return from the
+interrupt or exception the cpsr is restored along with your
+program counter and you return to the mode you were in.  This is the
+exception to the rule that you use bx to change modes (actually there
+is a blx instruction as well but I rarely if ever see it used).
+
+So the arm is going to come out of reset in arm mode and whatever
+mechanism (I can guess) that the Raspberry Pi uses to have our code
+at 0x8000 run we start running our code in full 32 bit ARM mode.
+
+You probably know that the C language has somewhat of a standard
+every so often that standard is re-written and if you want to make a
+C compiler that conforms to that standard...well you conform or at
+least try.  Assembly language in general does not have a standard.
+A company designs a chip, which means they create an instruction set,
+binary machine code instructions, and generally they create an
+assembly language so that they can write down and talk about those
+instructions without going insane with confusing and/or pain.  And
+not always but often if that company actually wants to sell those
+processors they create or hire someone to create an assembler and
+a compiler or few.  Assembly language, like C language, has
+directives that are not actually code like #pragma in C for example
+you are using that to talk to the compiler not using it as code
+necessarily.  Assembly has those as well, many of them.  The vendor
+will often at a minimum use the syntax for the assembly language
+instructions in the manual they create or have someone create to
+provide to users of this processor they want to sell and if smart
+will have the assembler match that manual.  But that manual although
+you might consider it a standard, is not, the machine code is the
+hard and fast standard, the ascii assembly language is fair game and
+anyone can create their own assembly language for that processor
+with whatever syntax and directives that they want.  ARM has a nice
+set of compiler tools, or at least when I worked at a place that paid
+for the tools for a few years and tried them they were very nice and
+conformed of course to the arm documents.  Gnu assembler, in true
+gnu assembler fashion does not like to conform to the vendors assembly
+language and generally makes some sort of a mess out of it.  fortunately
+the arm mess is nowhere near as bad as the x86 mess.  Subtle things
+like the comment symbol are the most glaring problems with gnu assembler
+for arm.  Anyway, I dont remember the syntax or directives for the
+arm tools, the arm tools have evolved anyway.  At the time I did try
+to write asm that would compile on both ARMs tools and gnus tools with
+minimal massaging, and you will forever see me use ;@ for comments instead
+of @ because this ; is the proper, almost universal, symbol for a comment
+in assembly languages from many vendors.  This @ is not.  combined like
+this ;@ and you get code that is commented in both worlds equally.  Enough
+with that rant, this asm code will continue to be gnu assembler specific
+I dont know if it works on any other assembler.
+
+There are games you need to play with assembly language directives
+using the gnu assembler in order to get the tool to properly create
+thumb address for use with the bx instruction so you dont have to
+be silly and add one or or one to the address before you use it.
+
+So our normal ARM boostrap code:
+
+.globl _start
+_start:
+    mov sp,#0x00010000
+    bl notmain
+hang: b hang
+
+For running in thumb mode I recommend going all the way, run everything
+you can in thumb.  We have to have some bootstrap in ARM mode, but after
+that it makes your life easier from a compiling and linking perspective
+to go all thumb after the bootstrap.  lets dive in.
+
+bootstrap.s
+
+
+.code 32
+.globl _start
+_start:
+    mov sp,#0x00010000
+    ldr r0,thumbstart_add
+    bx r0
+
+thumbstart_add: .word thumbstart
+
+;@ ----- arm above, thumb below
+.thumb
+
+.thumb_func
+thumbstart:
+    bl notmain
+hang: b hang
+
+
+notmain.c
+
+void notmain ( void )
+{
+}
+
+lscript
+
+MEMORY
+{
+    ram : ORIGIN = 0x8000, LENGTH = 0x18000
+}
+
+SECTIONS
+{
+    .text : { *(.text*) } > ram
+    .bss : { *(.bss*) } > ram
+    .rodata : { *(.rodata*) } > ram
+    .data : { *(.data*) } > ram
+}
 
 
 
+baremetal > arm-none-eabi-as bootstrap.s -o bootstrap.o
+
+
+baremetal > arm-none-eabi-gcc -mthumb -O2 -c notmain.c -o notmain.o
+baremetal > arm-none-eabi-ld -T lscript bootstrap.o notmain.o -o hello.elf
+baremetal > arm-none-eabi-objdump -D hello.elf
+
+hello.elf:     file format elf32-littlearm
+
+
+Disassembly of section .text:
+
+00008000 <_start>:
+    8000:   e3a0d801    mov sp, #65536  ; 0x10000
+    8004:   e59f0000    ldr r0, [pc]    ; 800c <thumbstart_add>
+    8008:   e12fff10    bx  r0
+
+0000800c <thumbstart_add>:
+    800c:   00008011    andeq   r8, r0, r1, lsl r0
+
+00008010 <thumbstart>:
+    8010:   f000 f802   bl  8018 <notmain>
+
+00008014 <hang>:
+    8014:   e7fe        b.n 8014 <hang>
+    8016:   46c0        nop         ; (mov r8, r8)
+
+00008018 <notmain>:
+    8018:   4770        bx  lr
+    801a:   46c0        nop         ; (mov r8, r8)
+
+
+So we see the arm instructions mov sp, ldr r0, and bx r0.  These
+are 32 bit instructions and most of them start with an E which makes
+them kind of stand out in a crowd.  The .code 32 directive tells
+the assembler to assemble the following code using 32 bit arm
+instructions or at least until I tell you otherwise.  the .thumb
+directive is me telling the assembler otherwise.  Start assembling
+using 16 bit thumb instructions.  yes the bl is actually two 16
+bit instructions, at least I can make an argument to defend that,
+I have no actual knowledge of how ARM did or does decode those, I
+just know how I would do it (and have done it in my thumb simulator).
+
+the .thumb_func is used to tell the assembler that the label
+that follows is an entry point for thumb code, when you see this
+label set the lsbit so that I dont have to play any games to switch
+or stay in the right mode.  You can see that the thumbstart label
+is at address 0x8010, but the thumb_start add is 0x8011, the thumbstart
+address with the lsbit set, so that when it hits the bx instruction
+it tells the processor that we want to be in thumb mode.  Note that
+bx is used even if you are staying in the same mode, that is the key
+to it, if you have used the proper address you dont care what
+mode you are branching to.  You can write code that calls functions
+and the code making the call can be thumb mode and the code you are
+calling can be arm mode and so long as the compiler and/or you has
+not messed up, it will properly switch back and forth.  Problem is
+the compiler doesnt always get it right.  You may see or hear
+the word interwork or thumb interwork (command line options for the
+compiler/tools) which puts extra stuff in there to hopefully have
+it all work out.  I prefer as you know to use few/now gcclib or
+clib canned functions (which can be in the wrong mode depending on
+your tools and how lucky you are when linking) and I prefer other
+than the asm startup code to remain as thumb pure as possible to minimize
+any of these problems.  this part of the tutorial of course is
+not necessarily about staying thumb pure but showing the problems or
+at least possible problems you will no doubt see when trying to use
+thumb mode.
+
+So the simple program above all worked out fine, by remembering to
+place the .thumb_func directive before the label we told the assembler
+to compute the right address, what if we forgot?
+
+
+.code 32
+.globl _start
+_start:
+    mov sp,#0x00010000
+    ldr r0,thumbstart_add
+    bx r0
+
+thumbstart_add: .word thumbstart
+
+;@ ----- arm above, thumb below
+.thumb
+
+thumbstart:
+    bl notmain
+hang: b hang
+
+
+baremetal > arm-none-eabi-as bootstrap.s -o bootstrap.o
+baremetal > arm-none-eabi-ld -T lscript bootstrap.o notmain.o -o hello.elf
+baremetal > arm-none-eabi-objdump -D hello.elf
+
+hello.elf:     file format elf32-littlearm
+
+
+Disassembly of section .text:
+
+00008000 <_start>:
+    8000:   e3a0d801    mov sp, #65536  ; 0x10000
+    8004:   e59f0000    ldr r0, [pc]    ; 800c <thumbstart_add>
+    8008:   e12fff10    bx  r0
+
+0000800c <thumbstart_add>:
+    800c:   00008010    andeq   r8, r0, r0, lsl r0
+
+00008010 <thumbstart>:
+    8010:   f000 f802   bl  8018 <notmain>
+
+00008014 <hang>:
+    8014:   e7fe        b.n 8014 <hang>
+    8016:   46c0        nop         ; (mov r8, r8)
+
+00008018 <notmain>:
+    8018:   4770        bx  lr
+    801a:   46c0        nop         ; (mov r8, r8)
+
+
+Not a single peep from the compiler tools and we have created perfectly
+broken code.  It is hard to see in the dump above if you dont know
+what to look for but it will make for a very long day or very expensive
+waste of time playing with thumb if you dont know what to look for.
+that little 0x8010 being loaded into r0 and then the bx r0 in arm mode
+is telling the processor to branch to address 0x8010 AND STAY IN ARM
+MODE.  But the instructions at 0x8010 and the ones that follow are
+thumb mode, they might line up with some sort of arm instruction
+and the arm may limp along executing gibberish, but at some point
+in a normal sized program it will hit a pair of thumb instructions
+whose binary pattern are not a valid arm instruction and the arm
+will fire off the undefined instruction exception.  One wee little
+bit is all the difference between success and massive failure in the
+above code.
+
+Now lets try mixing the modes and see what the tool does. I am running
+a somewhat cutting edge gcc and binutils as of this writing:
+
+baremetal > arm-none-eabi-gcc --version
+arm-none-eabi-gcc (GCC) 4.7.1
+Copyright (C) 2012 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+baremetal > arm-none-eabi-as --version
+GNU assembler (GNU Binutils) 2.22
+Copyright 2011 Free Software Foundation, Inc.
+This program is free software; you may redistribute it under the terms of
+the GNU General Public License version 3 or later.
+This program has absolutely no warranty.
+This assembler was configured for a target of `arm-none-eabi'.
+
+I have been using the gnu tools for arm since the 2.95.x days of gcc.
+starting with thumb in the 3.x.x days pretty much every version from
+then to the present.  And there have been good ones and bad ones as
+to how the mixing of modes is resolved.  I have to say these newer
+versions are doing a better job, but I know in recent months I did
+trip it up, will see if I can again.
+
+Fixing our bootstrap and not using the -mthumb option, builds arm code:
+
+baremetal > arm-none-eabi-gcc -O2 -c notmain.c -o notmain.o
+baremetal > arm-none-eabi-ld -T lscript bootstrap.o notmain.o -o hello.elf
+baremetal > arm-none-eabi-objdump -D hello.elf
+
+hello.elf:     file format elf32-littlearm
+
+
+Disassembly of section .text:
+
+00008000 <_start>:
+    8000:   e3a0d801    mov sp, #65536  ; 0x10000
+    8004:   e59f0000    ldr r0, [pc]    ; 800c <thumbstart_add>
+    8008:   e12fff10    bx  r0
+
+0000800c <thumbstart_add>:
+    800c:   00008011    andeq   r8, r0, r0, lsl r0
+
+00008010 <thumbstart>:
+    8010:   f000 f806   bl  8020 <__notmain_from_thumb>
+
+00008014 <hang>:
+    8014:   e7fe        b.n 8014 <hang>
+    8016:   46c0        nop         ; (mov r8, r8)
+
+00008018 <notmain>:
+    8018:   e12fff1e    bx  lr
+    801c:   00000000    andeq   r0, r0, r0
+
+00008020 <__notmain_from_thumb>:
+    8020:   4778        bx  pc
+    8022:   46c0        nop         ; (mov r8, r8)
+    8024:   eafffffb    b   8018 <notmain>
+
+
+very nicely handled.  after thumbstart they use a bl instruction
+as we had in the assemblly language code so that the link register
+is filled in not only with a return address but the return address
+with the lsbit set so that we return to the right mode with a bx lr
+instruction.  Instead of branching right to the arm code though
+which would not work you cannot use bl to switch modes, they
+branch to what I call a trampoline, when they hit
+__notmain_from_thumb the link register is prepped to return to address
+0x8014.  I am not teaching you assembly just how to see what is going
+on, but this next thing is advanced even for assembly programmers.
+In whichever mode the program counter points to two instructions ahead
+so in this case we are running instruction 0x8020 bx pc in thumb mode
+thumb mode is 2 bytes per instruction, two instructions ahead is the
+address 0x8024 and note that that address has a zero in the lsbit so
+this is a cool trick, the linker by adding these instructions at a
+four byte aligned address (lower two bits are zero) 0x8020 then doing
+a bx pc, and sticking a nop in between although I dont think it matters
+what is there.  The bx pc causes a switch to arm mode and a branch to
+address 0x8024, which being a trampoline to bounce off of, that instruction
+bounces us back to 0x8018 which is the ARM instruction we wanted
+to get to.  this is all good, this code will run properly.
+
+You may or may not know that compilers for a processor follow a "calling
+convention" or binary interface or whatever term you like.  It is a set
+of rules for generating the code for a function so that you can have
+functions call functions call functions and any function can
+return values and the code generated will all work without having to
+have some secret knowledge into the code for each function calling it.
+conform to the calling convention and the code will all work together.
+Now the conventions are not hard and fast rules any more than assembly
+language is a standard for any particular processor.  these things
+change from time to time in some cases.  For the arm, in general across
+the compilers I have used the first four registers r0,r1,r2,r3 are
+used for passing the first up to 16 bytes worth of parameters, r0 is
+used for returning things, etc.   I find it surprising how often
+I see someone who is trying to write a simple bit of assembly what
+the calling convention is for a particular processor using a particular
+compiler.  Most often gcc for example.  Well why dont you ask the
+compiler itself it will tell you, for example:
+
+unsigned int fun ( unsigned int a, unsigned int b )
+{
+    return((a>>1)+b);
+}
+
+
+baremetal > arm-none-eabi-gcc -O2 -c fun.c -o fun.o
+baremetal > arm-none-eabi-objdump -D fun.o
+
+fun.o:     file format elf32-littlearm
+
+
+Disassembly of section .text:
+
+00000000 <fun>:
+   0:   e08100a0    add r0, r1, r0, lsr #1
+   4:   e12fff1e    bx  lr
+
+So what did I just figure out?  Well if I had that function in C and
+used that compiler and linked in that object code it would work with
+other code created by that compiler, so that object code must follow
+the calling convention.  what I figured out is from that trivial experiment
+is that if I want to make a function in assembly code that uses two
+inputs and one output (unsigned 32 bits each) then the first parameter,
+a in this case, is passed in r0, the second is passed in r1, and the
+return value is in r0.  let me jump to a complete different processor
+for a second.
+
+
+Disassembly of section .text:
+
+00000000 <fun>:
+   0:   b8 63 00 41     l.srli r3,r3,0x1
+   4:   44 00 48 00     l.jr r9
+   8:   e1 64 18 00     l.add r11,r4,r3
+
+Call me twisted an evil toward you but, what I see here is that
+the first parameter is passed in register r3, the second parameter
+is passed in r4 and the return value goes back in r11.  and it just
+so happens that the link register is r9.
+
+Yes, it is true that I have not yet figured out what registers
+I can modify without preserving them and what registers I have to
+preserve, etc, etc.  You can figure that out with these simple experiements
+with practice.  Because sometimes you may think you have found the
+docment describing the calling convention only to find you have not.
+And as far as preservation, if in doubt preserve everything but the
+return registers...
+
+So if you have looked at my work you see that I prefer to perform
+singular memory accesses using hand written assembly routines like
+PUT32 and GET32.  Not going to say why here and now, I have mentioned
+it elsewhere and it doesnt matter for this discussion.  Moving on, lets
+do a quick thumb experiment:
+
+
+baremetal > arm-none-eabi-gcc -mthumb -O2 -c fun.c -o fun.o
+baremetal > arm-none-eabi-objdump -D fun.o
+
+fun.o:     file format elf32-littlearm
+
+
+Disassembly of section .text:
+
+00000000 <fun>:
+   0:   0840        lsrs    r0, r0, #1
+   2:   1808        adds    r0, r1, r0
+   4:   4770        bx  lr
+   6:   46c0        nop         ; (mov r8, r8)
+
+r0 is first paramter, r1 second, and return value is r0.
+
+So to create a PUT32 in thumb mode, since we already have some
+assembly in our project, lets just put it there:
+
+bootstrap.s
+
+.code 32
+.globl _start
+_start:
+    mov sp,#0x00010000
+    ldr r0,thumbstart_add
+    bx r0
+
+thumbstart_add: .word thumbstart
+
+;@ ----- arm above, thumb below
+.thumb
+
+.thumb_func
+thumbstart:
+    bl notmain
+hang: b hang
+
+.thumb_func
+.globl PUT32
+PUT32:
+    str r1,[r0]
+    bx lr
+
+
+And use it in notmain.c
+
+void PUT32 ( unsigned int, unsigned int );
+void notmain ( void )
+{
+    PUT32(0x0000B000,0x12345678);
+}
+
+And make notmain arm code
 
 
 
+baremetal > arm-none-eabi-as bootstrap.s -o bootstrap.o
+baremetal > arm-none-eabi-gcc -O2 -c notmain.c -o notmain.o
+baremetal > arm-none-eabi-ld -T lscript bootstrap.o notmain.o -o hello.elf
+baremetal > arm-none-eabi-objdump -D hello.elf
+
+hello.elf:     file format elf32-littlearm
+
+
+Disassembly of section .text:
+
+00008000 <_start>:
+    8000:   e3a0d801    mov sp, #65536  ; 0x10000
+    8004:   e59f0000    ldr r0, [pc]    ; 800c <thumbstart_add>
+    8008:   e12fff10    bx  r0
+
+0000800c <thumbstart_add>:
+    800c:   00008011    andeq   r8, r0, r1, lsl r0
+
+00008010 <thumbstart>:
+    8010:   f000 f818   bl  8044 <__notmain_from_thumb>
+
+00008014 <hang>:
+    8014:   e7fe        b.n 8014 <hang>
+
+00008016 <PUT32>:
+    8016:   6001        str r1, [r0, #0]
+    8018:   4770        bx  lr
+    801a:   46c0        nop         ; (mov r8, r8)
+
+0000801c <notmain>:
+    801c:   e92d4008    push    {r3, lr}
+    8020:   e3a00a0b    mov r0, #45056  ; 0xb000
+    8024:   e59f1008    ldr r1, [pc, #8]    ; 8034 <notmain+0x18>
+    8028:   eb000002    bl  8038 <__PUT32_from_arm>
+    802c:   e8bd4008    pop {r3, lr}
+    8030:   e12fff1e    bx  lr
+    8034:   12345678    eorsne  r5, r4, #125829120  ; 0x7800000
+
+00008038 <__PUT32_from_arm>:
+    8038:   e59fc000    ldr ip, [pc]    ; 8040 <__PUT32_from_arm+0x8>
+    803c:   e12fff1c    bx  ip
+    8040:   00008017    andeq   r8, r0, r7, lsl r0
+
+00008044 <__notmain_from_thumb>:
+    8044:   4778        bx  pc
+    8046:   46c0        nop         ; (mov r8, r8)
+    8048:   eafffff3    b   801c <notmain>
+    804c:   00000000    andeq   r0, r0, r0
+
+So we start in arm, use 0x8011 to swich to thumb mode at address 0x8010
+trampoline off to get to 0x801C entering notmain in arm mode.  and we
+branch link to another trampoline.  this one is not complicated as
+we did this ourselves right after _start.  load a register with
+the address orred with one.  0x8017 fed to bx means switch to thumb
+mode and branch to 0x8016 which is our put32 in thumb mode.
+
+lets go the other way, put32 in arm mode called from thumb code
+
+
+baremetal > arm-none-eabi-as bootstrap.s -o bootstrap.o
+baremetal > arm-none-eabi-gcc -mthumb  -O2 -c notmain.c -o notmain.o
+baremetal > arm-none-eabi-ld -T lscript bootstrap.o notmain.o -o hello.elf
+baremetal > arm-none-eabi-objdump -D hello.elf
+
+hello.elf:     file format elf32-littlearm
+
+
+Disassembly of section .text:
+
+00008000 <_start>:
+    8000:   e3a0d801    mov sp, #65536  ; 0x10000
+    8004:   e59f0000    ldr r0, [pc]    ; 800c <thumbstart_add>
+    8008:   e12fff10    bx  r0
+
+0000800c <thumbstart_add>:
+    800c:   00008019    andeq   r8, r0, r9, lsl r0
+
+00008010 <PUT32>:
+    8010:   e5801000    str r1, [r0]
+    8014:   e12fff1e    bx  lr
+
+00008018 <thumbstart>:
+    8018:   f000 f802   bl  8020 <notmain>
+
+0000801c <hang>:
+    801c:   e7fe        b.n 801c <hang>
+    801e:   46c0        nop         ; (mov r8, r8)
+
+00008020 <notmain>:
+    8020:   b508        push    {r3, lr}
+    8022:   20b0        movs    r0, #176    ; 0xb0
+    8024:   0200        lsls    r0, r0, #8
+    8026:   4903        ldr r1, [pc, #12]   ; (8034 <notmain+0x14>)
+    8028:   f7ff fff2   bl  8010 <PUT32>
+    802c:   bc08        pop {r3}
+    802e:   bc01        pop {r0}
+    8030:   4700        bx  r0
+    8032:   46c0        nop         ; (mov r8, r8)
+    8034:   12345678    eorsne  r5, r4, #125829120  ; 0x7800000
+
+
+And we did it, this code is broken and will not work.  Can you see
+the problem?  PUT32 is in ARM mode at address 0x8010.  Notmain is
+thumb code.  You cannot use a branch link to get to arm mode from
+thumb mode you have to use bx (or blx).  the bl 0x8010 will start
+executing the code at 0x8010 as if it were thumb instructions, and
+you might get lucky in this case and survive long enogh to run
+into the thumbstart code which in this case puts you right back into
+notmain sending you into an infinite loop.  One might hope that at
+least the arm machine code at 0x8010 is not valid thumb machine code
+and will cause an undefined instruction exception which if you bothered
+to make an exception handler for you might start to see why the
+code doesnt work.
+
+it was very easy to fall into this trap, and very very hard to find
+out where and why the failure is until you have lived the pain or been
+shown where to look.  Even with me showing you where to look you may
+still end up spending hours or days on this.  But as you do know
+as an experienced programmer each time you spend hours or days on
+some bug, you learn from that experience and the next time you
+are much faster at recognizing the problem and where to look.  If you
+happen to get bitten a few times you should get very fast at finding
+the problem.
+
+This is another one of my personal preferences when all tied together
+reduce this error.  When using thumb mode on an arm booting system
+I use the minimal arm code to get into thumb mode in the bootstrap
+code.  Everywhere else I stay in thumb mode as far as I know.  it
+is pretty easy to scan through a disassembly and spot the wider
+instructions that are arm mode to see if the linker or tools or a
+mistake in your makefile caused arm code to enter your thumb only
+world.  Staying arm only or thumb only the tools do a good job and
+dont surprise you.  If I have a reason to use arm code I am very
+careful to make sure the thumb call to arm is implemented properly
+or I may go so far as to make my own thumb to arm trampoline in assembly
+so the compiler doesnt have to figure it out or wont screw it up.
 
 
 
