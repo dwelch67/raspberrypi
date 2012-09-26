@@ -2556,18 +2556,95 @@ are much faster at recognizing the problem and where to look.  If you
 happen to get bitten a few times you should get very fast at finding
 the problem.
 
-This is another one of my personal preferences when all tied together
-reduce this error.  When using thumb mode on an arm booting system
-I use the minimal arm code to get into thumb mode in the bootstrap
-code.  Everywhere else I stay in thumb mode as far as I know.  it
-is pretty easy to scan through a disassembly and spot the wider
-instructions that are arm mode to see if the linker or tools or a
-mistake in your makefile caused arm code to enter your thumb only
-world.  Staying arm only or thumb only the tools do a good job and
-dont surprise you.  If I have a reason to use arm code I am very
-careful to make sure the thumb call to arm is implemented properly
-or I may go so far as to make my own thumb to arm trampoline in assembly
-so the compiler doesnt have to figure it out or wont screw it up.
+If I add this
+
+notmain.c
+
+extern unsigned int fun ( unsigned int, unsigned int );
+extern void PUT32 ( unsigned int, unsigned int );
+void notmain ( void )
+{
+    fun(123,456);
+    PUT32(0x0000B000,0x12345678);
+}
+
+and this
+
+
+unsigned int fun ( unsigned int a, unsigned int b )
+{
+    return((a>>1)+b);
+}
+
+
+dwelch-desktop baremetal # arm-none-eabi-gcc -O2 -c fun.c -o fun.o
+dwelch-desktop baremetal # arm-none-eabi-ld -T lscript bootstrap.o notmain.o fun.o -o hello.elf
+dwelch-desktop baremetal # arm-none-eabi-objdump -D hello.elf
+
+hello.elf:     file format elf32-littlearm
+
+
+Disassembly of section .text:
+
+00008000 <_start>:
+    8000:   e3a0d801    mov sp, #65536  ; 0x10000
+    8004:   e59f0000    ldr r0, [pc]    ; 800c <thumbstart_add>
+    8008:   e12fff10    bx  r0
+
+0000800c <thumbstart_add>:
+    800c:   00008019    andeq   r8, r0, r9, lsl r0
+
+00008010 <PUT32>:
+    8010:   e5801000    str r1, [r0]
+    8014:   e12fff1e    bx  lr
+
+00008018 <thumbstart>:
+    8018:   f000 f802   bl  8020 <notmain>
+
+0000801c <hang>:
+    801c:   e7fe        b.n 801c <hang>
+    801e:   46c0        nop         ; (mov r8, r8)
+
+00008020 <notmain>:
+    8020:   b508        push    {r3, lr}
+    8022:   21e4        movs    r1, #228    ; 0xe4
+    8024:   0049        lsls    r1, r1, #1
+    8026:   207b        movs    r0, #123    ; 0x7b
+    8028:   f000 f80e   bl  8048 <__fun_from_thumb>
+    802c:   20b0        movs    r0, #176    ; 0xb0
+    802e:   0200        lsls    r0, r0, #8
+    8030:   4902        ldr r1, [pc, #8]    ; (803c <notmain+0x1c>)
+    8032:   f7ff ffed   bl  8010 <PUT32>
+    8036:   bc08        pop {r3}
+    8038:   bc01        pop {r0}
+    803a:   4700        bx  r0
+    803c:   12345678    eorsne  r5, r4, #125829120  ; 0x7800000
+
+00008040 <fun>:
+    8040:   e08100a0    add r0, r1, r0, lsr #1
+    8044:   e12fff1e    bx  lr
+
+00008048 <__fun_from_thumb>:
+    8048:   4778        bx  pc
+    804a:   46c0        nop         ; (mov r8, r8)
+    804c:   eafffffb    b   8040 <fun>
+
+fun() which is in arm mode, when called from notmain() which is thumb
+mode is handled properly.  So there is something there that tells the
+linker that fun is arm and needs a mode change.
+
+When we use .thumb_func for thumb functions in assembly that triggers
+the linker to do the right thing.  I wonder if there is something
+in arm functions in assembly that we can use to do the same thing.
+
+This is another one of my personal preferences:  when using thumb mode
+on an arm booting system I use the minimal arm code to get into thumb
+mode in the bootstrap code then everywhere else I stay in thumb mode
+as far as I know.  If there is a time where I need ARM mode then I
+am careful to see if the tools changed mode properly or I may do my
+own mode change the tools dont have to get it right.
+
+
 
 
 
