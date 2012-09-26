@@ -203,3 +203,12 @@ follow the discovery of the chip into uart01, etc.  You will need some
 sort of cross compiler (well maybe a native compiler on a raspberry pi
 or other arm system).  See the build_gcc directory if you cant get
 the LITE version from codesourcery.com (now mentor graphics).
+
+UPDATE: I added the baremetal directory, it has a tutorial on one
+aspect of the things you need to master to do bare metal programming.
+
+UPDATE: I added the pitopi directory (pi to pi).  If you have two
+Raspberry Pi boards, instead of buying one of the usb to serial or
+other solutions above you can use one Raspberry Pi as the development
+platform which already has a uart at the right line levels, and the
+other Raspberry Pi for running the bare metal programs.
