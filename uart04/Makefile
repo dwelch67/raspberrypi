@@ -3,7 +3,7 @@ ARMGNU ?= arm-none-eabi
 
 COPS = -Wall -O2 -nostdlib -nostartfiles -ffreestanding 
 
-gcc : uart02.hex uart02.bin
+gcc : uart04.hex uart04.bin
 
 all : gcc clang
 
@@ -20,18 +20,18 @@ clean :
 vectors.o : vectors.s
 	$(ARMGNU)-as vectors.s -o vectors.o
 
-uart02.o : uart02.c
-	$(ARMGNU)-gcc $(COPS) -c uart02.c -o uart02.o
+uart04.o : uart04.c
+	$(ARMGNU)-gcc $(COPS) -c uart04.c -o uart04.o
 
-uart02.elf : memmap vectors.o uart02.o 
-	$(ARMGNU)-ld vectors.o uart02.o -T memmap -o uart02.elf
-	$(ARMGNU)-objdump -D uart02.elf > uart02.list
+uart04.elf : memmap vectors.o uart04.o 
+	$(ARMGNU)-ld vectors.o uart04.o -T memmap -o uart04.elf
+	$(ARMGNU)-objdump -D uart04.elf > uart04.list
 
-uart02.bin : uart02.elf
-	$(ARMGNU)-objcopy uart02.elf -O binary uart02.bin
+uart04.bin : uart04.elf
+	$(ARMGNU)-objcopy uart04.elf -O binary uart04.bin
 
-uart02.hex : uart02.elf
-	$(ARMGNU)-objcopy uart02.elf -O ihex uart02.hex
+uart04.hex : uart04.elf
+	$(ARMGNU)-objcopy uart04.elf -O ihex uart04.hex
 
 
 
@@ -46,24 +46,24 @@ LLCOPS1 = -march=arm -mcpu=arm1176jzf-s
 COPS = -Wall  -O2 -nostdlib -nostartfiles -ffreestanding
 OOPS = -std-compile-opts
 
-clang : uart02.clang.hex uart02.clang.bin
+clang : uart04.clang.hex uart04.clang.bin
 
 
-uart02.clang.bc : uart02.c
-	clang $(LOPS) -c uart02.c -o uart02.clang.bc
+uart04.clang.bc : uart04.c
+	clang $(LOPS) -c uart04.c -o uart04.clang.bc
 
-uart02.clang.opt.elf : memmap vectors.o uart02.clang.bc
-	opt $(OOPS) uart02.clang.bc -o uart02.clang.opt.bc
-	llc $(LLCOPS) uart02.clang.opt.bc -o uart02.clang.opt.s
-	$(ARMGNU)-as uart02.clang.opt.s -o uart02.clang.opt.o
-	$(ARMGNU)-ld -o uart02.clang.opt.elf -T memmap vectors.o uart02.clang.opt.o
-	$(ARMGNU)-objdump -D uart02.clang.opt.elf > uart02.clang.opt.list
+uart04.clang.opt.elf : memmap vectors.o uart04.clang.bc
+	opt $(OOPS) uart04.clang.bc -o uart04.clang.opt.bc
+	llc $(LLCOPS) uart04.clang.opt.bc -o uart04.clang.opt.s
+	$(ARMGNU)-as uart04.clang.opt.s -o uart04.clang.opt.o
+	$(ARMGNU)-ld -o uart04.clang.opt.elf -T memmap vectors.o uart04.clang.opt.o
+	$(ARMGNU)-objdump -D uart04.clang.opt.elf > uart04.clang.opt.list
 
-uart02.clang.hex : uart02.clang.opt.elf
-	$(ARMGNU)-objcopy uart02.clang.opt.elf uart02.clang.hex -O ihex
+uart04.clang.hex : uart04.clang.opt.elf
+	$(ARMGNU)-objcopy uart04.clang.opt.elf uart04.clang.hex -O ihex
 
-uart02.clang.bin : uart02.clang.opt.elf
-	$(ARMGNU)-objcopy uart02.clang.opt.elf uart02.clang.bin -O binary
+uart04.clang.bin : uart04.clang.opt.elf
+	$(ARMGNU)-objcopy uart04.clang.opt.elf uart04.clang.bin -O binary
 
 
 
