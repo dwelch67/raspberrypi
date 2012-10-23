@@ -422,8 +422,9 @@ Get it wrong and no matter how bug free your code is it will not run and
 you will have a hard time figuring it out without looking at what the
 compiler and linker generated.  So the above code starts with a directive
 .globl, I think .global also works, both do the same thing, declare the
-label _start as global meaning it is visible to the linker.  In C everything
-is global unless you put the word static in front of it then it becomes
+label _start as global meaning it is visible to the linker.  In C
+everything (functions and non-local variables) is global unless you
+put the word static in front of it then it becomes
 local:
 
 static unsigned int apple;
