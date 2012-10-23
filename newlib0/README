@@ -1,0 +1,73 @@
+
+
+Somewhat threw this together.
+
+I have not tried newlib in a while, for a while there it was quite
+difficult to get a combination of binutils, gcc and newlib that would
+build crosscompiled.  Somewhat trivial now.
+
+went here
+
+ftp://sources.redhat.com/pub/newlib/index.html
+
+downloaded newlib-1.20.0.tar.gz
+
+untarred it
+
+since I already had a gnu toolchain I built using the scripts in my
+build_gcc that I built to /opt/gnuarm
+
+tar xzvf newlib-1.20.0.tar.gz
+cd newlib-1.20.0
+
+-- now here is my solution
+cd newlib/libc/sys/arm/
+mv syscalls.c syscalls.corig
+touch syscalls.c
+mv libcfunc.c libcfunc.corig
+touch libcfunc.c
+mv crt0.S crt0.Sorig
+touch crt0.S
+cd ../../../../
+-- should be back in the newlib-1.20.0 directory
+
+./configure --target=arm-none-eabi --prefix=/opt/gnuarm
+make
+make install
+
+what I would then do is go into syscalls and start pruning, make all
+the functions return whatever the proper flavor of success was.  to
+get printf to work you need isatty to return the right thing.  note
+I also have a functional malloc here by defining the beginning of my
+heap and doing trivial memory management.
+
+The way I used to do all of this is based on something I learned from
+others, before building gcc pull in the proper newlib directories
+and then build gcc with the right headers and newlib stuff and it
+would build it all into one nice package (when it worked) so you didnt
+have to specify lib paths.  Since I threw this together I had to specify
+the lib paths to things you will need to fix those paths for yours.
+
+The reason why I neutered the three files in newlib is it is a quick and
+easy way to allow the newlib makefile to continue without complaint but
+also to allow the project to own those system calls.  Since I run bare
+metal each project may want to do something different.  If this were an
+operating system use of newlib then I would consider one solution for
+everyone and have it built into the normal place.
+
+I had to fight the linker a little to get the right code in the right
+place.  Be careful to check your disassembly of your binary so that
+you know that your start code is at the beginning of your image not
+somewhere after crti or crtbegin or something like that.
+
+you should see
+
+...
+12345678
+0000800C
+Hello World!
+0x0000800C
+32780
+
+If it all works.  for now I will not leave binaries in the repo even
+though I expect this is a challenging build for many.
