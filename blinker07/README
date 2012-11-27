@@ -1,0 +1,304 @@
+
+See the top level README file for more information on documentation
+and how to run these programs.
+
+Derived from prior blinker examples and uart04, this is an example using
+the system timer interrupt.
+
+For starters perhaps the ARM should not be using these interrupts, they
+are only halfway documented.  As of this writing it appears that the
+gpu is using counter match 0 and 2, so cm1 and 3 are not being used.
+This example uses CM1.
+
+The documentation says that the status flag will assert when the lower
+half of the system timer matches the counter match register.   It also
+says that the software interrupt service routine should change the
+match register.  Basically software has to keep putting the counter match
+out in front of the timer.  If you want an interrupt every 1234 counts
+then each interrupt you need to add 1234 to the count match register,
+the hardware wont do it for you.  The manual says in one place that
+you write zero and read dont care, but elsewhere says that you write
+one to clear the status bits.  The write one to clear appears to be
+how it works.  So when the counter status match flag is set then we
+write a 1 to that bit location in that register (write a 2 to counter
+status to clear counter match 1).
+
+To figure out what interrupt line this was tied to, using some uart code
+so I could print stuff out and see it I enabled all interrupts, wrote
+0xFFFFFFFF to both interrupt enable registers.  Then read the current
+count, added 0x00400000 and wrote CM1 with that value.  Then went into
+an infinite loop printing the interrupt status registers.  By doing this
+both with CM1 and CM3 I figured out that irq 1 goes with CM1 and irq3 goes
+with CM3.
+
+The last bit of information required is how do you clear the interrupt.
+When writing the 1 to the counter status register to clear the match
+flag, that also clears the pending interrupt in the interrupt status
+register.
+
+This example demonstrates multiple things.  First it uses generic polling
+of the system timer to blink the led on and off three times.  Then it
+uses the counter match register and the status flag to time four on/off
+blink cycles.  The blink rate is twice the speed of the first three.
+Next it enables the interrupt in the interrupt controller, not to the ARM,
+not yet, just to the chips interrupt controller.  When enabled the interrupt
+line reflects the counter status match flag, so basically the next three
+blinks are done the same way as the prior four except it is sampling
+the match status using the interrupt controller status.  These blinks
+are slower than the prior four.  The last thing it does is enable the
+interrupt to the ARM.  And uses the interrupt to indicate the counter
+match hit.  The ARM code then computes a new counter match and waits
+for the next hit.  This loop happens to make the blink rate slower each
+time so you can perhaps tell you are in that loop.  Eventually the
+timer interval will be so large that it goes back to a small number
+and starts blinking faster then progressively slower.  This should take
+a long while to happen.
+
+You realy need to get the ARM ARM (ARM Architectural Reference Manual)
+for this architecture and or get the oldest architecture on their web
+site which is currently the ARMv5 ARM (it includes the ARMv4 as well,
+this is the original ARM ARM before it was split into multiple documents).
+In the ARM ARM it describes the exception process in more detail.
+
+The short answer is that starting at address 0x00000000 in ARM address
+space there are a number of exception vectors.  Unlike many other processors
+these are not addresses for the handers these are instructions that get
+executed.  Being one word in size, you probably want those to be
+branch instructions or ldr pc instructions.
+
+The way I am using the Raspberry Pi is letting the gpu load the arm
+program (kernel.img) at address 0x8000.  The gpu then puts an instruction
+at address zero (and some other stuff between 0x0000 and 0x8000 for linux)
+the lets the ARM boot.  I am not linux so dont care about the stuff between
+0x0000 and 0x8000.  I do need to change at least the memory location for
+the interrupt handler so that when the interrupt occurs the ARM executes
+my handler.
+
+Using basic ARM knowledge and letting the assembler and compiler do some
+of the work I create an exception table at 0x8000 in such a way that
+it can be copied to 0x0000 and still work.
+
+Looking at the beginning of vectors.s which for any of my programs to
+work need to be compiled and linked such that _start is at address 0x8000,
+the first thing in the .bin file.
+
+The assembly code uses .word to allocate 32 bit memory locations which
+will each hold an address to a handler.
+
+reset_handler:      .word reset
+
+reset_handler is the label.  .word means I want to allocate 32 bit items
+and reset is the name of another label.  The assembler does some of the
+work then the linker does the rest to determine what the final value
+of the reset labels ARM address is.  That address is placed in the binary
+in this allocated space.  Which can be seen in the disassembly:
+
+00008020 <reset_handler>:
+    8020:   00008040    andeq   r8, r0, r0, asr #32
+
+...
+
+00008040 <reset>:
+    8040:   e3a00902    mov r0, #32768  ; 0x8000
+
+
+Here is where the ARM knowledge, or at least more of it, comes in.
+Although the disassembly shows that the instruction is loading the
+value 0x8020 or 0x8040 or whatever.  The instruction is actually loading
+a pc relative address.  You can partially tell this from the disassembly
+[pc,#24] means pc value plus 24 (0x18), it doesnt mean 0x8020, etc.
+
+00008000 <_start>:
+    8000:   e59ff018    ldr pc, [pc, #24]   ; 8020 <reset_handler>
+    8004:   e59ff018    ldr pc, [pc, #24]   ; 8024 <undefined_handler>
+    8008:   e59ff018    ldr pc, [pc, #24]   ; 8028 <swi_handler>
+
+More ARM knowledge.  From a programmers perspective the PC is two
+instructions ahead.  You are in arm mode  when you hit these exceptions
+so the PC is 8 bytes ahead so at address 0x8000 the PC is 0x8008 when
+you execute that instruction add 24 (0x18) to the PC, 0x8008+0x18 = 0x8020
+and you get the address 0x8020.  the instructin is now ldr pc,[0x8020]
+Memory location 0x8020 holds the value 0x8040 which is what is loaded into
+the program counter and we begin executing at 0x8040 which is the reset
+handler, that is what we wanted.
+
+here is the tricky bit.  What if we copied both the reset handler stuff
+and the list of addresses, all of it, to address 0x0000?  (at runtime
+after all the compiling and linking were long over and we are running).
+
+Instead of the addresses being this:
+
+    8018:   e59ff018    ldr pc, [pc, #24]   ; 8038 <irq_handler>
+  ...
+00008038 <irq_handler>:
+    8038:   000080c4    andeq   r8, r0, r4, asr #1
+
+The copy of the data/instructions would now have these addresses:
+
+    0018:   e59ff018    ldr pc, [pc, #24]
+  ...
+00000038 <irq_handler>:
+    0038:   000080c4    andeq   r8, r0, r4, asr #1
+
+When the interrupt occurs the ARM runs the instruction at address 0x0018
+which says to take the value of the PC (two ahead remember so the pc is)
+0x20 add 24 (which is 0x18) giving 0x0038 as the address to read from.
+It reads 0x80C4 and loads that into the program counter so that the
+next instruction executed is the one at 0x80C4.  Which is where our
+interrupt handler really is.
+
+Basically this is some position independent code with some absolute
+addresses for the handlers, the address stuff is done by the assembler
+and linker so we dont have to.
+
+
+These instructions right after reset perform the copy of instructions and
+data from where our program was loaded and started (0x8000) to where we
+need the exception table (0x0000).
+
+    mov r0,#0x8000
+    mov r1,#0x0000
+    ldmia r0!,{r2,r3,r4,r5,r6,r7,r8,r9}
+    stmia r1!,{r2,r3,r4,r5,r6,r7,r8,r9}
+    ldmia r0!,{r2,r3,r4,r5,r6,r7,r8,r9}
+    stmia r1!,{r2,r3,r4,r5,r6,r7,r8,r9}
+
+ldmia means load multiple.  the IA means increment after so what it does
+is using the value in r0 as an address (when executing the first of the
+two ldmia instructions r0 is 0x8000) so it loads 8 words starting at
+0x8000 into register r2 through r9.  Then if there is an exclamation point
+after the register (which there is) then it modifies that register to
+point to the next word after the last one we loaded so we read 8 words
+or 32 bytes at address 0x8000 so the last thing it does (increment after
+the load) is add 0x20 and save so r0 is now 0x8020.
+
+stmia is like the load but a store, r1 starts off as 0x0000 so it stores
+those 8 words from 0x8000 to 0x0000, then it address 0x20 to r1.
+
+so the second ldmia is going to read 8 more words from 0x8020 and the
+second stmia is going to write those words to 0x0020.
+
+The second ldm and stm do not have to have the exclamation point as we dont
+care about r0 and r1, which means they dont need the ia.  The ia part
+of the instruction is an either or thing either you decrement before you
+use the address or you increment after, one bit in the instruction encoding
+the exclamation point is a separate bit in the instruction that enables
+or disables the saving of that value to the base register.  So if you
+were to do this:
+
+    ldmia r0!,{r2,r3,r4,r5,r6,r7,r8,r9}
+    stmia r1!,{r2,r3,r4,r5,r6,r7,r8,r9}
+    ldm r0,{r2,r3,r4,r5,r6,r7,r8,r9}
+    stm r1,{r2,r3,r4,r5,r6,r7,r8,r9}
+
+the assembler is likely going to pick ldmia or ldmdb and when you
+then disassemble it might look like this:
+
+    ldmia r0!,{r2,r3,r4,r5,r6,r7,r8,r9}
+    stmia r1!,{r2,r3,r4,r5,r6,r7,r8,r9}
+    ldmdb r0,{r2,r3,r4,r5,r6,r7,r8,r9}
+    stmdb r1,{r2,r3,r4,r5,r6,r7,r8,r9}
+
+it was easy to cut and paste the two lines as is, and if I wanted to
+cut and paste more sets to copy more data it is easy.  So I left that
+extra info on those latter instructions even though I am not using them.
+
+So what those first 6 instructions did was to basicaly copy 0x40 bytes
+from 0x8000 to 0x0000.  Since these are very early in the boot we are
+not using register r2 to r9 so that made it easy to use them as scratch
+registers.  If we had waited to copy the 0x40 bytes until later a loop
+or some other way of copying that data likely would have happened since
+many of those registers my be used by other code.
+
+Note that the Cortex-M processors from arm which only execute in thumb
+mode, cannot execute ARM mode instructions boot differently, have different
+exception tables.  The Cortex-M processors have addresses not instructions
+in the table and each flavor of Cortex-M or worse implementation has
+different definitions for each of those entries.  The first few are
+the same then it diverges and they can have hundreds of entries in the
+vector table.  The classic ARM table though has not varied for many
+flavors of ARM cores and good or bad all interrupts funnel into the
+same handler.  (or handlers if you count the fiq).
+
+The classic ARM design also has separate stack pointers for each mode.
+Interrupt is a mode, when you get an interrupt you switch from whatever
+mode you were in (service/super user) to interrupt mode, which means
+you are using a different stack pointer.  this is all described in words
+and pictures in the ARM ARM.  This means that if we are going to support
+interrupts not only do we need to set our application stack pointer but
+also need to set aside some memory for the interrupt stack and point
+the interrupt stack pointer to it.  how do you change the interrupt stack
+pointer if you are not in interrupt mode?  well you have to be in interrupt
+mode.  How do you get into interrupt mode?  Well you modify the cpsr
+which contains the mode bits and that magically changes you to that mode.
+You can do this from any mode to any mode except from user mode, you cant
+get out of user mode by changing the bits.  We are not in user mode on
+boot and never swtich to it in any of my examples do we dont have to
+worry about getting out of it (normally you use an svc/swi instruction and
+have a software interrupt handler that does things that are protected
+from user mode).  So the next bit of code after copying the exception
+handler stuff switches into irq mode and fiq mode and sets their
+stack pointers (fiq in case you want to experience that mode, mostly
+the same as irq, you have another bank of registers so you dont
+have to preserve the system registers, making the handler a little faster
+as in fast irq (fiq), I do not demonstrate fiq here).
+
+
+    ;@ (PSR_IRQ_MODE|PSR_FIQ_DIS|PSR_IRQ_DIS)
+    mov r0,#0xD2
+    msr cpsr_c,r0
+    mov sp,#0x8000
+
+    ;@ (PSR_FIQ_MODE|PSR_FIQ_DIS|PSR_IRQ_DIS)
+    mov r0,#0xD1
+    msr cpsr_c,r0
+    mov sp,#0x4000
+
+    ;@ (PSR_SVC_MODE|PSR_FIQ_DIS|PSR_IRQ_DIS)
+    mov r0,#0xD3
+    msr cpsr_c,r0
+    mov sp,#0x8000000
+
+    ;@ SVC MODE, IRQ ENABLED, FIQ DIS
+    ;@mov r0,#0x53
+    ;@msr cpsr_c, r0
+
+
+the cpsr is also where you enable or disable the arm interrupt and fast
+interrupt.  we want to start off with interrupts disabled so when
+switching back to SVC mode we also make sure that they are disabled.
+
+So the irq stack starts at 0x8000 (first location is 0x7FFC) and the fiq
+stack is at 0x4000 (0x3FFC).  If you have re-compiled this program or
+modified your config.txt to have the gpu load you say at address 0x0000
+then these stacks may collide with your program and you need to move
+them. Likewise I have put the SVC stack at 0x80000000 (0x7FFFFFFC) and
+if you are using that memory you need to move that as well.  Bare metal
+memory management is part of bare metal programming.  YOU decide where
+things are and either hard code them in your code or linker script or
+indirectly through the linker script.
+
+The last thing I am going to say about the interrupt handler is that I
+made it pretty stupid and mostly in C.
+
+irq:
+    push {r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,r12,lr}
+    bl c_irq_handler
+    pop  {r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,r12,lr}
+    subs pc,lr,#4
+
+When you read the ARM ARM you will see that the proper way to return
+from an interrupt is using a subs pc,lr,#4.  Since you interrupted
+application code which was likely using some most of the registers you
+need to preserve those registers, in particular the link register, lr.
+So what my assembly wrapper does is preserve all the registers call a
+C function, upon return from that C function restore the registers then
+return from interrupt.  Just like any other textbook interrupt handler.
+
+You need to remember and understand that C code in an interrupt handler
+needs to be lean and mean, get in get out dont mess around.  This example
+simply modifies a global variable (has to be declared as volatile to
+be shared properly between the handler and the rest of the app code) and
+the application detects that to know the interrupt happend.  that adds
+a latency but it is okay since our eyes will not see that difference
+in the led blinks.
