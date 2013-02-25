@@ -1,0 +1,366 @@
+
+See the README one level up about where to find the reference manual
+for the stm32f4 and schematics for the board.
+
+This is an experiment due to a post on the bare metal forum at Raspberry
+Pi.
+
+VFP issues with denormal numbers  posted by mstorsjo
+
+I need to try this against another processor, but have not yet.  What
+is going on is when an operation on a denormal or subnormal number
+(a number so small that it cannot be represented, think of
+0.0000..something with so many zeros there is not enough negative
+exponent) the operating system is called to handle the exception.
+Upon return the next operation does not complete properly.
+
+In IEEE-754 single precision float (look it up on wikipedia) an exponent
+of zeros is a special number it either indicates the number zero or a
+denormal number.
+
+    hexstring(m4add(0x3F800000,0x00000000,0x3F801230,0x3F801110));
+    hexstring(m4add(0x00012345,0x00000111,0x3F801230,0x3F801110));
+    hexstring(m4add(0x00000111,0x00012345,0x3F801230,0x3F801110));
+
+0x3F800000 is a normal number 1.0 or something along those lines
+0x00000000 is a normal number with a special exponent it is the value zero.
+The other numbers that start with 0x3F8 are also just fine they are a
+smidge larger than 0x3F800000.
+
+This line has no denormals
+    hexstring(m4add(0x3F800000,0x00000000,0x3F801230,0x3F801110));
+
+.globl m4add
+m4add:
+    vmov s0,r0
+    vmov s1,r1
+    vmov s2,r2
+    vmov s3,r3
+    vadd.f32 s4,s0,s1
+    vadd.f32 s5,s2,s3
+    vmov r0,s5
+    bx lr
+
+the assembly floating point code adds the first two numbers then
+adds the second two numbers and returns the result for the second number
+
+The output of this program is
+
+12345678
+400011A0
+00012345
+00000111
+12345678
+
+so 0x400011A0 is supposed to be the result of the floating point numbers
+0x3F801230 and 0x3F801110 added together, you were expecting 0x3F802340
+perhaps, well it doesnt quite work that way, but if you take that 0x11A0
+portion of the result and look at it as binary
+
+11A0 =
+00010001101000000
+then break that into hex values along different boundaries
+0 0010 0011 0100 0000
+there is the 0x234
+
+these two lines do have denormals, both of the first two numbers
+in the first add are denormals.
+    hexstring(m4add(0x00012345,0x00000111,0x3F801230,0x3F801110));
+    hexstring(m4add(0x00000111,0x00012345,0x3F801230,0x3F801110));
+
+Bear with me for a second on this tangent.  In my blinker07 example I
+showed one way to move/create an exception table at address 0x00000000
+in arm address space.  My program expects to be loaded at 0x8000 as a
+normal raspberry pi linux kernel.img is.  This example shows another
+solution.  if you look at the encoding of the branch and branch link
+instruction (same encoding, one bit distinguishes link or not) you will
+see 0xEAxxxxxx where xxxxxx is a value that indicates the offset.
+
+805c:   eb000094    bl  82b4 <notmain>
+
+0x82b4 - 0x805C = 0x258
+0x258 / 4 = 0x96
+0x96 - 2 = 0x94
+
+The short answer is I am placing a bunch of branch plus 0x8000 instructions
+at the first locations in memory so 0x0000 will branch to 0x8000, 0x0004
+will branch to 0x8004 and so on.  Then I have a more proper table at 0x8000
+
+.globl _start
+_start:
+    b reset
+    b undef
+    bl other
+    bl other
+    bl other
+    bl other
+    bl other
+    bl other
+    bl other
+    bl other
+    bl other
+    bl other
+    bl other
+    bl other
+    bl other
+    bl other
+
+Yes there are too many items there, doesnt hurt.  I used the other
+routine (I didnt have the b undef in there all of the lines other than
+reset were bl other) to figure out which exception was being hit.
+Once I figured out it was the undefined instruction.
+
+I simply had the undef handler return as if the instruction had been
+handled
+
+undef:
+    movs pc,lr
+
+You begin to see what mstorsjo found.  the instruciton following the
+bad operation is messed up.
+
+through more experiments I found more interesting information.  In
+an old ARM ARM at least, the undefined is supposed to fill in the link
+register with the address of the instruction after.  to verify that
+
+based on the disassembly
+
+000080b4 <m4add>:
+    80b4:   ee010a10    vmov    s2, r0
+
+Before calling m4add I put this line in notmain()
+
+PUT32(0x80B4,0xFFFFFFFF);
+
+You indeed get the bad instruction 0xFFFFFFFF.
+
+so letting the program run (remove the 0xFFFFFFFF thing).
+
+    80bc:   ee012a10    vmov    s2, r2
+    80c0:   ee013a90    vmov    s3, r3
+    80c4:   ee302a20    vadd.f32    s4, s0, s1
+    80c8:   ee712a21    vadd.f32    s5, s2, s3
+    80cc:   ee120a90    vmov    r0, s5
+    80d0:   e12fff1e    bx  lr
+
+
+00000BAD
+EE712A21
+
+which is the second add...strange. rearrange the movs so that the
+second add gets the denormals
+
+    vmov s2,r0
+    vmov s3,r1
+    vmov s0,r2
+    vmov s1,r3
+
+00000BAD
+EE120A90
+
+    80c4:   ee302a20    vadd.f32    s4, s0, s1
+    80c8:   ee712a21    vadd.f32    s5, s2, s3
+    80cc:   ee120a90    vmov    r0, s5
+
+which is the floating point instruction after the bad one.  interesting.
+Lets add some nops
+
+    nop
+    nop
+    vadd.f32 s4,s0,s1
+    nop
+    nop
+    vadd.f32 s5,s2,s3
+    nop
+    nop
+    vmov r0,s5
+    nop
+    nop
+
+00000BAD
+EE120A90
+
+no change, interesting, lets put back the vmovs
+
+00000BAD
+EE712A21
+
+So what it appears to be doing is giving you the address to the floating
+point instruction after the problem.
+
+One more experiment
+
+
+.globl m4add
+m4add:
+    vmov s0,r0
+    vmov s1,r1
+    vmov s2,r2
+    vmov s3,r3
+    vadd.f32 s4,s0,s1
+    b skipper
+    vmov r0,s5
+    bx lr
+
+skipper:
+    vadd.f32 s5,s2,s3
+    vmov r0,s5
+    bx lr
+
+00000BAD
+EE712A21
+
+    80c4:   ee302a20    vadd.f32    s4, s0, s1
+    80c8:   ea000001    b   80d4 <skipper>
+    80cc:   ee120a90    vmov    r0, s5
+    80d0:   e12fff1e    bx  lr
+
+000080d4 <skipper>:
+    80d4:   ee712a21    vadd.f32    s5, s2, s3
+    80d8:   ee120a90    vmov    r0, s5
+    80dc:   e12fff1e    bx  lr
+
+good luck writing a handler for that if you work your way backward
+from 0x80d4 the prior float instruction is vmov.  Basically good luck
+figuring out the prior float instruction based on the link register given.
+
+
+So putting it all back together
+
+
+    hexstring(0x12345678);
+    hexstring(m4add(0x3F800000,0x00000000,0x3F801230,0x3F801110));
+    hexstring(m4add(0x00012345,0x00000111,0x3F801230,0x3F801110));
+    hexstring(m4add(0x00000111,0x00012345,0x3F801230,0x3F801110));
+    hexstring(m4add(0x3F801230,0x3F801110,0x00000111,0x00012345));
+    hexstring(m4add(0x3F800000,0x00000000,0x3F801230,0x3F801110));
+    hexstring(0x22222222);
+    hexstring(m4add2(0x3F801230,0x3F801110,0x3F800000,0x00000000));
+    hexstring(m4add2(0x00000111,0x00012345,0x3F801230,0x3F801110));
+    hexstring(m4add2(0x3F801230,0x3F801110,0x00000111,0x00012345));
+    hexstring(0x12345678);
+
+12345678
+400011A0
+00012345
+00000111
+3F801230
+3F800000
+22222222
+3F801230
+00000111
+3F801230
+12345678
+
+From the ARM1176jzfs TRM
+
+The VFP11 coprocessor handles exceptions, other than inexact exceptions,
+imprecisely with respect to both the state of the ARM11 processor and
+the state of the VFP11 coprocessor. It detects an exceptional instruction
+after the instruction passes the point for exception handling in the
+ARM11 processor. It then enters the exceptional state and signals the
+presence of an exception by refusing to accept a subsequent VFP
+instruction. The instruction that triggers exception handling bounces
+to the ARM11 processor. The bounced instruction is not necessarily the
+instruction immediately following the exceptional instruction. Depending
+on sequence of instructions that follow, the bounce can occur several
+instructions later.
+
+
+So this means that the instruction after is not unexpected.
+
+The exception bit in the FPEXC register is set, until it is cleared
+the fpu appears not to work.  So I modified the undefined handler
+to restore the FPEXC to have the SIMD/FPU enabled and the exception
+bit cleared.
+
+undef:
+    push {r0}
+    mov r0,#0x40000000
+    fmxr fpexc,r0
+    pop {r0}
+    subs pc,lr,#4
+
+In order to properly preserve the r0 register I went ahead and setup
+the undefined stack pointer up front.
+
+    ;@ (PSR_UND_MODE|PSR_FIQ_DIS|PSR_IRQ_DIS)
+    mov r0,#0xDB
+    msr cpsr_c,r0
+    mov sp,#0x00100000
+
+    ;@ (PSR_SVC_MODE|PSR_FIQ_DIS|PSR_IRQ_DIS)
+    mov r0,#0xD3
+    msr cpsr_c,r0
+
+So now it works better
+
+    hexstring(0x12345678);
+    hexstring(m4add(0x3F800000,0x00000000,0x3F801230,0x3F801110));
+    hexstring(m4add(0x00012345,0x00000111,0x3F801230,0x3F802220));
+    hexstring(m4add(0x00000111,0x00012345,0x3F801230,0x3F803330));
+    hexstring(m4add(0x3F801230,0x3F801110,0x00000111,0x00012345));
+    hexstring(m4add(0x3F800000,0x00000000,0x3F801230,0x3F804440));
+    hexstring(0x22222222);
+    hexstring(m4add2(0x3F801230,0x3F805550,0x3F800000,0x00000000));
+    hexstring(m4add2(0x00000111,0x00012345,0x3F801230,0x3F806660));
+    hexstring(m4add2(0x3F801230,0x3F807770,0x00000111,0x00012345));
+    hexstring(0x12345678);
+
+
+12345678
+400011A0
+40001A28
+400022B0
+400022B0 <-- stale result
+40002B38
+22222222
+400033C0
+400033C0 <-- stale result
+400044D0
+12345678
+
+So the non-denormal operations worked.  The denormal operations dont
+actually execute so the floating point register is not changed, to
+demonstrate this.
+
+.globl m4vmov
+m4vmov:
+    vmov s4,r0
+    vmov s5,r0
+    bx lr
+
+    hexstring(0x12345678);
+    hexstring(m4add(0x3F800000,0x00000000,0x3F801230,0x3F801110));
+    hexstring(m4add(0x00012345,0x00000111,0x3F801230,0x3F802220));
+    m4vmov(0xABCDABCD);
+    hexstring(m4add(0x00000111,0x00012345,0x3F801230,0x3F803330));
+    m4vmov(0xABCDABCD);
+    hexstring(m4add(0x3F801230,0x3F801110,0x00000111,0x00012345));
+    m4vmov(0xABCDABCD);
+    hexstring(m4add(0x3F800000,0x00000000,0x3F801230,0x3F804440));
+    hexstring(0x22222222);
+    hexstring(m4add2(0x3F801230,0x3F805550,0x3F800000,0x00000000));
+    m4vmov(0xABCDABCD);
+    hexstring(m4add2(0x00000111,0x00012345,0x3F801230,0x3F806660));
+    m4vmov(0xABCDABCD);
+    hexstring(m4add2(0x3F801230,0x3F807770,0x00000111,0x00012345));
+    hexstring(0x12345678);
+
+
+12345678
+400011A0
+40001A28
+400022B0
+ABCDABCD <-- stale
+40002B38
+22222222
+400033C0
+ABCDABCD <-- stale
+400044D0
+12345678
+
+
+
+
+

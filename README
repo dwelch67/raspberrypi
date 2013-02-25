@@ -153,7 +153,7 @@ bootloader dance:
 2) power on raspi
 3) type command to load and start new program
 
-I have working bootloader examples.  bootloader03 is the currently
+I have working bootloader examples.  bootloader05 is the currently
 recommended version.  But you need more hardware (no soldering is
 required).  For those old enough to know what a serial port is, you
 CANNOT connect your raspberry pi directly to this port, you will fry
