@@ -1,0 +1,52 @@
+
+See the top level README file for more information on documentation
+and how to run these programs.
+
+Derived from blinker07, but instead of IRQ this uses FIQ
+
+diff ../blinker07/vectors.s vectors.s
+
+21,22c21,22
+< irq_handler:        .word irq
+< fiq_handler:        .word hang
+---
+> irq_handler:        .word hang
+> fiq_handler:        .word irq
+
+connect the handler to the fiq exception vector rather than the
+irq exception vector
+
+
+90c90
+<     bic r0,r0,#0x80
+---
+>     bic r0,r0,#0x40
+
+enable the fiq interrupt rather than irq interrupt
+
+95c95
+<     push {r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,r12,lr}
+---
+>     push {r0,r1,r2,r3,r4,r5,r6,r7,lr}
+97c97
+<     pop  {r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,r12,lr}
+---
+>     pop  {r0,r1,r2,r3,r4,r5,r6,r7,lr}
+
+fiq mode has its own r8-r12 registers, making it that much faster to
+get in and get out.
+
+
+diff ../blinker07/blinker07.c blinker08.c
+166c166,167
+<     PUT32(0x2000B210,0x00000002);
+---
+>     PUT32(0x2000B210,0x00000000);
+>     PUT32(0x2000B20C,0x80|1);
+
+the BCM manual says to not enable the irq if using fiq.  The irq enable
+was a bitmask for interrupts 0 to 31, the fiq wants the interrupt number
+so 0x2 is bit number 1 so we want interrupt number 1 and bit 7 in the
+fiq enable register enables the fiq interrupt to the arm.
+
+
