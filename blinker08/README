@@ -46,7 +46,8 @@ diff ../blinker07/blinker07.c blinker08.c
 
 the BCM manual says to not enable the irq if using fiq.  The irq enable
 was a bitmask for interrupts 0 to 31, the fiq wants the interrupt number
-so 0x2 is bit number 1 so we want interrupt number 1 and bit 7 in the
-fiq enable register enables the fiq interrupt to the arm.
+so 0x2 is bit number 1 so we want interrupt number 1. The bcm manual
+says that bit 7 of the fiq enable register, enables the fiq interrupt,
+0x80 is bit 7.
 
 
