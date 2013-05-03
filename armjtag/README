@@ -10,10 +10,14 @@ Problem is the pins are not by default connected to the outside world
 so you cant for example reset the ARM as that would disconnect the
 jtag.  (there is no SRST available)
 
-All but one signal is available on P1, unfortunately that other signal
-is on the S5 connector.  I was able to solder a wire onto it, had it
-been on P1 as well then you could use the same jumper wires I am using
-to get from P1 to the ARM jtag wiggler.
+On the older rev1 boards, all but one signal is available on P1,
+unfortunately that other signal is on the S5 connector.  I was able to
+solder a wire onto it.
+
+The rev2 boards, no soldering is required.
+
+I use jumper wires like these to get from my jtag board/device to the
+raspberry pi.
 
 http://www.sparkfun.com/products/9140
 http://www.sparkfun.com/products/9385
@@ -30,6 +34,9 @@ other side except the lower left, pin 2, that is not a ground.
 See this page as an example
 http://www.amontec.com/jtag_pinout.shtml
 
+
+rev1 raspberry pi boards (older boards)
+
 1 ARM_VREF                   P1-1
 2 ARM_TRST      22 GPIO_GEN3 P1-15  IN (22 ALT4)
 3 ARM_TDI     4/26 GPIO_GCLK P1-7   IN ( 4 ALT5)
@@ -39,6 +46,20 @@ http://www.amontec.com/jtag_pinout.shtml
 9 ARM_TDO     5/24 GPIO_GEN5 P1-18 OUT (24 ALT4)
 
 4-20 ARM_GND                    P1-25
+
+
+rev2 raspberry pi boards
+
+1 ARM_VREF                   P1-1
+2 ARM_TRST      22 GPIO_GEN3 P1-15  IN (22 ALT4)
+3 ARM_TDI     4/26 GPIO_GCLK P1-7   IN ( 4 ALT5)
+4 ARM_TMS    12/27 CAM_GPIO  P1-13 OUT (27 ALT4)
+5 ARM_TCK    13/25 GPIO_GEN6 P1-22 OUT (25 ALT4)
+7 no connect
+9 ARM_TDO     5/24 GPIO_GEN5 P1-18 OUT (24 ALT4)
+
+4-20 ARM_GND                    P1-25
+
 
 In parenthesis is the gpio pin used and the alternate function setting
 needed in the GPIO to connect it to the edge of the BCM chip.
