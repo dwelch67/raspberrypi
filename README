@@ -106,7 +106,8 @@ For each of these files, bootcode.bin and start.elf (NOT kernel.img,
 dont need it, too big)(loader.bin is no longer used/required).  Click
 on the file name, it will go to another page then click on View Raw and
 it will let you download the file.  For reference, I do not use nor
-have a config.txt file on my sd card.  I only have the four files.
+have a config.txt file on my sd card.  I only have the three files (
+bootcode.bin, start.elf, and then kernel.img from one of my examples).
 
 My examples are basically the kernel.img file.  Not a linux kernel,
 just bare metal programs.  Since the GPU bootloader is looking for
