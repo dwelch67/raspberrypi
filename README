@@ -61,15 +61,32 @@ physical address.  Experimentally I have seen the memory repeats every
 wouldnt rely on this, just an observation (likely ignoring the upper
 address bits in the memory controller).
 
-I do not normally zero out .bss or use .data (see the bssdata example)
-nor gcc libraries nor C libraries so you can build most if not all of
-my examples using a gcc cross compiler.  Basically it doesnt matter if
-you use arm-none-linux-gnueabi or arm-none-eabi.  What was formerly
-codesourcery.com still has a LITE version of their toolchain which is
-easy to come by, easy to install and well maybe not easy to use but you
-can use it.  Building your own toolchain from gnu sources (binutils and
-gcc) is fairly straight forward see my build_gcc repository for a build
-script.
+I do not normally zero out .bss or use .data so if you do this to my examples
+
+int x;
+fun()
+{
+  static int y;
+}
+
+dont assume x and y are zero when your program starts. Nor if you do this
+
+int x=5;
+fun()
+{
+  static int y=7;
+}
+
+will x=5 or y=7.  See the bssdata directory for more information.
+
+Nor do I use gcc libraries nor C libraries so you can build most if not
+all of my examples using a gcc cross compiler.  Basically it doesnt
+matter if you use arm-none-linux-gnueabi or arm-none-eabi.  What was
+formerly codesourcery.com still has a LITE version of their toolchain
+which is easy to come by, easy to install and well maybe not easy to use
+but you can use it.  Building your own toolchain from gnu sources (binutils
+and gcc) is fairly straight forward see my build_gcc repository for a
+build script.
 
 As far as we know so far the Raspberry Pi is not "brickable".  Normally
 what brickable means is the processor relies on a boot flash and with
