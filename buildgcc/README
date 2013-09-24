@@ -1,17 +1,7 @@
 
-A script for building your own gnu toolchain for ARM.
 
-Derived directly from the same script at the mpx project at opencores.org
+*** I HAVE REMOVED THESE FILES ***
 
-Keep or change the PREFIX in the script to a path where you want the
-binary to end up.
-
-sudo ./build_gcc
-
-then put whatever you had in your prefix/bin in the path.  The default
-gnuarm would mean /gnuarm/bin goes in the PATH.
-
-
-clang script I wrote, builds llvm+clang from sources.
-
+I have a separate build_gcc repository at github where I maintain the gcc 
+and clang build scripts I use for my own homebuilt toolchains.
 
