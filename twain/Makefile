@@ -8,7 +8,7 @@ COPS2 = -Wall -O3 -nostdlib -nostartfiles -ffreestanding
 COPS3 = -Wall -O2 -nostdlib -nostartfiles -ffreestanding -mcpu=arm1176jzf-s 
 COPS4 = -Wall -O2 -nostdlib -nostartfiles -ffreestanding -mcpu=arm1176jzf-s -mtune=arm1176jzf-s
 COPS5 = -Wall -O3 -nostdlib -nostartfiles -ffreestanding -mcpu=arm1176jzf-s -mtune=arm1176jzf-s
-COPS = $(COPS5)
+COPS = $(COPS4)
 
 gcc : twain.gcc.hex twain.gcc.bin
 
@@ -88,7 +88,8 @@ ZBCSDEF = compress.bc deflate.bc trees.bc
 ZBCS = uncompr.bc inflate.bc crc32.bc adler32.bc inffast.bc inftrees.bc zutil.bc $(ZBCSDEF)
 
 
-LOPS = -Wall -m32 -emit-llvm -ccc-host-triple $(ARMGNU) 
+#LOPS = -Wall -m32 -emit-llvm -ccc-host-triple $(ARMGNU) 
+LOPS = -Wall -m32 -emit-llvm -target $(ARMGNU) 
 LLCOPS0 = -march=arm -mtriple=$(ARMGNU)
 LLCOPS1 = -march=arm -mtriple=$(ARMGNU) -mcpu=arm1176jzf-s
 LLCOPS = $(LLCOPS1)

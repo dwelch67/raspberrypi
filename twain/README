@@ -153,6 +153,48 @@ COPS3  yes yes yes  0x17F0C8
 COPS4  yes yes yes  0x17FB53
 COPS5  yes yes yes  0x15B55E
 
+
+arm-none-eabi-gcc (GCC) 4.8.1
+Copyright (C) 2013 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+COPS0  no no no     0xD48A9F
+COPS1  no no no     0xB994DC
+COPS2  no no no     memset
+COPS3  no no no     0xC4CEBC
+COPS4  no no no     0xC4D880
+COPS5  no no no     memset
+
+COPS0  yes no no    0x9D6225
+COPS1  yes no no    0x90D014
+COPS2  yes no no    memset
+COPS3  yes no no    0x921680
+COPS4  yes no no    0x920FF1
+COPS5  yes no no    memset
+
+COPS3  yes yes no   0x194A48
+COPS4  yes yes no   0x19379E
+COPS5  yes yes no   memset
+
+COPS3  yes yes yes  0x1948C2
+COPS4  yes yes yes  0x19409E
+COPS5  yes yes yes  memset
+
+memset means:
+
+twain.o: In function `xmemset':
+twain.c:(.text+0x1dc): undefined reference to `memset'
+twain.o: In function `xcalloc':
+twain.c:(.text+0x23c): undefined reference to `memset'
+trees.o: In function `build_tree':
+trees.c:(.text+0x1028): undefined reference to `memset'
+make: *** [twain.gcc.elf] Error 1
+
+dont want to deal with that right now.
+
+
+
 Some things to talk about at this point...First off I was using jtag
 to load and run these programs.  Think about this for a second when
 you have the instruction cache on and the data cache off.  If you stop
@@ -317,6 +359,26 @@ LLCOPS1 yes no no   0xAB97C6
 
 LLCOPS0 yes yes no  0x1A49FE
 LLCOPS1 yes yes no  0x19F911
+
+
+clang version 3.3 (branches/release_33 189603)
+Target: x86_64-unknown-linux-gnu
+Thread model: posix
+
+
+LLCOPS0 no no no    0xE6EF36
+LLCOPS1 no no no    0xF550AC
+
+LLCOPS0 yes no no   0xAC25D7
+LLCOPS1 yes no no   0xAC2B1C
+
+LLCOPS0 yes yes no  0x1CA6C5
+LLCOPS1 yes yes no  0x1C4F53
+
+LLCOPS0 yes yes yes 0x1CA16C
+LLCOPS1 yes yes yes 0x1C5B56
+
+
 
 A simple experiment to show the mmu overhead.  Changing the code from this
 
