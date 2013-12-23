@@ -57,9 +57,10 @@ the ARM gets at least half of this.  Peripherals (uart, gpio, etc)
 are mapped into arm address space at 0x20000000.  When you see
 0x7Exxxxxx in the manual replace that with 0x20xxxxxx as your ARM
 physical address.  Experimentally I have seen the memory repeats every
-0x40000000, read 0x40008000 and you see the data from 0x8000.  I
-wouldnt rely on this, just an observation (likely ignoring the upper
-address bits in the memory controller).
+0x40000000, read 0x40008000 and you see the data from 0x8000.  From the
+Broadcom doc this looks to be giving us access to the memory with
+different caching schemes (cached, uncached, etc) depending on which
+upper address bits you use.
 
 I do not normally zero out .bss or use .data so if you do this to my examples
 
