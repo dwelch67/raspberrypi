@@ -199,6 +199,13 @@ host/development platform (a raspberry pi running linux is a native
 arm development platform, no need to find/get/build a cross compiler)
 the other being the target that runs your bare metal programs.
 
+Lastly and perhaps the best solution IMO, is the FT4232H or FT2232H
+mini module from FTDI.  It gives you UART and JTAG for under $30.
+See the armjtag directory README for more and you will want some
+female/female wire from sparkfun or adafruit or elsewhere
+https://www.sparkfun.com/products/8430
+(I use these F/F wires for most projects, buy/bought the 100 pack)
+
 ---- connecting to the uart pins ----
 
 On the raspberry pi, the connector with two rows of a bunch of pins is
