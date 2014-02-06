@@ -87,32 +87,227 @@ Problem is the shipping to the USA makes it not worth it unless you buy
 a bunch or have your boss buy it.  If you are not in the USA then it
 might be cheaper shipping and definitely worth it...
 
-Basically the same thing is:
+The jtagkey-tiny and a great number of other usb to jtag boards or
+microcontroller or fpga or cpld boards that include a usb jtag programmer
+on the board use some flavor of the FT2232 from Future Technology
+Devices International (FTDI).  http://www.ftdichip.com.  They have
+an array of usb to _blank_ devices.  Usb to serial, usb to spi, i2c,
+jtag, parallel.  Some devices have what they call Multi-Protocol
+Synchronous Serial Engine (MPSSE).  What we care about here is it can
+be used to accelerate jtag beyond simple bit banging.  Openocd has long
+had FT2232 support.  Dont do what I did and confuse the FT232 with the
+FT2232, the FT232 does not have an MPSSE so you have to do just slow
+bit banging (which I talk about below).
 
-http://microcontrollershop.com/product_info.php?cPath=154_171&products_id=3124
+The FT2232 has two of these MPSSEs so you can use the part as two
+uarts or one uart one jtag, two jtags, one uart one spi, etc.  They also
+have an FT4232, which has four uarts, but DOES NOT have four MPSSEs it
+still only has two MPSSEs.  So you can have three uarts and one jtag
+and so on.
 
-Which comes with a little ribbon cable, dont worry.  This is the
-signalyzer-lite board.
+Some boards have come and gone, unfortunately for example the
+signalyzer-lite is no longer available.
 
-There is little difference, basically they are ftdi usb to parallel parts
-with some signal conditioning on them.  You could use one of these already
-purchased for usb.
+You can get the flyswatter though which is yet another ft2232 board.
+
+http://www.tincantools.com/JTAG/Flyswatter.html
+
+And the jtag side is basically the same as the amontec.  The flyswatter
+breaks out the uart, but we cant use it with the raspberry pi because
+it is at RS232 levels and if you were to connect it to the raspberry
+pi you will likely damage one board or the other or both.
+
+If you look around the openocd source code or schematics, etc the MPSSE
+deals with TCK, TMS, TDI, and TDO.  TRST, SRST if there are supported
+by the other pins which are generic bit bang GPIO in this mode.  The
+various board vendors naturally have other features beyond that.
+
+So I dont know how long these have been out but I was very happy to see
+that FTDI now has a couple of development boards one for the FT2232H
+and one for the FT4232H.  These boards are under $30, and I have
+successfully used one with the Raspberry Pi, the bonus is you can use
+both the JTAG and Serial, one board and you get both.  Even better the
+FT2232H/FT4232H supports jtag up to 30Mbps, where the prior incarnations
+of the FT2232 went to 6Mbps, so in theory we can compete speed-wise with
+the multi-thousand dollar boxes.  Even at 6Mbps you can easily push the
+I/O or other speed limits in your target, so just because your jtag
+debugger device might go fast, doesnt mean you can always run that
+fast you either need to ask the (target) chip vendor or do some
+experiments.
+
+If you go to
+
+http://www.mouser.com
+
+And search for either of these part numbers
+
+895-FT2232HMINIMOD
+895-FT4232HMINIMOD
+
+You will find the FTDI development boards I am talking about.  You can
+also get them from other distributors around the world.  I assume anyone
+that sells FTDI parts might also sell FTDI boards.
+
+
+
+FT2232H Mini Module:
+
+TODO when I get one, I assume it is very very similar if not the same
+as the FT4232H below, the pinout should be the same I am using the A
+and B sections of the chip so those match, the board pinouts may or
+may not match the FT4232H board.  Not hard to figure out from the
+FTDI documents though.
+
+
+
+FT4232H Mini Module:
+
+Searching for this you get the datasheet for the development board.  You
+dont necessarily NEED this as I will show you what to connect, but it
+is probably a good idea for your own education to look at it, it is a
+fairly short document.  And may help to see the pinout which you will
+need to get right if you want to hook this up.
+
+http://www.ftdichip.com/Documents/DataSheets/Modules/DS_FT4232H_Mini_Module.pdf
+
+Googling for the FT4232H part you get its webpage
+
+http://www.ftdichip.com/Products/ICs/FT4232H.htm
+
+Where you can download the datasheet.  The part we care about there is
+the pinout per function AD0 is TCK for JTAG, AD1 is TDI and so on.
+
+I spent some time fiddling with the FT_PROG utility thinking I was going
+to need to reconfigure something.  I also messed with the ftdi_eeprom
+and eeprom tools from libftdi, to find that they work just fine on
+linux (not obvious at all on HOW to get them working) but we dont need
+them.  When openocd fires up and grabs the A bus for jtag linux
+gives up on that being a uart.
+
+[1275978.391156] ftdi_sio ttyUSB1: FTDI USB Serial Device converter now disconnected from ttyUSB1
+[1275978.391164] ftdi_sio 3-2:1.0: device disconnected
+
+They wisely used the same pin for uart and jtag output (D0) and the
+same pin for input (D1) so for the period of time that the FTDI part
+is thinking it is a uart, you wont hurt the jtag on your board (in
+theory, I should have already had a disclaimer that you are on
+your own, I wont be responsible for you melting down your board
+trying this stuff).
+
+This part is such that you can power the usb from the usb host side
+or the device side, and if you dont do anything the part isnt powered
+so as it says in the develompent board datasheet.
+
+Connect VBUS to VCC (CN3, pin 1 to CN3, pin 3)
+
+Likewise I connected CN2 pin 2 to CN2 pin 11 to Connect V3V3 to VIO,
+depending on the power needed you may need to connect more of the
+3.3 volt pins to more of the VCCIO pins.  I have been successful with
+just this one connection.
+
+Now when you plug in the mini module it will show up in lsusb and
+demesg will show the four uarts.
+
+Uart first I have already walked through other usb to uart
+connections.  The P1 connector on the raspberry pi is the 2 rows of 13
+pins along one side starting at a corner.  The outer corner pin is
+numbered pin 2.  The pin next to it as you move toward the micro-b
+usb connector that powers the raspberry pi, is pin 1.  The pins along
+the outer edge of the board (other than pin 1) are the even numbered
+the row inside that are the odd numbered.  So the outside starting
+at the corner heading toward the yellow rca (composite video) are
+pins 2,4,6,8,10, up to pin 26.  The inner pins are 1,3,5,7,11 up to
+25.  This is a very common numbering scheme for dual row headers.  You
+just have to figure out which one is pin one and you are set from there.
+If you look on the back of the board, the sd card side of the raspberry
+pi, the hole where the pin is soldered on is square, the rest are
+round.  This is very common with these kind of through hole connectors
+to make the hole for pin 1 square and/or different than the others (just
+FYI).
+
+So the raspberry pi side of the uart/serial connection is
+
+ 2 outer corner
+ 4
+ 6 GND
+ 8 TX out
+10 RX in
+
+The FT4232H Mini Module side, we want to use BD0 and BD1 which are pins
+CN2-18 and CN2-17.  With the board oriented so the pins are pointing
+away from you and the mini-b usb connector on the top and pointed
+left.  The top connector is CN3 and bottom CN2.  The lower right pin
+is 25, the one to the left of that 23 and so on.  You can count backward
+from there to find CN2-17
+
+17 BD1 RXD in
+19
+21
+23
+25 lower right corner
+
+So P1-8 TX out on the rasberry pi connects to CN2-17 RXD on the FT4232H
+board.
+
+The pin next to that on the FT board (or above it if still holding it
+in that orientation is pin 18
+
+18 BD0 TXD out
+20
+22
+24
+26 inside and next to lower right
+
+That connects to P1-10 on the raspberry pi.
+
+The lower left corner of the FT board is CN2-1 which we are using to
+power VCCIO.  Above that toward the usb connector is CN2-2 a ground
+you can connect that to ground on the raspberry pi which is P1-6
+
+If all you want is uart, there you go.  To add jtag then:
+
+JTAG: (FT board left, Raspi right)
+  TCK:   CN2-7   P1-22
+  TDI:   CN2-10  P1-7
+  TDO:   CN2-9   P1-18
+  TMS:   CN2-12  P1-13
+UART:
+  TXRX:  CN2-18  P1-10
+  RXTX:  CN2-17  P1-8
+Ground:
+  GND:   CN2-2   P1-6
+Raspi to Raspi:
+  TRST:  P1-1    P1-15
+FTDI board to FTDI board:
+  VCCIO: CN2-1   CN2-11
+  VCC:   CN3-1   CN3-3
+
+That is for a rev2 Raspberry Pi board, for a rev1 use S5-11 instead of
+P1-13 (some soldering or cable hacking required).
+
+Lastly when you connect your FT4232H board to your computer dmesg will
+show the four uarts (/dev/ttyUSBx) the first one on the list will go
+away when we take it over to do jtag, the second one listed will be
+the one you use for uart/serial communications to the raspberry pi.
+
+
+
+
+Other alternatives, it doesnt take too much work to use the ftdi drivers
+to bit bang a board like this.
 
 http://www.sparkfun.com/products/718
 
-If you forgo the signal conditioning and probably have to do a little
-work on openocd or some research.  A very nice feature of the ftdi
-parallel/serial parts like this one is that you can, using the ftdi
-driver (linux) bit bang whatever you want.  I have used the above board
-to build a spi flash programmer for example...Go with the signalyzer-lite
-or amontec if you can.
+Openocd has drivers for this you just make the (software) connectin
+between the bits that openocd wants you to drive or read and the gpio
+pins on the ftdi part.  This is pretty slow but functions as a sub
+$20 jtag.
 
-Now the signalyzer lite and amontec are bit banged, so they are slow(er),
-but they work.  The multi thousand dollar solutions are very fast.  Now
-what I found is if you are using it for non-commercial, personal, use.
-You can get a Jlink, which is not a multi-thousand dollar one, but is
-still a bit pricey for home/hobby use.  You can get basicall a jlink at
-educational prices for $60
+For a little more money you can approach the more expensive solutions
+speed and perhaps features so long as you can declare your work
+educational.  The educational version of the jlink is around $60, and
+it is pretty speedy.  The non-educational version is I assume the same
+functionality if not the same, but more expensive.
 
 http://microcontrollershop.com/product_info.php?cPath=154_171&products_id=3647
 
@@ -251,11 +446,19 @@ up, up, up, enter
 
 In the telnet window to re-load and re-run a new build of the program.
 
-Maybe if we all ask very nicely they will connect GPIO12 or 27 to
-the P1 connector and we wont have any soldering (well unless the
-final production version of the board is without P1 pins.
-
 If you ctrl-c in the openocd window it kills both openocd and the telnet
 session.  If you power cycle the board without doing this the two windows
 freak out.  I have had them work once the board is back up and jtag is
 available, but I prefer to stop openocd and start fresh anyway.
+
+There are other .cfg files in this directory for the different jtag
+interface boards I have used (signalizer-lite, jlink, ft4232h, amontec).
+Use the same command line above but replace the appropriate config file
+
+openocd -f amontec.cfg -f raspi.cfg
+
+replace amontec.cfg with one of the other files or make your own.
+
+
+
+
