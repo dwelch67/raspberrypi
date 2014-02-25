@@ -1,5 +1,5 @@
 
-unsigned int fun ( unsigned int a, unsigned int b )
+unsigned int fun ( unsigned int *a )
 {
-    return(a+b+7);
+    return(a[0]+a[11]+8);
 }
