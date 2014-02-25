@@ -1,0 +1,474 @@
+
+Learn Assembly Langauge from C
+
+This is an attempt to learn assembly language by compiling simple C
+code segments and analyzing what is going on.
+
+You will want to go to http://infocenter.arm.com.  Along the left side
+expand ARM architecture.  Then expand Reference Manuals then click on
+ARMv5 Reference Manual
+
+Then in the right side of the page, low, center, click on PDF Version
+
+These may or may not be direct links, if not follow the instructions
+above.
+
+Reference Manuals
+http://infocenter.arm.com/help/topic/com.arm.doc.set.architecture/index.html
+
+ARMv5 Reference Manual
+http://infocenter.arm.com/help/topic/com.arm.doc.subset.architecture.reference/index.html#v5
+
+This might be a direct link to the pdf.
+https://silver.arm.com/download/download.tm?pv=1073121
+
+You may need to create a user name and password, it only costs you
+an email address...
+
+I know that the Raspberry Pi uses an ARMv6.  The document they now
+call the ARMv5 Architectural Reference Manual, is a direct derivative
+of what was simply called the ARM ARM (ARM Architectural Reference
+Manual).  But it probably became too complicated to try to
+cover all the architecture variations, so they just started making
+new manuals for each and this one stopped here.  It is still a good
+starting point, includes the classic 32 bit instructions and the
+original 16 bit thumb instructions.  A good place to build a foundation
+for the ARM instruction set.
+
+I have included a copy of the build_arm script that I use to download
+and build a GNU based ARM toolchain from sources.  This is the toolchain
+I use for my projects.  I maintain this script in a different github
+repo, build_gcc, so this is just a copy and may get stale the real one
+I maintain for myself is in my build_gcc repo.  If you are running on
+Windows, I have stopped doing that myself and have stopped trying to
+maintain a Windows build script.  I preferred mingw to cygwin, but it
+was possible on both, even better just download one of the many out
+there.
+
+Linux or Windows you can get a pre-built GNU toolchain here.
+
+https://launchpad.net/gcc-arm-embedded
+
+which should work well enough, or
+
+go here
+http://www.mentor.com/embedded-software/sourcery-tools/sourcery-codebench/editions/lite-edition/
+Under ARM Processors select the Download the EABI Release link then fill
+in your email/whatever.  They will email you a link to download the
+Linux or Windows version.  This formery-codesourcery-now-mentor-graphics
+lite version is more complete than the one I use.
+
+Now we can start...We have to master the compiler first it is quite
+easy to let the optimizer in the compiler remove your code, for example
+
+
+void fun ( void )
+{
+    unsigned int a;
+    unsigned int b;
+    unsigned int c;
+    a = 5;
+    b = 7;
+    c = a+b;
+}
+
+Assuming you have your toolchain in place this is how we are going to
+learn asm for every example:
+
+arm-none-eabi-gcc -O2 test.c -c -o test.o
+arm-none-eabi-objdump -D test.o
+
+you may have to adjust the prefix to -gcc and -objdump
+arm-none-linux-gnueabi or arm-elf or whatever...it should all work fine
+
+------ cut -------
+test.o:     file format elf32-littlearm
+
+
+Disassembly of section .comment:
+
+00000000 <.comment>:
+   0:   43434700    movtmi  r4, #14080
+------ cut -------
+
+Here is the problem.  There is no .text.  The stuff it did disassemble
+wasnt really code it was some text and the disassembler just chewed on
+it anyway.  What happened is that function DOES NOTHING.  Think about
+it there are no inputs, there are no outputs, it calls no functions,
+the math it does means nothing because it is sent nowhere.
+
+So lets try this
+
+unsigned int fun ( void )
+{
+    unsigned int a;
+    unsigned int b;
+    unsigned int c;
+    a = 5;
+    b = 7;
+    c = a+b;
+    return(c);
+}
+
+run those same two commands
+
+Disassembly of section .text:
+
+00000000 <fun>:
+   0:   e3a0000c    mov r0, #12
+   4:   e12fff1e    bx  lr
+
+So we can learn a little here, but it wasnt really what we wanted, the
+addition was removed.  the optimizer knew that we were simply adding
+5+7=12 so it just moves the answer 12 into register r0 and the function
+returns.
+
+So in the ARM ARM there is a chapter titled ARM Instructions, under that
+Aphabetical list of ARM instructions, and under that each instruction
+has its own subsection.
+
+So we start with MOV.
+
+We a drawing thing and then some Syntax
+
+MOV{<cond>}{S} <Rd>, <shifter_operand>
+
+As with other things you are by now used to {these brackets} mean
+optional.  Rd in this case means the destination register and
+shifter_operand we have to dig deeper.
+
+The condition field the S bit we will get to that later.
+
+Most processors use "registers".  If you look that word up in the
+dictionary it talks about a book in which records of acts, events, names,
+etc., are kept.  Or variations on that type of a register.  The word
+here is not really incorrectly used.  It is not a book but it is a place
+where we keep information, bits.  And most processors have many of them
+some only one or two some hundreds, usually in the 4, 8, 16, or 32 range
+is typical.  The ARM as far as we are concerned has 16 (the new 64 bit
+ARM which has a different instruction set has 32).
+
+Now when I talk about some processors I dont mean some ARM processors
+have this and some ARM processors have that.  What I mean is that
+different processor archtectures are different.  An Intel x86 processor
+is different from an ARM, is different from a MIPS, is different from
+a Power PC and so on.  There are many many different processor architectures
+designed and sold by many different companies.  Once you learn one
+instruction set (assembly language) it is not hard to learn a second or
+third and so on.  They are more similar than they are different.  yes
+this does mean that ARM processors are different from x86, they are not
+compatible, you cant directly run the code compiled for one on the other.
+
+So registers, we use them here, there are 16 of them in this ARM.  In
+C programs we have variables we can make as many of them as we want
+(within reason) and call them what we want.  We are going to stick with
+their proper names for the most part.
+
+Registers in the ARM instrucition set are mostly general purpose meaning
+one is the same as the other, they dont have special features or powers.
+BUT...There are a few of them that have special features or powers, in
+that they are tied to some instructions.  r0-r12 are general purpose,
+nothing special about them.  r13 is also known as the stack pointer,
+to be talked about later.  For now it is really general purpose but
+is commonly used as the stack pointer so we will assume it has that
+special property.  r14 is also known as the link register or lr.  If you
+think about it when we call a function in C
+
+a=7;
+b=5;
+printf("blah");
+c=b+a;
+
+We know enough at the C level that the call to printf() means our program
+changes path, runs through all the code in printf(), then comes back
+to the line after we called printf.
+
+Assembly works the same way but of course much simpler, lower level.
+We call a function with the bl instruction which you can look up.
+Branch and Link.  We have to talk about r15 for a second first.  R15
+in this ARM is the program counter or PC.  It is the register that keeps
+track of where we are in our program.  It keeps the address of the
+instructions we are fetching and executing.  Thinking in C in the code
+above the pc would be the line number perhaps, keeping track of where
+we are.  Now when you call a function that you expect to return from
+you need to do two things.  You need to save the address of the
+line/instruction after your branch, and you need to then branch to the
+code where the function you are calling lives. (branch, jump, goto, all
+the same thing)
+
+So to return from a function we need to put the address of the instruction
+after the call back in the pc so that the pc branches back to where
+we were before the function call.  Basically the end of printf() needs
+to point the pc back to the c=b+a; line.  Now since you can call printf()
+from a zillion different places you cant hardcode that return address
+in printf, it has to be more flexiby.  So r14, a.k.a lr is used.
+When we call a function lr will contain the return address.
+
+
+00000000 <fun>:
+   0:   e3a0000c    mov r0, #12
+   4:   e12fff1e    bx  lr
+
+So our program is moving the value 12 into r0 and then returning back
+to the calling functions return address in lr.  the old way to do the
+return was
+
+mov pc,lr
+
+And for what we are doing for now that is fine.  But then ARM created
+this thumb instruction set thing where the instructions are 16 bits
+instead of 32, basically a completely different instruction set, and
+to bounce between thumb and arm mode you use the BX instruction, you can
+look that up in your manual.  it may be a little confusing in the manual
+depending on how they worded it. And some of the manuals are kinda wrong,
+you may already know that there is no perfect programmers reference manual
+ARM is no different.  We may run across some.
+
+The traditional ARM instructions are 32 bits wide, and as a rule they
+must be on aligned addresses, basically a multiple of 4 bytes, so
+0x0, 0x4, 0x8, 0xC, 0x10, and so on.  The lower two address bits must
+be a zero for ARM instructions.  the traditional thumb instructions
+are 16 bits wide and must be aligned so the lower bit is always zero,
+0x0, 0x2, 0x4, 0x6, 0x8, and so on.  What they did is for the BX
+instruciton if the register you give it, the lr in this case, has an
+lsbit of 1 then the processor knows that is a thumb instruciton, it
+strips that lsbit off (makes it a zero) and starts fetching thumb
+instructions at that address.  If the register specified in the bx
+instruciton contains an address with the lsbit of zero, then the bx
+instruction puts that value in the PC and starts fetching ARM instructions
+in ARM mode.  The beauty of this is the bl instruction does the complement
+if you were in thumb mode then the lr is loaded with the return address|1
+the lsbit is set.  If the bl happens in arm mode then the lsbit is
+not set in the lr.
+
+The mov pc,lr instruction simply moves the value in lr into the value
+in pc, these are shortcut names you can also write
+
+mov r15,r14
+
+Some folks would call this intel syntax (vs att), this is an ARM it
+is neither an intel or att or anything else.  I prefer this style where
+the destination is on the left (with an exception of course).  Replace
+that comma with an equals sign
+
+mov r15=r14
+
+when you read that code, I am putting the thing on the right into the
+thing on the left.
+
+The way the ARM processors work the mov instruction does not work like
+the bx it simply copies the registers, if you were in thumb mode lets
+say and you called a function in ARM mode and did a mov pc,lr you would
+make the processor very upset because it wont fetch an instrucition
+at an unaligned address (more on aligned and unaligned later).
+
+So our little two line program which didnt do what we wanted was still
+quite the talking point.
+
+00000000 <fun>:
+   0:   e3a0000c    mov r0, #12
+   4:   e12fff1e    bx  lr
+
+One more thing and we are done with this one.  The #12 on the right there
+as we saw above think of the comma as an equals r0=#12.  The # is just
+a syntax thing to help the assembler parse our code just like brackets
+and semicolons and such are used in C to help the parser and the human
+keep track of things.
+
+Now forgetting about thumb for now, the ARM instruction set is know as
+a fixed length instruction set.  All of the ARM instructions are
+32 bits, no more, no less.  Other instruction sets like the Intel x86
+are variable length instruction sets.  You can have instructions as
+small as one byte and some that are many bytes long.  There are pros
+and cons to each approach.  One of the cons to having fixed length
+instructions, and worse the length of the instruction is the size of
+a register.  Well explain how you would encode 0xABCD1234 into a single
+instruciton
+
+ mov r0,#0xABCD1234
+
+and have some other bits there to tell the processor this is a mov and
+the destination is r0?  Answer is you cant.  ARMs approach is confusing
+at first, but in this case the value 12 fits in the bits we have. so
+  mov r0,#12
+fits in a single instruction.
+
+This number at the end there is called an immediate.  That bit pattern
+for that 12 is encoded in the instruciton or immediate vicinity if you
+will.
+
+Lets make the compiler deal with an immediate that ARM cannot encode
+in a single instruction.  since I happen to know how ARM does this I
+can pick one at will...
+
+unsigned int fun ( void )
+{
+    unsigned int a;
+    unsigned int b;
+    unsigned int c;
+    a = 0x1200;
+    b = 0x0034;
+    c = a+b;
+    return(c);
+}
+
+
+00000000 <fun>:
+   0:   e59f0000    ldr r0, [pc]    ; 8 <fun+0x8>
+   4:   e12fff1e    bx  lr
+   8:   00001234    andeq   r1, r0, r4, lsr
+
+You should know this, but in case you dont.  Not all compilers produde
+the same machine/assembly code from the same high level language.
+You might actually get a different answer here than I do depending
+on your compiler.  And I dont mean that gcc vs clang vs borland vs
+microsoft.  You can easily have gcc produce things different ways
+depending on the command line settings or the version of gcc you are using
+and so on.  So just becuase I happen to get these results for this
+code today doesnt mean you will, you just have to roll with what my
+compiler is producing and then figure out what yours is later.
+
+What they did here is know that they couldnt encode a
+
+mov r0,#0x1234
+
+into a single instruction, that is invalid it will complain if you try.
+so they put that 32 bit number 0x00001234 in some memory location somewhere
+then they said read this 32 bit thing from memory and put all 32 bits in
+r0.  With that technique they can have any 32 bit pattern they want.
+
+A beauty of a fixed length instruction set is that you can be lazy with
+your disassembler, you can assume everything is an instruction and
+just disassemble it.  So the andeq r1 stuff is not real it is not
+an instruction that is our 0x0001234 data.  If you happened to have
+that andeq instruciton just like that then the machine code would
+be 0x00001234.  So sometimes with these ARM disassemblers you have
+to just know which is instructions and which is data.
+
+Now the ldr r0,[pc] that is a real instruction.  Ldr means load register
+or load into a register the value at some address.  The address for
+sytax parsing and human readable purposes is in [brackets].  And in
+this case it is the program counter.  So get the address that is in
+the program counter, read from memory at that address, and place that
+value in r0.
+
+Now you should be asking, but isnt the pc the address of our instruction
+should that load 0xe59f0000 instead of 0x00001234.  Well this is one
+of those pipeline things you may have heard of.  These days the pipe
+is actually deeper and for reverse compatibility we just happen to know
+the rule.  For ARM the rule is whenever you use the pc in an instruction
+it points two instructions ahead, or it points at the address after
+the next instruciton.  In this case the bx lr is the next instruction
+so while we are in the instruction at address 0 the pc is pointing at
+address 8, the pc contains 0x00000008, two ahead.  So this is actually
+loading from memory at address 0x00000008 which is the value 0x00001234
+and puts that 0x00001234 into r0.
+
+Moving on.
+
+The problem with this code from a "how do I see an add" perspective
+
+unsigned int fun ( unsigned int a, unsigned int b )
+{
+    return(a+b);
+}
+
+is that we have told the compiler what the inputs to the addition is
+and the compiler can then do that addition for us at compile time
+instead of runtime.  So if we want to see the compiler generate
+an add operation then we have to hide the operands from it by making
+them inputs to this function.  We also need this function to do something
+so we have to return something as well and to see that add this function
+has to return the addition or something derived from it otherwise the
+addition surves no purpose and will be removed as dead code.
+
+So the above generates
+
+00000000 <fun>:
+   0:   e0800001    add r0, r0, r1
+   4:   e12fff1e    bx  lr
+
+Okay, should have said something by now but here goes.  Compilers use
+a calling convention in order to manage the code being generated.  It
+is up to the compiler at the end of the day what that convention is.
+Some processor families will try to encourage or dictate the calling
+convention, assuming they know more about their processor and how
+it interacts with compiled code.  Sometimes not sometimes the same
+processor may have different conventions from different compilers or
+versions of compilers.  Naturally objects made with different conventions
+wont necessarily link together and run.
+
+Calling convetion by this or other terms, is a list of rules if you will
+for knowing where to find the inputs to a function, where to place the
+output, in some cases where to find the return address and so on.
+
+In the case of ARM for these simple 32 bit variables the first variable
+a in this case will always be in the r0 register, the second in r1 and
+so on up to r3.  Then after four (r0,r1,r2,r3) registers are used the
+stack holds the rest.  We will get to the stack later, and we may get
+to more compilcated situations where the r0-r3 gets more confusing.
+
+For the time being the function parameters are in r0,r1,r2...the
+compiler can assume this when it compiles a function.  You may have
+noticed we are not compiling an entire program we are only compiling
+one function into on object.  yet the compiler knows where
+the operands are because it always uses the same set of rules.  In this
+case a comes into the function in r0, b into the function in r1.
+
+This add operation like many of the arm math operations can be read
+by your mind this way
+
+add r0,r0,r1  ; the syntax
+    r0=r0+r1  ; what you should see/think
+
+Now I left this out before but these functions are returning something
+as well.  The calling convention so much as we need to know for now
+puts the return value in r0.  Just like we know all functions by this
+compiler will do the same thing for placing operands in registers before
+calling our function, we will place the return value in a know place
+so the function we return to can find that return value.
+
+So we have successfully prevented the assembler from optimizing out our
+addition as dead code by hiding the inputs and forcing the result as
+an output.
+
+lets get slightly more complicated.
+
+unsigned int fun ( unsigned int a, unsigned int b )
+{
+    return(a+b+7);
+}
+
+00000000 <fun>:
+   0:   e2811007    add r1, r1, #7
+   4:   e0810000    add r0, r1, r0
+   8:   e12fff1e    bx  lr
+
+
+So the compiler chose to add 7 to b (b is held in r1 here) and then
+add b+1.  We know that a+b = b+a so why the compiler did it that way
+r0,r1,r0 instead of r0,r0,r1 we may never know.  It works.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
