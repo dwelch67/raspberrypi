@@ -53,32 +53,24 @@ Disassembly of section .text:
 Disassembly of section .ARM.attributes:
 
 00000000 <.ARM.attributes>:
-   0:	00002c41 	andeq	r2, r0, r1, asr #24
+   0:	00002a41 	andeq	r2, r0, r1, asr #20
    4:	61656100 	cmnvs	r5, r0, lsl #2
    8:	01006962 	tsteq	r0, r2, ror #18
-   c:	00000022 	andeq	r0, r0, r2, lsr #32
+   c:	00000020 	andeq	r0, r0, r0, lsr #32
   10:	4d524105 	ldfmie	f4, [r2, #-20]	; 0xffffffec
-  14:	54347620 	ldrtpl	r7, [r4], #-1568	; 0xfffff9e0
+  14:	54347620 	ldrtpl	r7, [r4], #-1568	; 0x620
   18:	08020600 	stmdaeq	r2, {r9, sl}
   1c:	12010901 	andne	r0, r1, #16384	; 0x4000
-  20:	15011404 	strne	r1, [r1, #-1028]	; 0xfffffbfc
+  20:	15011404 	strne	r1, [r1, #-1028]	; 0x404
   24:	18031701 	stmdane	r3, {r0, r8, r9, sl, ip}
-  28:	2c011a01 	stccs	10, cr1, [r1], {1}
-  2c:	Address 0x0000002c is out of bounds.
+  28:	Address 0x0000000000000028 is out of bounds.
 
 
 Disassembly of section .comment:
 
 00000000 <.comment>:
    0:	3a434347 	bcc	10d0d24 <notmain+0x10c8d04>
-   4:	6f532820 	svcvs	0x00532820
-   8:	65637275 	strbvs	r7, [r3, #-629]!	; 0xfffffd8b
-   c:	43207972 	teqmi	r0, #1867776	; 0x1c8000
-  10:	4265646f 	rsbmi	r6, r5, #1862270976	; 0x6f000000
-  14:	68636e65 	stmdavs	r3!, {r0, r2, r5, r6, r9, sl, fp, sp, lr}^
-  18:	74694c20 	strbtvc	r4, [r9], #-3104	; 0xfffff3e0
-  1c:	30322065 	eorscc	r2, r2, r5, rrx
-  20:	302e3131 	eorcc	r3, lr, r1, lsr r1
-  24:	39362d39 	ldmdbcc	r6!, {r0, r3, r4, r5, r8, sl, fp, sp}
-  28:	2e342029 	cdpcs	0, 3, cr2, cr4, cr9, {1}
-  2c:	00312e36 	eorseq	r2, r1, r6, lsr lr
+   4:	4e472820 	cdpmi	8, 4, cr2, cr7, cr0, {1}
+   8:	34202955 	strtcc	r2, [r0], #-2389	; 0x955
+   c:	322e382e 	eorcc	r3, lr, #3014656	; 0x2e0000
+	...

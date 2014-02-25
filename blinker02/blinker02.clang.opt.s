@@ -1,11 +1,13 @@
 	.syntax unified
-	.eabi_attribute 10, 2
-	.fpu vfpv2
-	.eabi_attribute 20, 1
-	.eabi_attribute 21, 1
-	.eabi_attribute 23, 3
-	.eabi_attribute 24, 1
-	.eabi_attribute 25, 1
+	.cpu	arm1176jzf-s
+	.eabi_attribute	6, 6
+	.eabi_attribute	8, 1
+	.fpu	vfpv2
+	.eabi_attribute	20, 1
+	.eabi_attribute	21, 1
+	.eabi_attribute	23, 3
+	.eabi_attribute	24, 1
+	.eabi_attribute	25, 1
 	.file	"blinker02.clang.opt.bc"
 	.text
 	.globl	notmain
@@ -13,8 +15,9 @@
 	.type	notmain,%function
 notmain:                                @ @notmain
 @ BB#0:                                 @ %entry
-	push	{r4, lr}
+	push	{r4, r11, lr}
 	ldr	r4, .LCPI0_0
+	add	r11, sp, #4
 	mov	r0, r4
 	bl	GET32
 	bic	r0, r0, #1835008
@@ -23,8 +26,8 @@ notmain:                                @ @notmain
 	bl	PUT32
 .LBB0_1:                                @ %while.body
                                         @ =>This Loop Header: Depth=1
-                                        @     Child Loop BB0_4 Depth 2
                                         @     Child Loop BB0_2 Depth 2
+                                        @     Child Loop BB0_4 Depth 2
 	ldr	r0, .LCPI0_1
 	mov	r1, #65536
 	bl	PUT32
@@ -62,3 +65,4 @@ notmain:                                @ @notmain
 	.size	notmain, .Ltmp0-notmain
 
 
+	.ident	"clang version 3.4 (branches/release_34 201060)"

@@ -25,7 +25,7 @@ int notmain ( void )
     m4vmov(0xABCDABCD);
     hexstring(m4add(0x00012345,0x00000111,0x3F801230,0x3F802220));
     m4vmov(0xABCDABCD);
-    hexstring(m4add(0x00000111,0x00012345,0x3F801230,0x3F803330));
+    hexstring(m4add(0x00000000,0x00012345,0x3F801230,0x3F803330));
     m4vmov(0xABCDABCD);
     hexstring(m4add(0x3F801230,0x3F801110,0x00000111,0x00012345));
     m4vmov(0xABCDABCD);

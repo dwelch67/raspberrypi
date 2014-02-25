@@ -23,71 +23,57 @@ Disassembly of section .text:
     801c:	e12fff1e 	bx	lr
 
 00008020 <notmain>:
-    8020:	e92d4038 	push	{r3, r4, r5, lr}
-    8024:	e59f0074 	ldr	r0, [pc, #116]	; 80a0 <notmain+0x80>
+    8020:	e92d4010 	push	{r4, lr}
+    8024:	e59f005c 	ldr	r0, [pc, #92]	; 8088 <notmain+0x68>
     8028:	ebfffff9 	bl	8014 <GET32>
     802c:	e3c01707 	bic	r1, r0, #1835008	; 0x1c0000
     8030:	e3811701 	orr	r1, r1, #262144	; 0x40000
-    8034:	e59f0064 	ldr	r0, [pc, #100]	; 80a0 <notmain+0x80>
+    8034:	e59f004c 	ldr	r0, [pc, #76]	; 8088 <notmain+0x68>
     8038:	ebfffff3 	bl	800c <PUT32>
-    803c:	e59f0060 	ldr	r0, [pc, #96]	; 80a4 <notmain+0x84>
+    803c:	e59f0048 	ldr	r0, [pc, #72]	; 808c <notmain+0x6c>
     8040:	e3a01801 	mov	r1, #65536	; 0x10000
     8044:	ebfffff0 	bl	800c <PUT32>
     8048:	e3a04000 	mov	r4, #0
     804c:	e1a00004 	mov	r0, r4
-    8050:	e2845001 	add	r5, r4, #1
+    8050:	e2844001 	add	r4, r4, #1
     8054:	ebfffff0 	bl	801c <dummy>
-    8058:	e2844002 	add	r4, r4, #2
-    805c:	e1a00005 	mov	r0, r5
-    8060:	ebffffed 	bl	801c <dummy>
-    8064:	e3540601 	cmp	r4, #1048576	; 0x100000
-    8068:	1afffff7 	bne	804c <notmain+0x2c>
-    806c:	e59f0034 	ldr	r0, [pc, #52]	; 80a8 <notmain+0x88>
-    8070:	e3a01801 	mov	r1, #65536	; 0x10000
-    8074:	ebffffe4 	bl	800c <PUT32>
-    8078:	e3a04000 	mov	r4, #0
-    807c:	e1a00004 	mov	r0, r4
-    8080:	e2845001 	add	r5, r4, #1
-    8084:	ebffffe4 	bl	801c <dummy>
-    8088:	e2844002 	add	r4, r4, #2
-    808c:	e1a00005 	mov	r0, r5
-    8090:	ebffffe1 	bl	801c <dummy>
-    8094:	e3540601 	cmp	r4, #1048576	; 0x100000
-    8098:	1afffff7 	bne	807c <notmain+0x5c>
-    809c:	eaffffe6 	b	803c <notmain+0x1c>
-    80a0:	20200004 	eorcs	r0, r0, r4
-    80a4:	2020001c 	eorcs	r0, r0, ip, lsl r0
-    80a8:	20200028 	eorcs	r0, r0, r8, lsr #32
+    8058:	e3540601 	cmp	r4, #1048576	; 0x100000
+    805c:	1afffffa 	bne	804c <notmain+0x2c>
+    8060:	e59f0028 	ldr	r0, [pc, #40]	; 8090 <notmain+0x70>
+    8064:	e3a01801 	mov	r1, #65536	; 0x10000
+    8068:	ebffffe7 	bl	800c <PUT32>
+    806c:	e3a04000 	mov	r4, #0
+    8070:	e1a00004 	mov	r0, r4
+    8074:	e2844001 	add	r4, r4, #1
+    8078:	ebffffe7 	bl	801c <dummy>
+    807c:	e3540601 	cmp	r4, #1048576	; 0x100000
+    8080:	1afffffa 	bne	8070 <notmain+0x50>
+    8084:	eaffffec 	b	803c <notmain+0x1c>
+    8088:	20200004 	eorcs	r0, r0, r4
+    808c:	2020001c 	eorcs	r0, r0, ip, lsl r0
+    8090:	20200028 	eorcs	r0, r0, r8, lsr #32
 
 Disassembly of section .ARM.attributes:
 
 00000000 <.ARM.attributes>:
-   0:	00002c41 	andeq	r2, r0, r1, asr #24
+   0:	00002a41 	andeq	r2, r0, r1, asr #20
    4:	61656100 	cmnvs	r5, r0, lsl #2
    8:	01006962 	tsteq	r0, r2, ror #18
-   c:	00000022 	andeq	r0, r0, r2, lsr #32
+   c:	00000020 	andeq	r0, r0, r0, lsr #32
   10:	4d524105 	ldfmie	f4, [r2, #-20]	; 0xffffffec
-  14:	54347620 	ldrtpl	r7, [r4], #-1568	; 0xfffff9e0
+  14:	54347620 	ldrtpl	r7, [r4], #-1568	; 0x620
   18:	08020600 	stmdaeq	r2, {r9, sl}
   1c:	12010901 	andne	r0, r1, #16384	; 0x4000
-  20:	15011404 	strne	r1, [r1, #-1028]	; 0xfffffbfc
+  20:	15011404 	strne	r1, [r1, #-1028]	; 0x404
   24:	18031701 	stmdane	r3, {r0, r8, r9, sl, ip}
-  28:	2c011a01 	stccs	10, cr1, [r1], {1}
-  2c:	Address 0x0000002c is out of bounds.
+  28:	Address 0x0000000000000028 is out of bounds.
 
 
 Disassembly of section .comment:
 
 00000000 <.comment>:
    0:	3a434347 	bcc	10d0d24 <notmain+0x10c8d04>
-   4:	6f532820 	svcvs	0x00532820
-   8:	65637275 	strbvs	r7, [r3, #-629]!	; 0xfffffd8b
-   c:	43207972 	teqmi	r0, #1867776	; 0x1c8000
-  10:	4265646f 	rsbmi	r6, r5, #1862270976	; 0x6f000000
-  14:	68636e65 	stmdavs	r3!, {r0, r2, r5, r6, r9, sl, fp, sp, lr}^
-  18:	74694c20 	strbtvc	r4, [r9], #-3104	; 0xfffff3e0
-  1c:	30322065 	eorscc	r2, r2, r5, rrx
-  20:	302e3131 	eorcc	r3, lr, r1, lsr r1
-  24:	39362d39 	ldmdbcc	r6!, {r0, r3, r4, r5, r8, sl, fp, sp}
-  28:	2e342029 	cdpcs	0, 3, cr2, cr4, cr9, {1}
-  2c:	00312e36 	eorseq	r2, r1, r6, lsr lr
+   4:	4e472820 	cdpmi	8, 4, cr2, cr7, cr0, {1}
+   8:	34202955 	strtcc	r2, [r0], #-2389	; 0x955
+   c:	322e382e 	eorcc	r3, lr, #3014656	; 0x2e0000
+	...
