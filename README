@@ -263,3 +263,23 @@ would deal with on a FLASH/PROM + RAM system.  This RAM only approach
 makes life a lot easier, but leaves out some important bare metal
 experiences that you will have to find elsewhere.
 
+-----------
+
+Sources for ARM ARMs
+
+Google
+  ARM DDI 0100E
+or
+  ARM DDI 0100I
+
+https://www.scss.tcd.ie/~waldroj/3d1/arm_arm.pdf
+http://morrow.ece.wisc.edu/ECE353/arm_reference/ddi0100e_arm_arm.pdf
+http://reds.heig-vd.ch/share/cours/aro/ARM_Thumb_instructions.pdf
+They have a rev B here...Which was the blue covered one in print.  This
+was the I learned from (the print version) later I got a rev a, then
+rev e all in print then it was only electronic from there out as far as
+I know.  the older ones being more pure, but also some notable bugs
+in the docs, instruction encodings and some other things.
+http://www.home.marutan.net/arcemdocs/
+
+
