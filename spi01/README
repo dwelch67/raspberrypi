@@ -1,0 +1,10 @@
+
+See the top level README for information on where to find the
+schematic and programmers reference manual for the ARM processor
+on the raspberry pi.  Also find information on how to load and run
+these programs.
+
+See the top level README for information on how to connect the raspi
+uart to your host computer.
+
+This is a work in progress, learning how to use the spi master.
