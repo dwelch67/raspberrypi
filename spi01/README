@@ -7,4 +7,60 @@ these programs.
 See the top level README for information on how to connect the raspi
 uart to your host computer.
 
-This is a work in progress, learning how to use the spi master.
+This example is using the raspberry pi as an AVR ISP.
+
+The AVR board used initially is the Sparkfun pro micro 8Mhz/3.3v
+
+http://www.sparkfun.com/products/10999
+
+From an AVR document the chips with this serial isp are either byte
+mode or page mode.  This chip atmega32u4 is page mode so you load a
+temporary buffer with 64 instructions, then send one command to program
+that buffer into a page of flash.
+
+The serial protocol is quite trivial so writing code to use it or modify
+this program is simple.
+
+At this time the code only supports one page/buffer, 64 instructions.
+
+At this time not worrying about exact timing, it works with count to
+N loops.
+
+Raspberry pi interesting pins
+
+//GPIO7  SPI0_CE1_N  P1-26
+//GPIO8  SPI0_CE0_N  P1-24
+//GPIO9  SPI0_MISO   P1-21
+//GPIO10 SPI0_MOSI   P1-19
+//GPIO11 SPI0_SCLK   P1-23
+//alt function 0 for all of the above
+
+//P1 1  +3V3
+//P1 25  GND
+//p1 26  GPIO_CE1
+
+Pro micro to raspi
+
+(GND)              P1-25 GND
+(RST)              P1-26 CE1_N
+(VCC)              P1-1  +3V3
+(15) SCK  JP6-9    P1-23 SCLK
+(14) MISO JP6-10   P1-21 MISO
+(16) MOSI JP6-11   P1-19 MOSI
+
+The ATmega32U4 breakout board has a cluster of 6 pins (an AVR ISP header)
+with all 6 labelled, you connect the raspberry pi signals (right side
+of table above) to those six pins, nothing else.  That breakout board
+does not have an led at least not in the same place so you would have
+to add one or use a scope or meter to see the I/O pin toggle after
+programming.
+
+The AVR doesnt use the chip select for communication, so I support CS0
+but didnt wire it.  The AVR is strange in that way, it does need the
+chip held in reset so I abused CS1 (CE1_N) and mucked with its
+non-asserted state as if it were a gpio pin to assert and deassert reset
+on the AVR.  Normal spi stuff derived from this example should use CE0_N
+(CS0).
+
+The avr samples use the avra assembler apt-get install avra
+
