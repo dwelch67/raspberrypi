@@ -182,6 +182,9 @@ serial port where the signals are 3.3V (dont need to use RS232 just
 stay at the logic level).  The solution I recommend is a non-solder
 solution:
 
+A recent purchase, experimentally white is RX and green is TX, black GND
+http://www.nexuscyber.com/usb-to-ttl-serial-debug-console-cable-for-raspberry-pi
+
 http://www.sparkfun.com/products/9873
 plus some male/female wire
 http://www.sparkfun.com/products/9140
