@@ -14,16 +14,17 @@ TUTORIAL.
 
 
 
-
-
-
 See the top level README for information on where to find the
 schematic and programmers reference manual for the ARM processor
 on the raspberry pi.  Also find information on how to load and run
 these programs.
 
-The purpose of this tutorial is to walk you through bare metal programming
-basics using the Raspberry Pi.
+The purpose of this tutorial is to give you a foundation for bare
+metal programming.  The actual touching of registers and making the
+chip do things is not addressed here, that is the purpose of the
+individual blinker and uart examples.  This tutorial is about mastering
+the toolchain to understand the foundation of those programs and also
+to allow you to create your own and hopefully avoid common traps.
 
 First and foremost, what is bare metal programming?  You are going to
 get different answers to that question from people who say they are
