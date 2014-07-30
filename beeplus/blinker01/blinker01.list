@@ -1,0 +1,79 @@
+
+blinker01.elf:     file format elf32-littlearm
+
+
+Disassembly of section .text:
+
+00008000 <_start>:
+    8000:	e3a0d902 	mov	sp, #32768	; 0x8000
+    8004:	eb000005 	bl	8020 <notmain>
+
+00008008 <hang>:
+    8008:	eafffffe 	b	8008 <hang>
+
+0000800c <PUT32>:
+    800c:	e5801000 	str	r1, [r0]
+    8010:	e12fff1e 	bx	lr
+
+00008014 <GET32>:
+    8014:	e5900000 	ldr	r0, [r0]
+    8018:	e12fff1e 	bx	lr
+
+0000801c <dummy>:
+    801c:	e12fff1e 	bx	lr
+
+00008020 <notmain>:
+    8020:	e92d4010 	push	{r4, lr}
+    8024:	e59f005c 	ldr	r0, [pc, #92]	; 8088 <notmain+0x68>
+    8028:	ebfffff9 	bl	8014 <GET32>
+    802c:	e3c0160e 	bic	r1, r0, #14680064	; 0xe00000
+    8030:	e3811602 	orr	r1, r1, #2097152	; 0x200000
+    8034:	e59f004c 	ldr	r0, [pc, #76]	; 8088 <notmain+0x68>
+    8038:	ebfffff3 	bl	800c <PUT32>
+    803c:	e59f0048 	ldr	r0, [pc, #72]	; 808c <notmain+0x6c>
+    8040:	e3a01902 	mov	r1, #32768	; 0x8000
+    8044:	ebfffff0 	bl	800c <PUT32>
+    8048:	e3a04000 	mov	r4, #0
+    804c:	e1a00004 	mov	r0, r4
+    8050:	e2844001 	add	r4, r4, #1
+    8054:	ebfffff0 	bl	801c <dummy>
+    8058:	e3540601 	cmp	r4, #1048576	; 0x100000
+    805c:	1afffffa 	bne	804c <notmain+0x2c>
+    8060:	e59f0028 	ldr	r0, [pc, #40]	; 8090 <notmain+0x70>
+    8064:	e3a01902 	mov	r1, #32768	; 0x8000
+    8068:	ebffffe7 	bl	800c <PUT32>
+    806c:	e3a04000 	mov	r4, #0
+    8070:	e1a00004 	mov	r0, r4
+    8074:	e2844001 	add	r4, r4, #1
+    8078:	ebffffe7 	bl	801c <dummy>
+    807c:	e3540601 	cmp	r4, #1048576	; 0x100000
+    8080:	1afffffa 	bne	8070 <notmain+0x50>
+    8084:	eaffffec 	b	803c <notmain+0x1c>
+    8088:	20200010 	eorcs	r0, r0, r0, lsl r0
+    808c:	20200020 	eorcs	r0, r0, r0, lsr #32
+    8090:	2020002c 	eorcs	r0, r0, ip, lsr #32
+
+Disassembly of section .ARM.attributes:
+
+00000000 <.ARM.attributes>:
+   0:	00002a41 	andeq	r2, r0, r1, asr #20
+   4:	61656100 	cmnvs	r5, r0, lsl #2
+   8:	01006962 	tsteq	r0, r2, ror #18
+   c:	00000020 	andeq	r0, r0, r0, lsr #32
+  10:	4d524105 	ldfmie	f4, [r2, #-20]	; 0xffffffec
+  14:	54347620 	ldrtpl	r7, [r4], #-1568	; 0x620
+  18:	08020600 	stmdaeq	r2, {r9, sl}
+  1c:	12010901 	andne	r0, r1, #16384	; 0x4000
+  20:	15011404 	strne	r1, [r1, #-1028]	; 0x404
+  24:	18031701 	stmdane	r3, {r0, r8, r9, sl, ip}
+  28:	Address 0x0000000000000028 is out of bounds.
+
+
+Disassembly of section .comment:
+
+00000000 <.comment>:
+   0:	3a434347 	bcc	10d0d24 <notmain+0x10c8d04>
+   4:	4e472820 	cdpmi	8, 4, cr2, cr7, cr0, {1}
+   8:	34202955 	strtcc	r2, [r0], #-2389	; 0x955
+   c:	332e382e 	teqcc	lr, #3014656	; 0x2e0000
+	...
