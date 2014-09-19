@@ -143,9 +143,99 @@ http://www.raspberrypi.org/wp-content/uploads/2012/02/BCM2835-ARM-Peripherals.pd
 (might be an old link, find the one on the wiki page)
 And the schematic for the board
 http://www.raspberrypi.org/wp-content/uploads/2012/04/Raspberry-Pi-Schematics-R1.0.pdf
+http://www.raspberrypi.org/wp-content/uploads/2012/10/Raspberry-Pi-R2.0-Schematics-Issue2.2_027.pdf
 (might be an old link, find the one on the wiki page)
-
 As well as some documents from ARM.
+
+The Raspberry Pi is centered around the Broadcom BCM2835 media
+processor.  ARM does not make chips they sell/license the source code
+to their processor design, which is normally integrated into what is
+called an SoC or System on Chip.  Which means some useful peripherals
+are added to the chip that might historically have been on separate
+chips like a DDR (memory) controller, or a USB controller, PCIe, etc.
+For power or size or economy of scale reasons the folks that buy ARM
+processor cores generally need a processor to add to their chip and
+it is easier sometimes to buy than make your own.  Most folks dont
+realize it and think that because almost every big box computer (server,
+desktop or laptop) is Intel x86 based (or a clone) that x86 processors
+dominate the world, not realizing that that same box has many other
+processors inside, not all of them ARM's but some.  For every x86 you
+own or use you likely own or use many many ARM based products.  This
+chip from Broadcom is one of the myriad of ARM based products out there
+fighting for a space in the various niche markets.
+
+Be it an ARM based chip or some other the first thing a bare metal
+programmer needs to do is figure out which processor you have.  Simply
+stating it is an ARM processor is not remotely enough.  ARM has an ever
+growing array of processor products.  Some chip vendors are more
+helpful than others at figuring this out.  The BCM2835 document
+mentioned above would normally be the place where you would find this
+out, but in this case it does say ARM in the document but doesnt even
+say ARM11 much less arm1176jzfs.  Fortunately the Raspberry Pi
+creators and community has the wiki page above which provides the
+information we need.  ARM has at least four different cores in the
+ARM11 category this one is the ARM1176 specifically arm1176jzfs a bunch
+of letters that mean something to ARM as to the features included.  For
+us that means wse can find one of the two documents we need from ARM.
+Generally you start at
+http://infocenter.arm.com
+And along the left side you find the processor series, in this case
+ARM11 processors.  Expand that and see the ARM1136, ARM1156, ARM1176
+and the MPCore.  We want ARM1176.  Our first goal here is to find
+the Technical Reference Manual, TRM, for the core we are using.  For
+the moment this is an accurate link directly to that document
+http://infocenter.arm.com/help/topic/com.arm.doc.ddi0301h/DDI0301H_arm1176jzfs_r0p7_trm.pdf
+In the preface of the TRM it gives us a hint as to the ARM ARM we need
+(ARM ARM = ARM Architectural Reference Manual).
+
+ARM Architecture Reference Manual (ARM DDI 0406)
+
+There used to be only one ARM ARM for the whole ARM world but the
+architectural differences were such that they left the original ARM ARM
+with the last architecture it supported and started creating new ones.
+So back on the left of the page expand ARM Architecture and then expand
+Reference Manuals.
+
+Unfortunately the didnt tell usin the TRM which architecture name to
+look for, so we have to fumble around a bit or do some Googling to find
+that we need the ARMv7-AR Reference Manual.  From that page it shows
+
+This manual describes the instruction set, memory model, and programmers'
+model for ARMv7 (A&R profile) compliant processors, including:
+  Cortex-A series
+  Cortex-R series
+  Qualcomm Scorpion.
+It also describes the later ARMv6 architecture releases for ARM11
+processors, and describes Thumb-2 and the TrustZone security
+extensions.
+
+If you get the manual through ARMs website they appear to require a
+login. It is free other than giving up an email address which no doubt
+you have or can create a gmail one or whatever.
+
+https://silver.arm.com/download/download.tm?pv=1603196
+
+So the r0p7 nomenclature means rev 0.7 the r is rev and the p is a period.
+Now hopefully the Raspberry Pi folks who provided that link gave us the
+right rev.  Just because ARM has fixed some bugs in some rev and the
+currently selling rev is some other number, any ARM based chip you are
+using is built from a specific rev of that product and there are times
+where a rev change generates different internal addressing or features
+in the chip (certainly if you have access to the errata, you need to
+be very careful to apply the correct errata to the right rev, far too
+often are workarounds applied improperly to arm code causing more
+problems for that software than solutions).  The ARM1176JZF-S has only
+the r0p7 rev of TRM.  But look at the ARM11 MPCore TRM and see there
+is an r1p0 and r2p0 and I know that if you use the wrong one there
+you can have stuff not work.  When in doubt take the newest one and
+hope for the best, if you know for sure, then even if the ARM web page
+marks that doc as Superseded, use that doc.
+
+To add to the confusion wikipedia shows that the ARM1176 is architecture
+version ARMv6Z.  The part we care about is the ARMv6 part as you will
+see soon.
+
+So what was the point of that exercise?
 
 
 
