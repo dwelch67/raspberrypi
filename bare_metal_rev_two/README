@@ -1,0 +1,151 @@
+
+I am contemplating a do-over on this Raspberry Pi Bare Metal Programming
+repo.
+
+Bare Metal Programming simply means no operating system.  Although we
+could, we are not going to run off and make a gui based web browser
+or anything like that.  Bare metal is often used for things like
+booting a computer or the software that runs an alarm clock or TV
+remote control.  We are of course going to do it here for fun and
+education.  The purpose of the Raspberry Pi is education, for every
+million or so Python programmers we need a bare metal programmer.  The
+Raspberry Pi has pros and cons for use in learning bare metal
+programming.  On the pro side the peripherals are relatively easy to
+program on the con side the vendor provided documentation is far from
+the best I have seen.
+
+Most of bare metal programming has to do with things other than writing
+programs.  Reading datasheets, programmers reference manuals, schematics
+are all at the center of bare metal programming.  You dont have to be
+a computer engineer nor electrical engineer, if/when you do this
+professionally then there should be electrical engineers that you work
+very closely with, they do their thing, you do yours.  Hopefully I can
+hold your hand through the electrical part.
+
+Some assembly language programming is required for bare metal
+programming, the bulk of bare metal is C.  One nice thing about bare
+metal programming is that the programming itself does not have
+to be that complicated.  You need to have some programming experience
+here, doesnt have to be assembly language nor C although C would help.
+I will try to explain the assembly language, and the C should feel
+relatively natural for an experienced programmer, just a matter of
+syntax.
+
+My statistic above about a million to one Python to bare metal
+programmers is completely made up, but the percentage of bare metal
+programmers to other forms is a very small number.  This means for
+example the documentation we need is read by a relatively small
+number of people, it only has to be good enough, doesnt have to be
+great.  Likewise, more than the programming languages themselves
+(generally C with some assembly language) we do have to beat the
+programming tools into submission (assembler, compiler, linker) because
+we are going to use them in a way that is equally rarely used.
+
+The last word on bare metal programming in this introduction before
+we go onto what you need is that unlike programming an application
+on top of your favorite operating system, with bare metal programming
+it is possible to destroy hardware.  Sometimes you "let the smoke out"
+(the joke is there is a finite amount of smoke in chips and if you
+let even a little bit out the chip wont work) and sometimes you "brick"
+the system.  Bricking something in this context means that you have
+done something fatal to the hardware that doesnt let the smoke out
+but the board/product is not much more than a paperweight or a brick
+you might use to hold a door open.  On the good side, so far as we
+know, you cannot brick a Raspberry Pi, if your program crashes you do
+have the tools to fix it, in this case the tool is removing the sd card
+and replacing the program that crashed with one that doesnt.  With
+hardware other than the raspberry pi, there are various levels of pain
+for bricking a board sometimes you might be able to recover the board
+with a JTAG debugger.  Sometimes you can get a soldering iron out and
+remove and replace some components.  It is all part of the experience
+unfortunately.  With the raspberry pi if you are careful not to
+short anything out (dont touch the board with metal items, dont set it
+on metal items, basically dont create an electrical connection between
+any two exposed bits of metal on the board) and when connecting the
+serial interface below or other additional items we may talk about
+you dont get those connections wrong, you shouldnt have any smoke or
+bricking problems with your Raspberry Pi.  I will not take any
+responsibility for you damaging your hardware.
+
+Take a deep breath, you CAN do this...
+
+Naturally you will need a raspberry pi.  I am probably going to use
+my Model A for much of this since I added a reset button to it.  I have
+a number of Raspberry Pi boards, and for the most part this material
+should work on all of them.  If something board specific comes along,
+we will deal with it then.
+
+Looks like folks are retiring the Model A, Adafruit also showed the
+Model A as retired.
+
+https://www.sparkfun.com/products/retired/11837
+
+The Model B that is the same pc board as my Model A, but has more stuff
+on it (and costs a little more).
+
+https://www.sparkfun.com/products/11546
+
+The B+ works fine, if you dont have any Raspberry Pi and want to use
+it for more than just this bare metal the B+ is a pretty good looking
+first Raspberry Pi board as of this writing.  Note that you dont have
+to sacrifice your linux install on your Raspbery Pi to play with
+bare metal, renaming a file will preserve that, as you will see.
+
+https://www.sparkfun.com/products/12977
+
+Why they didnt start from the beginning with a micro sd slot I will
+never understand, and the way the full sized sd slot sits so that
+the card hangs way out the side.  I have broken a number of sd cards
+in those slots, this little adapter board is wonderful for converting
+to a micro sd slot in a durable way.  This board is not required but
+you certainly have to have an sd card that fits in the board you are
+using.  It does not have to be a huge card (huge as in lots of
+gigabytes) in fact we will be using three fairly small files and that
+is it, early testing my old cards measured in megabytes didnt work
+for some reason, and 2GB and maybe even 4GB cards are harder and
+harder to find.  But whatever the popular size is under $10 or so
+should work just fine.
+
+https://www.sparkfun.com/products/12824
+
+I hate to do this but almost immediately you will need a serial
+interface to the Raspberry Pi to continue this tutorial.  Computers
+in general do not ship with serial ports any more, and even if they
+did you cant wire that directly up to this board, the voltage levels
+are wrong (smoke will come out somewhere).  The best solution is some
+flavor of usb to serial and it has to be 3.3V not 5.0V (smoke).  This
+cable with an integrated usb to serial built in is ideal.  You dont
+have to shop at sparkfun, in the USA it is a great place for this kind
+of stuff, and easy on the wallet as far as shipping goes, from the
+picture the wires appear to be labelled, you can probably find these
+usb to TTL 3.3v serial cables all kinds of places, ebay, etc.  They
+may not have labelled ends and if you are not experienced at electrical
+engineering and have the tools (multimeter, maybe a scope, etc) you
+dont want to just guess at it (smoke).
+
+https://www.sparkfun.com/products/12977
+
+You could go with other usb to serial and separately buy the usb
+cable and the hook up wires, but that is more expensive.  At the same
+time if you stick with bare metal programming beyond the Raspberry
+Pi, you will need tools like these in your toolbox.  A uart/serial
+port is still one of your primary debugging interfaces.
+
+https://www.sparkfun.com/products/9873
+https://www.sparkfun.com/products/9140
+
+The first documents you will need are found here
+
+You will want to go here
+http://elinux.org/RPi_Hardware
+And get the datasheet for the part
+http://www.raspberrypi.org/wp-content/uploads/2012/02/BCM2835-ARM-Peripherals.pdf
+(might be an old link, find the one on the wiki page)
+And the schematic for the board
+http://www.raspberrypi.org/wp-content/uploads/2012/04/Raspberry-Pi-Schematics-R1.0.pdf
+(might be an old link, find the one on the wiki page)
+
+As well as some documents from ARM.
+
+
+
