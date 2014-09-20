@@ -85,13 +85,13 @@ on it (and costs a little more).
 
 https://www.sparkfun.com/products/11546
 
-The B+ works fine, if you dont have any Raspberry Pi and want to use
-it for more than just this bare metal the B+ is a pretty good looking
-first Raspberry Pi board as of this writing.  Note that you dont have
-to sacrifice your linux install on your Raspbery Pi to play with
-bare metal, renaming a file will preserve that, as you will see.
+The B+ has its led wired differently than the rest so you might have
+some first programs not work but later can catch up.
 
-https://www.sparkfun.com/products/12977
+Note that you dont have to sacrifice your linux install on your
+Raspbery Pi to play with bare metal, renaming a file will preserve
+that, as you will see.
+
 
 Why they didnt start from the beginning with a micro sd slot I will
 never understand, and the way the full sized sd slot sits so that
@@ -235,7 +235,1102 @@ To add to the confusion wikipedia shows that the ARM1176 is architecture
 version ARMv6Z.  The part we care about is the ARMv6 part as you will
 see soon.
 
-So what was the point of that exercise?
+So what was the point of that exercise?  Well first off I gave you
+many answers for finding info, but finding that stuff on your own is
+a big part of bare metal programming.  Sometimes the TRM but usually
+the ARM ARM details the instruction set for that architecture.  And yes
+the ARM instruction sets are generally reverse compatible but ARM did
+create some new isntruction sets that we might talk about.  Each
+architecture adds a few or more instructions.  The original ARM ARM
+became what is now the ARMv5 reference manual which covers ARMv4 and
+ARMv5.  ARMv5 is basically the same instruction set but the processor
+added caches and an MMU which makes it significantly easier to run
+an operating system like Linux for example.  I want you to also
+download the ARMv5 Architectural Reference Manual because it is a little
+easier getting us started with booting the ARM. We need an instruction
+set reference so we can write assembly language we need assembly language so we can manage booting the processor and
+we need the manual to tell us how the processor boots.  In ARM land
+the archtecture manuals are the more common stuff across the
+architecture version in question (the instruction set), and the
+technical reference manual deals with specific processor core products
+within that archtecture version (this one has an FPU that one has
+a cache, etc), the various ARM11 processors for example are different
+processor products basically within the ARMv6 architecture.
+
+Really, the Raspberry Pi is not a bad introduction to bare metal
+programming, but there has already been and will be more of these
+nitty gritty details to work through.  So all processors have a
+procedure they follow for booting.  The hardware folks worry about
+supplying power and a clock or clocks to the processor and releasing
+reset then the fun begins.  Processors made by different companies
+dont all follow the same rules, if you take the time to study a few
+different ones you will see that they are as similar as they are
+different.  Generally you have some sort of non-volatile (meaning
+doesnt forget when it is powered off) storage like a rom (flash) or
+hard disk or something like that which holds the code that at a
+minimum boots the processor up to the point that you can run fun
+and interesting programs.  The ARM processor used in the Raspberry
+Pi as far as the ARM is concerned after reset starts running by
+starting execution at address 0x00000000.  And that is what we care
+about.  Normally the hardware folks will make the logic around
+the ARM processor core such that when the ARM does a read from address
+0x00000000 (and a lot more addresses that follow) that the chip
+talks to some flash somewhere on or off chip to fetch the instructions.
+But there may be some other address space maybe starting at 0x40000000
+that the chip folks make read from ram.  Your x86 computer for example
+has a rom/flash with a bootloader and eventually that bootloader
+reads from a hard disk and then boots the operating system from some
+code on the hard disk that knows how to do that and so on.  This is
+all very typical a flash/rom that either contains the application or
+operating system and some ram and if the flash doesnt contain everything
+then it contains code that knows how to reach out to some other storage
+and run the application or operating system.
+
+The Raspberry Pi boot process is not what you normally find.  Now
+remember this chip was not designed to be a Raspberry Pi, it was meant
+to be some sort of tablet or phone or set top box (ROKU) type product.
+So that basically means it has video processing capabilities, and in
+this case it has a relatively powerful (for its size and price)
+graphics processor which itself is a completely independent processor
+from the ARM.  It has a completely different instruction set, it
+has some normalish instructions but then a lot of floating point
+computation capabilities and other things that help it do graphics
+processing.  Broadcom is generally extremely secretive about their
+chips, and perhaps by plan or accident or against their will the
+Raspberry Pi has drawn the proper attention to first cause the
+GPU to be reverse engineered and then later for Broadcom to open
+up a fair amount of information about that part of the chip.  I didnt
+look for this answer, but either built into logic or or there is some
+on board flash or one time programmable rom that allows the GPU to
+boot first, before the ARM.  The GPU is what actually boots the
+Raspberry Pi.  Again either raw logic or a bootloader on chip the
+first thing that we see is the sd card is read looking for a file
+named bootcode.bin.  That is a program written in the GPU's instruction
+set.  It performs some booting tasks like initializing the DDR
+interface and other stuff.  Then comes start.elf, also GPU code.
+This is more of the embedded operating system that knows how to do
+all the GPU video processing supported by this chip in case you wanted
+to make a tablet or set top box out of this chip and wanted to play
+videos.  Then the GPU boots the ARM by going back to the sd card and
+looking for a file named kernel.img which is an ARM binary.  Although
+there are ways to change this but the default is for the GPU to place
+the bytes (ARM code) from that kernel.img file into ram (DRAM) at
+a place that is address 0x00008000 to the ARM.  So first off I thought
+you said the ARM boots at address 0x00000000, second why are you playing
+word games, the ARMs address rather than simply saying just address 0x8000.
+Well the GPU also writes to the ARM's address 0x00000000 the instruction
+or instructions needed for the ARM to jump to address 0x8000 causing
+it to runthe program that was found on the sd card.  Second, another
+thing you dont normally see, is that the entire memory space is
+shared between the ARM and the GPU.  Depending on the generation
+of Raspberry Pi you might have 256MBytes or 512, but all of that is
+available to both processors almost equally.  If both processors
+try to access the same memory at the same time the GPU wins and gets
+there first the ARM is held off to wait, otherwise if the ARM won
+and the GPU waited then the video output would studder or get messed
+up.
+
+The BCM2835 manual linked above, page 5 has a picture with three
+address spaces, VC CPU Bus Addresses (VC = Video Core or the GPU),
+ARM Physical Addresses and ARM Virtual Addresses.  The one we care
+about is the middle one the ARM Physical Addresses, but also the
+real map of the world is the left one the VC CPU Bus Addresses.
+The first thing this picture is telling us (and this is a complicated
+or perhaps at least confusing picture) is that however much RAM
+we have (I may have called it DDR or DRAM) in the system, called SDRAM
+in this picture, be it 256MBytes or 512MBytes or whatever, both the
+ARM and VC/GPU have access to all of that ram.  For the ARM that ram
+starts at ARM address 0x00000000 and goes up to whatever amount the
+system has.  In the middle it is mared as SDRAM (for the ARM) and
+VC SDRAM (optional), and there is a line in the middel that is vague,
+determined by VC platform configuration.  I dont keep track of this
+constantly for every version, but it has typically been a 50/50
+split, again something we can ask the VC/GPU bootloader to change
+but for this discussion there is no need.  So let's assume that
+if our Raspberry Pi has 512MB then 256MBytes or address 0x00000000
+to address 0x0FFFFFFF belongs to the ARM and the rest is for the GPU.
+This chart is also showing us that in the GPU's address space that
+ram is mapped certainly at addres 0xC0000000 and 0x00000000 and
+0x40000000 and 0x80000000.  That may seem strange to you but it is
+very easy to do in hardware and you will see this over time in your
+career.  We dont really care about that since that is GPU side and
+we are programming the ARM.  The other information that matters here is
+that the I/O base address for the peripherals starts at 0x20000000
+in the ARM address space and that maps to the same stuff at address
+0x7E000000 in the GPU address space.  This manual uses 0x7E000000
+based addresses throughout the document, but as ARM programmers we
+need to see 0x7E001000 for example and replace the 7E with a 20 and
+instead use address 0x20001000.  Again this may all seem very strange
+to you but is not uncommon and is generally easy to do in hardware.
+So what we can see here is that the GPU has the ability to read
+the kernel.img file (because it can get to the I/O Peripherals for
+example one of which talks to the sd card) and it can copy that
+data into its memory at 0xC0008000 which instantly becomes the
+ARMs memory at address 0x00008000 since it is the same physical
+memory.  Then the GPU can write an instruction or two to its
+address 0xC0000000 which is ARM's address 0x00000000 that will tell
+the ARM processor to jump to address 0x8000.  In addition since
+this platform is intended to run Linux on the ARM side the bootloader
+has a few more things to do before releasing reset on the ARM
+and allowing it to run.  If you have messed with Linux elsewhere
+even on a laptop or desktop computer there are things that can be
+passed to the kernel when it boots to change its behavior, in the
+case of the ARM we might want to have the same kernel.img work on
+both the 256MB Raspberry Pi and the 512MB Raspberry Pi so we need
+to tell that kernel how much memory it has to work with.  The scheme
+used is to take some of that memory in the case of the Raspberry Pi
+between 0x0000 and 0x8000 and put information like how much memory
+and other parameters in a formatted table and when the kernel starts
+it knows to look for that stuff.  Eventually the GPU releases reset
+on the ARM meaning it allows the ARM to run.  Like a normal ARM
+processor after a reset it looks for its first instruction at address
+0x00000000 and that instruction says jump to address 0x00008000 and
+all of the sudden the ARM is running the program that was basically
+the file kernel.img.  This is where we as bare metal programmers
+take over.  Instead of that kernel.img file being a linux kernel, we
+can make it any program we want.  The Raspberry Pi doesnt care, there
+is no magic or encryption or secret handshake, whatever bytes we put
+there the ARM will at least try to execute, if those bytes are
+not ARM instructions it may crash but so be it that is us taking over
+this platform.  You can see the beauty here though, if we do have a
+kernel.img file that is buggy or broken, all we have to do to fix it
+is power off the Raspberry Pi, pull out the sd card and overwrite
+the kernel.img file with something we hope is not broken and try
+again.
+
+Okay so lets actually get started.  You need to open the ARMv5 ARM ARM,
+chapter A2 the Programmers Model.  Hopefully ARM doesnt change the
+chapter numbers on me, but A2.6 Exceptions.  In this document the
+word exception means the processor is running along normally and
+something happens to cause it to stop what it was doing and run
+something else.  The first one on the list is Reset, now the
+very first reset after the power comes on the ARM wasnt doing anything
+that we caused an exception to, but if it were possible (and probably
+is) on this chip to have a reset while running then that exception
+would do the same thing as the first reset after power on.  This
+table shows us that the Reset changes the processor to Supervisor mode
+that just means that our programs are not limited we can run any
+instruction we want and access any address we want.  And that the
+normal thing to do is start executing the instruction at address
+0x00000000.  From the manual:
+
+"When an exception occurs, execution is forced from a fixed memory
+address corresponding to the type of exception. These fixed addresses
+are called the exception"
+
+Execution is forced basically the processor is forced to run from the
+address specified.  That is how I know that the first instruction
+executed after a reset is the instruction at address 0x00000000 the
+processore is forced to do that.
+
+Now if you have experience with this kind of stuff but maybe not
+the ARM you might have noticed that address 0x00000004 is where
+another exeception occurs and you may or may not know that the ARM
+instructions are 32 bit or 4 bytes.  So we have exactly one instruction
+to react to a reset, if we were to use two instructions that
+second instruction would be at address 0x00000004 and that second
+instruction would be the first instruction for an undefined exception
+which is when the ARM is asked to execute an instruction, machine code
+that is not defined by that processor as an instruction.
+
+The short answer is address 0x00000000 matters to us for booting an
+ARM and we will learn that there are only two instructions we can
+choose from that will do a jump and consume only 4 bytes.
+
+This is where the "some assembly language required" starts, we have
+to use assembly language so that we can place the exact instruction
+we want in the right place or order to do things like this jump.  On
+the Raspberry Pi the GPU has placed the machine code for the instruction
+we want at address 0x00000000 later we are going to mess with exceptions
+for now the GPU did that for us.  Now we are going to start with
+assembly language and the quickly move to using C.  Now if you know C or
+know other programming languages you can image that there is some
+software magic required before your programs first function actually
+runs.
+
+unsigned int myfun ( void )
+{
+    int a=5;
+    return(a+7);
+}
+
+Now an optimizer will simply return 12 and not generate the extra code.
+But pretend that didnt happen, to literally implement the above program
+somebody has to set aside some storage for the variable a and somebody
+has to fill that storage with the number 5 and THEN you can generate
+some code that does the add and the return.  So before we actually
+get to our programs first operation, the add, there was other stuff
+that had to happen, and that stuff has to happen in the world of
+software.  You might have heard the word stack and maybe have a vague
+idea of what it means, with assembly language you get to see what
+it really is (and it isnt all that magical).  In C before the code
+in the main() function actually executes, there is some bootstrap code
+that is required and you get this chicken and egg problem, how do you
+bootstrap C if you cant use C because you would need a bootstrap for
+the C you are using to bootstrap C.  That bootstrap has to be in
+some other language, basically that other code is assembly language.
+
+Before we get to that, please see the ARM_TOOLS file for ways to get
+yourself a gnu based assembler, and linker initially then pretty soon
+we need a C compiler as well.  As far as this document is concerned
+the exact name of the programs you have may vary but they will all
+in theory all work the same and you can be on a Linux box or Windows
+or MAC.  Your assembler command line might be arm-none-eabi-as or
+arm-elf-as or just as is what I am saying so you will need to
+mentally substitute the names I use for the ones you have.  See ARM_TOOLS.
+
+
+Now that you have your assembler and linker, I am not going to go into
+as much detail as I might like if this were purely about learning
+assembly language.  Processors are programmable logic, they are
+programmable in the sense that they are designed to operate on machine
+code.  Machine code or machine language being blobs of bits that
+define instructions that tell the processor what you want it to do.
+The machine language for a particular processor is very well defined
+in that it doesnt vary, the bit patterns for the instructions are
+what they are.  Now we can but it isnt easy or reliable to write
+programs in binary bits, so as humans and programmers we take the
+binary bit patterns and put names we can read and write.  Naturally
+to sell their product the inventor of the instruction set needs users
+and to get users they will generally create the assembly language which
+is the name of the human readable programming language whose syntax
+represents the machine code instructions.  They will also need to
+make or get someone to make an assembler, which is the program that
+takes the assembly language and converts it into machine code.  And
+typically a linker and a C compiler are the minimum tools needed to
+get folks to use your processor.  So they have defined an assembly
+language, but that doesnt make it a worldwide standard, it could
+have been invented on the fly by a single individual at the company and
+imposed on the rest of us.  The machine language is not changeable
+but the assembly language is and it is not unheard of to have a
+companies assembly language syntax changed.  gnu for example has
+changed a few subtle things with respect to most of the processors
+they support with their assembler.  Naturally as programmers we want
+labor saving features to our programming tools and languages and
+assembly language is no different.  Look at the C function from above
+
+unsigned int myfun ( void )
+{
+    int a=5;
+    return(a+7);
+}
+
+The syntax unsigned, int, myfun, void, int and even the variable
+name itself are not actually converted to actions we want the
+processor to perform.  They are part of the syntax that is there
+to support us telling the processor what to do and assembly language
+has labels and defines and other similar features.  And that extra
+stuff is another area where one assembler (software tool) may vary
+from another.  The short answer here is that the processor defines
+the machine code or machine language and that cannot vary, but the
+assembler, the tool that parses the assembly language program, defines
+what the assembly language is and so long as the assembler generates
+machine code that conforms to the processor the assembler can define
+whatever programming language syntax it wants.  You will soon see
+that I try to write my code to lean toward portable and reusable and
+try to avoid tool specific features because those things change
+over time and those things are definitely not portable so you have
+to re-write those portions more than the body of the program.  A
+weirdism you will see from me for example is that the assembly language
+world almost universally uses a semicolon (;) to mark a comment, the
+rest of the line after a semicolon is ignored as a comment.  But
+the gnu assembler folks (gas is a shortcut for gnu assembler) for the
+ARM assembler defined the semicolon to separate instructions on the
+same line.  Assembly langauges almost universally only allow one
+instruction per line, so this is pretty insane behavior by the gas
+folks.  They chose to use the @ sign to mark a comment, so my
+weridism or protest or whatever is I often use ;@ for comments, there
+was a time that I had access (the folks I worked for were willing to
+pay for) the ARM tools from ARM and I was writing assembly back
+and forth between ARM tools and GNU tools so if you try to make as
+much of the code not have to be re-written the combination of ;@ will
+give you a comment on both...
+
+Registers, these are the variables of assembly language, different
+processors have different numbers of them and different sizes sometimes
+some are general purpose some are special purpose.  Back to the
+ARMv5 ARM ARM, section A2.3 Registers, now ARM tries to confuse us
+by saying
+
+The ARM processor has a total of 37 registers:
+  Thirty-one general-purpose registers
+
+From an assembly language programmers perspective the ARM actually
+has only 16 general purpose registers there names are r0,r1,r2,r3...
+to r15.  r15 is a special purpose register it is called the
+program counter.  Program counter is a generic processor term it
+keeps track of the programs address.  We talked above about
+the first instruction after reset is address 0x00000000 then to
+run on the Raspberry Pi we need that first instruction to jump or
+branch to address 0x00008000 the program counter is the register that
+that keeps track of those addresses for us.  Probably all of our
+Raspberry Pi ARM programs will start with an instruction at 0x0000 then
+one at 0x8000 and one at 0x8004 and one at 0x8008 and at some point
+we are going to jump or branch or something and go backwards or skip
+some and so on.  The program counter keeps track of that.  All
+processors have one usually they use the term program counter or PC,
+but not always.  And not all processor families let you access the
+PC but ARM does.  And you can mess yourself up if you try to modify
+r15 that can and will make the processor change course to execute the
+instruction at the address to changed r15 to so we have to be careful
+with r15.  The other 15 registers r0-r14 do not have that problem.
+Now there are two other registers that are special in some way one is
+because it is hardcoded by the logic for some of the instructions
+the other is used as the stack pointer as a convention, you could
+technically use another register as you will see but ARM inteded
+r13 to be the stack pointer and we will get into what a stack is
+and a stack pointer in a bit.
+
+In the ARMv5 ARM ARM the same A2.3 Registers section Figure A2-1
+Register organization
+
+So what this is showing us is where that weird count of 37 registers
+came from.  Vertically we have these processor Modes, which is another
+topic for later, but what it is trying to show here is for example
+there is only one r0 register, when you switch modes you dont switch
+to a different r0 there is only one r0.  But for example there are
+many r13 registers, there is one r13 shared by User and System mode
+but Supervisor has its own r13 that is not the same, if you set
+r13 to some value while in supervisor mode then you switch to user
+mode and have an isntruction that uses r13 it will not have the
+same value because it is a different r13 that gets wired in when
+you switch modes.  r14 the same, the cpsr/spsr which we will talk
+about later.  Fast interrupt mode has a bunch of registers that are
+special to that mode and we will cover that later as well.  For almost
+all of this document assembly or C we are going to stay in supervisor
+mode and we have 16 registers to worry about r0 to r15.
+
+So chapters A3 and A4 in the ARMv5 ARM ARM begin to cover the
+instruction set the machine code, ARM has also defined their
+assembly language syntax here as well.  When it comes to the
+assembly language that has a one to one relationship with machine
+language instructions the gnu assembler and this documentation are
+in sync, if we hit a variation we will talk about it then.  The
+ARMv7 ARM ARM also defines the instruction set and being newer it
+includes the ARMv4, v5, v6 and v7 instructions and for each will
+tell you which architectures support that instruction.  So using
+the newer manual will help figure out which instructions were added
+at what time.  The older manual generally shows instructions that
+are supported on all future processors (there are maybe one or a few
+exceptions).
+
+lets stick with the ARMv5 ARM ARM for a little longer, A4.1 is
+the alphabetical list of ARM instructions, dont push down the thumb
+instruction path just yet.  So lets start by adding two numbers together
+how about 5 and 7.  In C we would might do something like
+
+unsigned int a;
+unsigned int b;
+unsigned int c;
+
+a = 5;
+b = 7;
+c = a + b;
+
+For now we have complete freedom to use almost any general purpose
+register (gpr) that we want for our programs (naturally avoiding r15).
+
+So go to A4.1.35 MOV.
+
+Under syntax we see
+
+MOV{<cond>}{S} <Rd>, <shifter_operand>
+
+And it describes each of these items Rd is the register we want to
+put our number in (r0 - r15 the one we choose).  The thing we are
+moving into Rd, the shifter operand is generic here because there
+are a number of different flavors of MOV that we can use.  To find
+these we follow the documents link and go to
+
+Addressing Mode 1 -Data-processing operands on page A5-2,
+
+The one we are going to use is
+
+1.
+#<immediate>
+See Data-processing operands - Immediate on page A5-6.
+
+The term immediate with respect to machine code means that the value
+is found in the immediate area, basically the value is part of the
+machine code.  The short answer is that our first two instructions are
+
+mov r0,#5
+mov r1,#7
+
+Some assemblers make you use capitals for the syntax, but we dont have
+to for these ARM tools.  We are not going to worry about the optional
+{<cond>} and {S} parameters.
+
+Our third and last instruction to perform this task is A4.1.3 ADD
+
+ADD{<cond>}{S} <Rd>, <Rn>, <shifter_operand>
+
+And to shortcut the hop through the document in this case the shifter
+operand we are using is Rm another register, the instruction we want
+is
+
+add r2,r0,r1
+
+Mentally read this instruction by replacing the commas
+
+add r2=r0+r1
+
+Our first ARM program
+
+mov r0,#5
+mov r1,#7
+add r2,r0,r1
+
+so lets assemble this code and then disassemble it.
+
+arm-none-eabi-as fun.s -o fun.o
+arm-none-eabi-objdump -D fun.o
+
+fun.o:     file format elf32-littlearm
+
+
+Disassembly of section .text:
+
+00000000 <.text>:
+   0:   e3a00005    mov r0, #5
+   4:   e3a01007    mov r1, #7
+   8:   e0802001    add r2, r0, r1
+
+The gnu tools work like most toolchains capable of more than tiny
+projects, your source code files are compiled or assembled into
+object files.  Object files have the machine code for the instructions
+plus some extra stuff to help the linker do its job.  The code in an
+object file doesnt know where in memory it is going to live that is
+the linkers job.  For example if we wanted these three instructions
+to live starting at address 0x8000 the object file doesnt know that
+the linker will be told to do that and the linked binary will
+reflect the 0x8000 address.  Since the object doesnt know this the
+disassembly shows address 0x0000.
+This e3a00005 is the machine code for mov r0, #5, we can go back
+to the ARM ARM and see that the 32 bit machine code definition is
+broken into a number of fields of which some are defined as either
+zero or one and those bits forced to zero or one are the ones that
+make this instruction a mov and not an add or some other instruction.
+So we see from the doc
+xxxx00x1101xxxxx....
+and from the disassembly
+111000111010....
+
+xxxx00x1101xxxxx....
+111000111010....
+
+They match.
+
+Also we see bits 15:12 are 0b0000 for the mov r0 instruction and that
+matches what we programmed (0b0000 = r0).  The second instruction
+has 0b0001 in those bits which are also correct 0b0001 = r1, 0b0010 =
+r2 and so on.
+
+SBZ means Should Be Zero and those bits are also zero, although
+should is not equal to must otherwise those bits would explicitly be
+defined as zeros.  Not for us to worry about right now but these
+could be bits that are ignored by this instruciton in the processor
+and maybe in the future these bits could be used to create a new
+instruction where zeros is mov and something else is the new instruction.
+
+Note that most folks are not going to teach assembly by talking you
+through machine code as well.  I find that at least loosly understanding
+the machine code helps with the assembly language, it resolves many
+otherwise unanswered questions, why cant I do this, why can I do that
+and the answer being simple, because the instruction set, the machine
+code does not permit it.  As to the whys and why nots of the machine
+code well the short answer there is it is because that is how the
+designers of the processor desinged the instruction set, if you can
+find and ask them go ahead but otherwise it is what it is, deal with it.
+
+We can do this with the ADD instruction as well.
+
+e0802001    add r2, r0, r1
+
+xxxx00x0100xxxx document
+111000001000xxx disassembly
+
+Now just like in C there is more than one way to do things...
+
+unsigned int a;
+
+a = 5;
+a = a + 7;
+
+Our second program
+
+mov r6,#5
+add r6,r6,#7
+
+assemble and disassemble:
+
+arm-none-eabi-as fun.s -o fun.o
+arm-none-eabi-objdump -D fun.o
+
+fun.o:     file format elf32-littlearm
+
+
+Disassembly of section .text:
+
+00000000 <.text>:
+   0:   e3a06005    mov r6, #5
+   4:   e2866007    add r6, r6, #7
+
+The next thing we need to learn to aim for an interesting program on
+hardware is to make a loop:
+
+    mov r0,#0
+top:
+    add r0,r0,#1
+    cmp r0,#7
+    bne top
+
+assemble and disassemble:
+
+arm-none-eabi-as fun.s -o fun.o
+arm-none-eabi-objdump -D fun.o
+
+fun.o:     file format elf32-littlearm
+
+
+Disassembly of section .text:
+
+00000000 <top-0x4>:
+   0:   e3a00000    mov r0, #0
+
+00000004 <top>:
+   4:   e2800001    add r0, r0, #1
+   8:   e3500007    cmp r0, #7
+   c:   1afffffc    bne 4 <top>
+
+
+Now the indentation doesnt matter just makes it a little easier to read.
+
+text with a colon is a label just like in C, so top: is not an
+instruction we will use it later.  The mov and add we know, cmp is new.
+Section A4.1.15 CMP shows us under Operation what is going on, for now
+assume the condition code passed so we go into alu_out = Rn - shifter_operand.
+in this case alu_out = r0 - 7.  Then it gets into flags, the flag we
+care about is the Z flag which says if alu_out == 0 then 1 else 0.
+The first time we run through this loop r0 by the time it hits the
+cmp instruction is equal to a 1 and 1 - 7 is not equal to 0 so the z
+flag will be a 0.
+
+We will come back to the cmp instruction, lets look at the bne
+instruction, the first problem is there is no BNE listed in the
+alphabetical list of instructions.  What we are looking for is
+A4.1.5 B,BL and now we have to talk about {<cond>}.  bne is really
+a B instruction with a condition code of NE and if we look at the
+operation for this instruciton if the condition passes then
+if L == 1 then, that is the BL instruction so we dont care about that,
+so on to PC = PC + (SignExtend_30(signed_immed_24) << 2).  Basically
+if the condition code passes then we are modifying the pc, and
+hopefully the modification is such that we branch (jump) back to the
+top label, add one more to r0 and keep doing that until the condition
+code doesnt pass.  But how do I know it is going to do that?
+
+A3.2 talks about the condition field.  All of the ARM mode instructions
+(thumb mode is later) start with a 4 bit condition field.  Up until
+now we have been operating with the default of AL or always encoded as
+0b1110 which is such that the condition code always passes.  For the
+bne, ne is the condition code, and the description says Z clear, so the
+ne codition code will pass if the Z flag is clear.  The Z flag is
+modified by the cmp instruction in this loop or lets say the Z flag
+doesnt change after the cmp and before the bne.  So cmp is defining
+the state of the z flag for the bne instruction.  And what we need
+to do to get the z flag a zero (clear) then r0 - 7 has to equal zero
+and that will happen when r0 = 7.  So the first time through
+r0 = 1, z is 1, bne (branch if not equal, branch if r0 is not equal to 7)
+branches back to top, we add one more, r0 = 2, z is still 1, and this
+continues for r0 = 3,4,5,6,7  and when r0 = 7 then z is 0 and the bne
+does not modify the pc so the program will continue to whatever
+instruction we program after bne.
+
+Now if we change the program to this
+
+    mov r0,#0
+top:
+    add r0,r0,#1
+    cmp r0,#7
+    b top
+
+The b instruction is now unconditional it uses the default of always
+as the condition so it always brances.  The cmp can modify all the
+flags it wants it wont change the branch.
+
+So what are and where are flags.  Flags are individual bits in a register
+generically called the program status word.  In section A2.5 ARM
+calls them Program status registers.  bit 30 is the Z flag, bit
+31 the N flag, 29 is C and 28 is V the four that we generally deal with
+and will worry about later.  ARM has names for their program status
+registers CPSR and SPSR.  We care about and maybe sometimes use CPSR
+the current program status word.  SPSR is the saved program status
+word and is used to save a copy of the CPSR in case we need to say
+handle an interrupt and then return, if an interrupt happened between
+the cmp and the bne above we dont want the interrupt to mess up
+our Z flag.  We will worry about interrupts later.
+
+Next thing before we can play with hardware is I cheated a little.  ARM
+at least for what we are looking at uses fixed length instructions
+in ARM mode (thumb is later) every instruction is exactly 32 bits or
+4 bytes, no more no less.  And you may have seen in A2.3 that the
+registers are also 32 bits.  And we have learned a enough about
+machine code to know that we need some of those instruction bits to
+tell the processor one instruction from another specifically the
+mov instruction we saw that a bunch of the bits are consumed just
+defining the parameters to the mov instruction, we moved an immediate
+value of 5 and 7 and that worked fine, but what about a larger number
+like 0x1234, or even worse 0x12345678 how could 0x12345678 possibly
+fit in the 12 bit shifter operand?
+
+mov r0,#0x12345678
+
+arm-none-eabi-as fun.s -o fun.o
+fun.s: Assembler messages:
+fun.s:2: Error: invalid constant (12345678) after fixup
+
+The answer is it cant.  You cannot squeeze 32 bits into 12 bits without
+losing some.  Obviously there is a way to do this.
+
+The assembly for this is
+
+ldr r0,somenumber
+...
+somenumber:
+    .word 0x12345678
+
+So the words (with no spaces) ending in a colon are labels.  Labels
+are simply addresses we dont know nor care what the actual address is
+but to let the assembler do the work for us we give the label a name
+and then somewhere else use that label to reference the address we
+are interested in.  Think about our function names in C those are just
+labels and we expect the compiler and assembler and lastly linker
+to finally give that label/function name an address so that other
+code that wants to call it or jump to it or otherwise access that
+address can.  As programmers we use the label, we let the tools
+do the hard work of figuring out how to get there.
+
+if we look up the ldr instruction it stands for load register, load
+is basically a read from some address.  So somenumber is an address
+we are asking the processor to read a word (a word is defined as 32
+bits in the ARM world (intel x86 world it is 16 bits) see A2.1 Data
+types) from the address somenumber and take the 32 bits you find
+there and put them in register r0.  The the label somenumber: tells
+the assembler that when you are generating the machine code, whatever
+address happens to be here in the program use that address for
+somenumber wherever I have referenced that label.  .word is a directive
+to the assembler, it is not an instruciton, it tells the assembler I
+want you to reserve a 32 bit memory location in the program and I want
+you to put the value I have defined there.  So the assembler is going
+to put the 32 bit value at the address somenumber, it and/or the linker
+will figure out what somenumber is and then ldr will know how to find
+that 32 bit number.  And there we go we can now load any 32 bit pattern
+into a register.
+
+Just to perhaps make this more clear
+
+    ldr r0,somenumber
+top:
+    add r0,r0,#1
+    add r0,r0,#1
+    add r0,r0,#1
+    add r0,r0,#1
+    add r0,r0,#1
+    b top
+somenumber:
+    .word 0x12345678
+    .word 0xABCD
+
+assemble and disassemble which you know how to do now.
+
+fun.o:     file format elf32-littlearm
+
+
+Disassembly of section .text:
+
+00000000 <top-0x4>:
+   0:   e59f0014    ldr r0, [pc, #20]   ; 1c <somenumber>
+
+00000004 <top>:
+   4:   e2800001    add r0, r0, #1
+   8:   e2800001    add r0, r0, #1
+   c:   e2800001    add r0, r0, #1
+  10:   e2800001    add r0, r0, #1
+  14:   e2800001    add r0, r0, #1
+  18:   eafffff9    b   4 <top>
+
+0000001c <somenumber>:
+  1c:   12345678    eorsne  r5, r4, #120, 12    ; 0x7800000
+  20:   0000abcd    andeq   sl, r0, sp, asr #23
+
+
+I put the add instructions in there to give some space between
+ldr and the address it was using.  Now the ARM docs and the disassembly
+are showing something interesting.  Off to the right it tells us
+the address is 1c which is the label somenumber.
+
+What happened is the assembler is doing some math on the program
+counter r15, it is saying add 20 to the program counter and then
+use that as an address to read from memory, then take that value read
+and put that in r0.   Well 20 in decimal is 0x14 hex if this
+instruction were really at address 0x000 then 0x0000+0x14 is 0x0014
+but the number we want is at address 0x1C.
+
+Well two things are going on.  If you think about how a very simple
+processor would have to work using the program counter as we have
+loosly defined.  The program counter would say the instruction
+we want to execute is at address 0x0000 how it says that is that
+register simply holds the address 0x0000.  So the processor is ready
+to execute the next instruction the pc is 0x0000 so it reads the
+instruction 0xe59f0014 from memory.  now what does the pc do?  at
+some point before it starts the next instruction at address 0x0004
+it has to change from 0x0000 to 0x0004.  Well many/most processors
+do just that after reading (called fetching if you are reading
+an instruction from memory) the instruction before actually executing
+it they move the program counter so in this case that moves the
+program counter to 0x0004.  0x0004 + 0x14 = 0x0018 we still are not
+at the 0x001C where our data is and where the disassembler implied
+it knew where our data is.  That is the second thing going on, something
+called pipelining.  It is exactly similar to a production line,
+you have stations along the production line the product is moved
+from one station to another, each station performs a relatively simple
+task on the product and the product moves on.  Well a piplelined
+processor does that as well.  If you had say only one employee at the
+assembly line then you could still have the assembly line but that
+one employee could only do one of the tasks at a time.  if there
+were 100 tasks then it would take 100 steps and then they could start
+over on the next product.  But if you had 100 employees after
+some time every station has a product in some partial state of
+completion every step the first person starts the product from scratch
+and every step the last person outputs a new product, so once all
+the stations have filled up you get one product every step instead of
+one product every 100 steps with the single employee.  The 100
+employees are working in parallel even though the production line is
+serial.  Well a processor has a few basic steps, first it has to fetch
+the instruction from memory, then it has to decode it, look for those
+fixed ones and zeros that tell it this is a mov instruction or an add
+instruction or whatever.  For the add we used above it then needs to
+go get the operands it may have to go get r1 and then go get r2.  And
+then it actually executes, it does the add, then it saves the result
+and done.  The even simpler steps are fetch, decode, execute.  Using
+that simplistic model if we were to step through a mini assembly
+line we would start with address zero entering the first station
+the fetch, then the address 0x00 instruciton moves from the first
+station to the second, decod.  In parallel the 0x04 instruction is in
+the first station execute.  Then the next step the 0x00 instruction
+moves to execute, 0x04 moves to decode and 0x08 moves to fetch.  Fetch
+in this case means the pc is 0x08 go fetch from 0x08.  So when the
+0x00 instruciton is executing the program counter is set to 0x08 the
+address of the instruciton being fetched.  That is two instructions
+ahead not just the one we talked about before.  That is the model
+that ARM is operation on, when you execute an instruction the
+program counter register is at an address two instructions ahead.
+So when we execute the ldr instruction at address 0x00 that means
+the program counter is two ahead, each is 0x04 so two ahead is
+0x00+0x04+0x04 = 0x08.  So if the pc is 0x0008 and we add the offset
+of 0x14 we get 0x1C.  Now here is the rub, that may have actually been
+the tiny pipeline used in very early ARM processors, but for
+reverse compatibility they preserved that two ahead rule for the PC,
+but the actual logic we run on today has a much deeper pipeline and
+how we dont get screwed up by having a program counter that is a bunch
+of instructions ahead is the actual program counter used today
+to keep track of fetching is not the same register we see as r15 it is
+a hidden register, the logic we use today provides us with an r15 that
+pretends to be the real pc but is actually a fake one two ahead.  They
+really had to do it that way.  Had they known that down the road we
+would not only have pipelined processors but much more complicated
+processor internals and that they would no longer have to impose this
+pc being adjusted by the pipeline, but instead would fake its value
+I would like to think they would have simply faked the value as being
+the address of the next instruciton 0x04 in this case not two after
+0x08.  And faked that address from the first pipelined processor to
+the current pipelined processor.
+
+Back to our problem of putting any value in a register.
+
+
+    ldr r0,somenumber
+top:
+    add r0,r0,#1
+    add r0,r0,#1
+    add r0,r0,#1
+    add r0,r0,#1
+    add r0,r0,#1
+    b top
+somenumber:
+    .word 0x12345678
+    .word 0xABCD
+
+I added a few more lessons here.  First off I put a branch before
+the somenumber lable, what if I had not done that?  Well what would
+happen is the assembler would without a peep have assembled what I
+told it to assemble:
+
+
+    ldr r0,somenumber
+top:
+    add r0,r0,#1
+    add r0,r0,#1
+    add r0,r0,#1
+    add r0,r0,#1
+    add r0,r0,#1
+somenumber:
+    .word 0x12345678
+    .word 0xABCD
 
 
 
+fun.o:     file format elf32-littlearm
+
+
+Disassembly of section .text:
+
+00000000 <top-0x4>:
+   0:   e59f0010    ldr r0, [pc, #16]   ; 18 <somenumber>
+
+00000004 <top>:
+   4:   e2800001    add r0, r0, #1
+   8:   e2800001    add r0, r0, #1
+   c:   e2800001    add r0, r0, #1
+  10:   e2800001    add r0, r0, #1
+  14:   e2800001    add r0, r0, #1
+
+00000018 <somenumber>:
+  18:   12345678    eorsne  r5, r4, #120, 12    ; 0x7800000
+  1c:   0000abcd    andeq   sl, r0, sp, asr #23
+
+And if you look at that after that fifth add r0,r0,#1 the next
+"instruction" is the bit pattern 0x12345678 and the processor would
+fetch that pattern and try to execute it.  And maybe that pattern is
+an actual instruction or maybe not but no doubt it is not something
+we meant to be an instruction.  If you are going to do something like
+this then you need to make sure you put that value somewhere that
+is not in the execution path, but is close enough to the ldr in
+this case so that the offset can be encoded in the instruction.
+
+I also put the 0xABCD in there to illustrate a point, the
+somenumber label resulted in the assembler deciding that that label
+is at the address 0x18 in this last example.  So a ldr of somenumber
+gives us the value at that address which is 0x12345678, if we wanted
+0xABCD just because it is a .word after the label doesnt mean it is
+also at the same address, it cant be it is at address 0x1C or
+somenumber+4.  if we wanted to use this technique to load another
+value that wont fit in the immediate field, then we need another
+label.
+
+    ldr r0,hello
+    ldr r1,world
+...
+hello:
+    .word 0x12345678
+world:
+    .word 0xABCD
+
+And the gnu assembler will allow you to put the instruction or
+directive on the same line, you dont have to use a separate line
+
+    ldr r0,hello
+    ldr r1,world
+...
+hello: .word 0x12345678
+world: .word 0xABCD
+
+Note .word is a gnu assembler specific directive I dont think that is
+what the ARM assembler uses, it is not necessarily portable code.
+
+Now both the ARM assembler and the GNU assembler have a nice little
+program saving device for lazy programmers:
+
+    ldr r0,=0x12345678
+    ldr r1,=0xABCD
+top:
+    add r0,r0,#1
+    add r0,r0,#1
+    add r0,r0,#1
+    add r0,r0,#1
+    add r0,r0,#1
+    b top
+
+
+assemble and disassemble
+
+fun.o:     file format elf32-littlearm
+
+
+Disassembly of section .text:
+
+00000000 <top-0x8>:
+   0:   e59f0018    ldr r0, [pc, #24]   ; 20 <top+0x18>
+   4:   e59f1018    ldr r1, [pc, #24]   ; 24 <top+0x1c>
+
+00000008 <top>:
+   8:   e2800001    add r0, r0, #1
+   c:   e2800001    add r0, r0, #1
+  10:   e2800001    add r0, r0, #1
+  14:   e2800001    add r0, r0, #1
+  18:   e2800001    add r0, r0, #1
+  1c:   eafffff9    b   8 <top>
+  20:   12345678    eorsne  r5, r4, #120, 12    ; 0x7800000
+  24:   0000abcd    andeq   sl, r0, sp, asr #23
+
+
+Generically the =something means the address of something.  Whether or
+not the thing after the equals is a label or a number the assembler
+finds a location for you in a safe place (not in the execution path)
+and then encodes a pc relative load (pc plus an offset).  If the
+thing after the equals is a label then the assembler (or linker) will
+place the address in that location so that it can be loaded into
+the register.  By putting a number here we can cheat and get the
+assembler to put that 32 bit value in our register.  It is possible
+that the assembler might not be able to find a place for our number
+and that is where this shortcut can get you into trouble.  Also
+you dont get to control eactly where the number is placed so you
+are giving up control to the assembler which is generally not what
+an assembly language programmer wants to do.
+
+So we can now put any bit pattern we want into a register, we can
+loop, we roughly understand that ldr means load a register with
+a value from an address.  We also saw from the disassembly that we
+can load from a register which holds an address, the ldr instructions
+above are encoded as load from r15 plus an adjustment to r15.  But we
+can use another register.
+
+    ldr r0,=0x12345678
+    ldr r1,[r0]
+
+The [brackets] mean a level of indirection, instead of the value r0
+the bracket means the thing at the address in r0.  The above code
+means read from memory at address 0x12345678 and the value read put that
+in r1.
+
+There has to be a write instruciton as well right?  Well load is a read
+and store is a write, store something at an address.
+
+
+    ldr r0,=0x12345678
+    mov r2,#7
+    str r2,[r0]
+
+This says write the number 7 to address 0x12345678.
+
+Some magic that may or may not be obvious as a non-bare metal
+programmer is that addresses dont only point at memory.  The address
+map for the ARM we saw a space starting at 0x20000000 where the
+I/O peripherals live.  Those peripherals are not ram the things at
+those addresses which are defined in the rest of that Broadcom
+manual.  Reading and writing things in that address space cause
+hardware stuff to happen.
+
+Hopefully by now you have figured out that
+
+int main ()
+{
+    printf("Hello World!\n");
+}
+
+when run on your desktop or laptop is a massively complicated program
+and obviously that is not at all an introduction program to bare
+metal programming.  The bare metal equivalent is turning on and/or
+blinking an led.
+
+(it should be painfully obvious that I wasnt kidding most of bare
+metal is not programming but finding out the information from manuals
+on what to program)
+
+If/when you get a job as a bare metal programmer and work closely with
+the hardware engineers they should already know but it is a good idea
+to wire up an led to a general purpose I/O port and/or wire some
+pads/test points to the general purpose I/O so that using an oscilloscope
+or for your prototype board you can have an led added but that led
+might not be on the production boards.  The Raspberry Pi folks did
+just that.  You need to open one of the schematics mentioned above
+I am looking at the rev 1 board.  Now what we are looking for is a
+symbol that has a triangle up against a line at the tip similar to the
+symbol for fast forward or rewind on an mp3 player but with one
+triangle not two.  That is a diode symbol a light emitting diode
+LED also has some sort of a lightning like symbol on or next to it
+that indicates light comes out of it.
+Sheet 04 of 05 upper middle of the page shows STATUS OK LED and
+POWER ON LED and has a diode symbol with two arrows pointing out.
+The things we care about from the schematic are following one wire
+we see the signal name STATUS_LED_N and the other end the wire
+is connected to +3V3 which they are indicating 3.3Volts which is the
+amount of voltage that powers stuff on this board.  Now from
+middle school science class we know that if you want to turn the
+light on you need to complete the circuit.  To complete the circuit
+in this case means one end of that wire needs to be on the power
+voltage (3.3V) and the other end ground to make the power flow.  If
+one end is left hanging then no power flows no light, also you probably
+didnt do this in middle school.  If both ends are tied to 3.3V then no
+power flows the light doesnt come on.  So now go to the upper middle
+left of Sheet 02 of 05.  What you are looking for is status_led_n
+is connected to a box labelled BCM2835 and the thing it is wired to
+is GPIO 16.  So we are done with the schematic for now, we can
+mess with the status led by messing with gpio 16.  In general and
+true with this processor, if we make gpio 16 an output and if we write
+a 0 to that gpio pin we will make it 0Volts or ground and that means
+the electricity flows and the led comes on.  If we write a 1 that makes
+the pin 3.3Volts, no electricity flows the led goes off.
+
+Now to the Broadcom BCM2835 manual, chapter 6 General Purpose I/O (GPIO).
+There is a diagram there, and it is certainly not obvious what is
+going on, but basically we will be messing with the Pin set and
+clear registers which affect the output state, which work their
+way left to the box on the left side which represents the gpio pin.
+For safety reasons (dont let the smoke out) GPIO pins typically are
+configured after reset as inputs.
+
+So now we get serious.  Remember this document uses the 0x7Exxxxxx
+based addresses for peripherals but that 0x7E hs to be replaced with
+0x20 for ARM.  We need to make pin 16 an output.  Fumbling around
+in this chapter we see
+
+"All pins reset to normal GPIO input operation."
+
+So we know we need to change it from input to output.  We also see
+in Table 6-2 – GPIO Alternate function select register 0 it shows
+a chart for FSEL9 that describes bit patterns for that three bit
+field that controls the function for that gpio, input, output, and
+the alternate functions.  What we take away from this is that to make
+a pin an output we need to set the three bits that control that
+pin to the bit pattern 0b001.
+
+Table 6-3 – GPIO Alternate function select register 1
+
+Contains the bits FSEL16 which are not obviously connected to GPIO16 but
+that is what they mean.  The bits we need to change to 0b001 are bits
+18 to 20 so 18 needs to be a 1, 19, a 0 and 20 a 0.  Some peripherals
+and/or some processors have a way that makes it easy to modify just
+some of the bits in a register.  This is not one of those cases we can
+only access this register on complete 32 bit reads or writes.  The
+proper way to modify these bits is read the register, modify the three
+bits then write the register back.  The power on state for this register
+is supposed to be all zeros (that is what the reset column means) so
+we can cheat for the purpose of this example and just write the whole
+register zeros for the other pins and 0b001 for gpio 16.  That
+means the value we need to write is 0x00040000.  Now the address to
+write to.  Function select register 1, we go up a few pages to
+6.1 Register View.  GPFSEL1 at address 0x7E200004 for the VC which is
+0x20200004 for the ARM.
+
+Now that just makes 16 an output, now we need to control the state
+of that pin a 0 or 1 (0 volts/ground or 3.3Volts).  Fumble around some
+more and we see the GPSETn registers, we can figure out from the
+table above the n is either 0 or 1 GPSET0, GPSET1.
+
+Table 6-8 – GPIO Output Set Register 0
+
+If a bit is set in that register when we write to it then the GPIO
+pin changes to a 0.
+
+Table 6-9 – GPIO Output Set Register 1
+
+If a bit is set in that register when we write to it then the GPIO
+pin changes to a 1.
+
+This is one of those cases where they have given us an easy way to
+change one output without messing up the others while still being
+limited to 32 bit writes.
+
+The GPSET0 register is at ARM address 0x2020001C and the GPSET1
+register is at ARM address 0x20200020.

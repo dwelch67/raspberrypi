@@ -1,0 +1,150 @@
+
+If you have not figured it out yet there are different processors
+out there.  Like people some folks speak spanish, french, english,
+etc even though we are all people.  Some processors use one
+instruction set others use another.  If you are programming on an
+x86 computer the native compiler compiles code for x86 which is not
+compatible with ARM.  So you have two choices find an ARM computer
+and use its native compiler or use what is called a cross compiler
+one that generates programs that are not native.
+
+There are other toolchains (collection of compiler tools) that will
+compile programs for ARM processors the one we care about here is
+the tools from the GNU folks http://gnu.org.  Now the problem with
+the GNU tools if you choose to call it a problem is that when you
+build these tools you have to choose the processor family, and the
+toolchain you build will only compile for that processor family.
+
+The first solution is to get another Raspberry Pi, one for running
+Linux as the foundation intended, which gives you an ARM computer
+basically and that means the native compiler tools know how to build
+ARM programs, the other Raspberry Pi is the one that you are doing
+your bare metal programming on.  Yes you could also use one Raspberry
+Pi and swap sd cards back and forth.  You can also run QEMU which
+is capable of simulating many different instruction sets and it is
+possible to run ARM Linux on anything that supports QEMU.  My Makefiles
+are not native compiler friendly but you could probably fix that
+if you take this path (ideally I am teaching you to fish not giving
+you a fish anyway so these are just examples that you then make
+your own).
+
+It is not hard to get the gnu sources and build the toolchain yourself
+using your native (gnu) compiler, well not hard until it fails to
+work.  Nevertheless I have a repository where I keep the simple
+build scripts for the cross compilers that I personally use.
+https://github.com/dwelch67/build_gcc
+I tend to use the tools I build from the gnu sources.  These scripts are
+for Linux users, they can be easily modified for Windows or MAC users
+but I long ago stopped running on those platforms and testing scripts
+like these.
+
+The easier path is to just get tools that someone else has built and
+you simply install.  These folks have tools for Windows, Linux
+and MAC.
+
+https://launchpad.net/gcc-arm-embedded
+
+Just download and install.
+
+Now if you are running one of the most recent Ubuntu distributions
+or derivatives (personally I run Linux Mint) then all you have to do
+is:
+
+apt-get install gcc-arm-linux-gnueabi
+
+and there you installed and ready to use.
+
+What was formerly http://codesourcery.com is now been assimilated by
+Mentor Graphics and the gnu tools they maintained still offer a Lite
+(free) version.  As well as the pay-for version, you are not necessarily
+paying for open source software but more like paying for tech support
+for open source software.  You have to wade through a few web pages
+sacrifice an email address where they send a special for you link
+to the download for the lite version you asked for.  Where I work
+we send our customers to Mentor Graphics, personally I typically use
+the ones I built, but will sometimes try out the launchpad one above
+and the apt-got one.
+
+What is abi, eabi, the difference between arm-none-eabi and arm-linux-
+gnueabi and all that?  Well much of it has to do with using those
+triple names when building the toolchain, the gnu build system takes
+that triplet and tailors the build.  In particular it targets a
+particular operating system or operating environment for the default
+linking and libraries linked in.  We are bare metal here so we dont
+have/want an operating system and we are not going to use the default
+linker script nor are we going to link in the operating specific
+libraries.  So long as we dont use any C library functions that
+ultimately make an operating system call (printf, fopen, etc) we can
+compile our bare metal programs using an arm cross compiler that is
+meant normaly to build arm linux programs or an arm cross compiler
+that is meant to make arm binaries for other environments.  We need
+an assembler, a linker, and a compiler that makes object files and
+we will learn how to beat those tools into submission.
+
+ABI, arm binary interface it is a standard that arm developed for
+compilers so they conform to arms parameter passing rules, something
+we will learn about to some extent.  EABI, is just enhanced abi they
+basically changed/improved the calling convention.  Again those
+triplets are gnu specific and mean something mostly to the gnu toolchain
+build system.  And fortunately or unfortunately you can tell the
+build system my triplet is a-b-c but when you build the finaly binaries
+dont call them a-b-c call them d-e-f which might be some other
+triplet that further confuses folks.
+
+So as mentioned in the main text, once installed you will have an
+assembler  something-as a linker something-ld and a compiler something-gcc
+the assembler and linker come from a gnu package called binutils.
+If you have no interest in the C programming and want assembly only
+then you only need binutils, you can
+
+apt-get install binutils-arm-linux-gnueabi
+
+for example instead of getting the compiler or take my build script
+and chop off gcc and libc and just build binutils.
+
+Now whatever your triplet is called once installed you should be
+able to go to a command line (set your PATH as needed) and run
+
+arm-linux-gnueabi-as --version
+
+and get some output that indicates that it is installed and working
+
+GNU assembler (GNU Binutils for Ubuntu) 2.24
+Copyright 2013 Free Software Foundation, Inc.
+This program is free software; you may redistribute it under the terms of
+the GNU General Public License version 3 or later.
+This program has absolutely no warranty.
+This assembler was configured for a target of `arm-linux-gnueabi'.
+
+
+arm-none-eabi-as --version
+
+GNU assembler (GNU Binutils) 2.24
+Copyright 2013 Free Software Foundation, Inc.
+This program is free software; you may redistribute it under the terms of
+the GNU General Public License version 3 or later.
+This program has absolutely no warranty.
+This assembler was configured for a target of `arm-none-eabi'.
+
+same goes for the linker
+
+arm-linux-gnueabi-ld --version
+GNU ld (GNU Binutils for Ubuntu) 2.24
+Copyright 2013 Free Software Foundation, Inc.
+This program is free software; you may redistribute it under the terms of
+the GNU General Public License version 3 or (at your option) a later version.
+This program has absolutely no warranty.
+
+and gcc if you are going to use the compiler (I highly recommend you do
+but if building from sources getting the compiler to build is harder
+than binutils)
+
+arm-linux-gnueabi-gcc --version
+arm-linux-gnueabi-gcc (Ubuntu/Linaro 4.7.3-12ubuntu1) 4.7.3
+Copyright (C) 2012 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+The readme might default to arm-none-eabi-as for an example but if you
+have arm-linux-gnueabi-as installed instead you need to substitute the
+commands or for Makefiles modify the define at the top.
