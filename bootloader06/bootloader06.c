@@ -126,8 +126,20 @@ int notmain ( void )
                             uart_send(0x0A);
                             uart_send(0x0A);
                             hexstring(0xDADADADA);
-                            uart_flush();
-                            BRANCHTO(ARMBASE);
+                            while(1)
+                            {
+                                rb=uart_recv();
+                                if((rb=='g')||(rb=='G'))
+                                {
+                                    uart_send(0x0D);
+                                    uart_send('-');
+                                    uart_send('-');
+                                    uart_send(0x0D);
+                                    uart_send(0x0A);
+                                    uart_send(0x0A);
+                                    BRANCHTO(ARMBASE);
+                                }
+                            }
                             break;
                         }
                         default:

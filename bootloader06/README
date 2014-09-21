@@ -3,11 +3,11 @@ See the top level README file for more information on documentation
 and how to run these programs.
 
 Derived from bootloader05, this is a very simple bootloader.  Instead
-of the sd dance (see toplevel README), this makes life a bit simpler
+of the sd dance (see top level README), this makes life a bit simpler
 and greatly reduces physical wear and tear on the sd card socket.  Do
-the sd card dance one more time with kernel.img.  Get some sort of
+the sd card dance one more time with this kernel.img.  Get some sort of
 serial solution to connect a dumb termial program with xmodem
-capabilities to the uart on the raspberry pi. (see the toplevel
+capabilities to the uart on the raspberry pi. (see the top level
 README for more information).
 
 The difference between bootloader05 and bootloader06 is that I made
@@ -16,11 +16,12 @@ know or think the NAK stuff was working anyway.  The whole xmodem
 receiver is in a loop so you should be able to try again without
 power cycling the board.
 
-I use minicom and it uses lrzsz to do the xmodem transfer and there
-is a delay after the transfer before minicom gets control again so
-I added a delay at the end before branching to the application so
-that no uart output is lost, in theory...Your favorite tools may give
-you a different experience.
+A new feature is that it does not automatically run your program it
+waits for you to send a 'g' character (press the g button while in
+the dumb terminal program).  I use minicom and there is a delay between
+when the external xmodem program finishes sending and when minicom
+gets control again and data can be lost, data as in stuff the
+downloaded program is printing out.  So ideally this helps solve that.
 
 You take the .bin file of your test program, assumed to be built based
 on address 0x8000 and less than 0x200000-0x8000 bytes in size.
@@ -44,4 +45,3 @@ I normally do not deliver binaries.  In this case I have included all
 of the build files so that you can at least get started without having
 to build the bootloader.  Backup whatever kernel.img file you are using
 and replace with the kernel.img file in this repo (on your sd card).
-

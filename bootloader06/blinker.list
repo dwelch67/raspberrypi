@@ -91,5 +91,5 @@ Disassembly of section .comment:
    0:	3a434347 	bcc	10d0d24 <notmain+0x10c8d04>
    4:	4e472820 	cdpmi	8, 4, cr2, cr7, cr0, {1}
    8:	34202955 	strtcc	r2, [r0], #-2389	; 0x955
-   c:	322e382e 	eorcc	r3, lr, #3014656	; 0x2e0000
+   c:	332e382e 	teqcc	lr, #3014656	; 0x2e0000
 	...
