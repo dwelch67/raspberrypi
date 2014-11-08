@@ -1,0 +1,190 @@
+
+See the top level README for information on where to find the
+schematic and programmers reference manual for the ARM processor
+on the raspberry pi.  Also find information on how to load and run
+these programs.
+
+See the top level README for information on how to connect the raspi
+uart to your host computer.
+
+This example is using the raspberry pi spi interface to program
+a nice little oled display
+
+https://www.sparkfun.com/products/13003
+
+Well, I would prefer something other than blue but I think OLED is
+pretty cool stuff so anyway...
+
+Perhaps some soldering is required, in some way you need to hook up
+the signals.
+
+Raspberry Pi signals of interest, all on the P1 connector
+
+GPIO7  SPI0_CE1_N  P1-26
+GPIO8  SPI0_CE0_N  P1-24
+GPIO9  SPI0_MISO   P1-21
+GPIO10 SPI0_MOSI   P1-19
+GPIO11 SPI0_SCLK   P1-23
+alt function 0 for all of the above
+
+GPIO25 GPIO_GEN6   P1-22
++3V3               P1-1
+GND                P1-25
+
+
+
+Micro OLED Breakout to raspi
+
+GND                P1-25
+VCC                P1-1
+D1/SDI (MOSI)      P1-19
+D0/SCK             P1-23
+D2/SDO (MISO)      no connect
+D/C                P1-22
+RST                P1-26
+CS                 P1-24
+
+I soldered a row of pins on both sides of the oled board only to RTFM
+later and find out I only needed the ones on the side not covered by
+the ribbon cable.
+
+I took the init routine and the defines for the command from the
+sparkfun arduino example.  The rest is mine.  (something in their
+init or the way the thing works you need to add 0x20 to the column
+number, I didnt research that, it is most likely as with other
+panel devices, the controller probably handles a display with more
+pixels but this display has however many it has less than that and
+is aligned in some way).
+
+I could have done the reset with a gpio pin as a gpio pin rather as
+a chip select but in my prior spi example I had used cs1 as a reset
+and was hoping to get away with not driving D/C but later figured out
+I had to.  It works.
+
+Now the datasheet for the display is confusing as to the 3 and 4 wire
+spi protocols.  Not quite sure how the device knows one mode from
+the other.  From what I can tell of the raspberry pi spi controller
+that I am using you can only send in units of 8 bits at a time so
+it worked out.  If I had to do 9 bits then it would have been time
+to bit bang or come up with some other solution.
+
+I assume that the reference clock for the spi controller is the 250MHz
+used by everything else.  The datasheet says max of 100ns for the
+clock cycle which is 10MHz.  250MHz/25 = 10MHz, we cant divide by
+an odd number so they say so I divided by 26.  And so far it appears
+to work.
+
+I couldnt quite visualize from the sparkfun data of their logo how the
+data was laid out, so I did some experiments.  You will hopefully see
+from the text I display in my example that the data bytes are a
+vertical row of 8 bits, so to display text, you slice your text
+vertically.  I guessed wrong the first try and my characters were
+upside down, so swizzled the bytes.  The uncommented lines are the
+reversed bytes.
+
+//---- 0x65 ----
+//[        ]
+//[        ]
+//[ #####  ]
+//[##   ## ]
+//[####### ]
+//[##      ]
+//[ #####  ]
+//[
+//{0x1C,0x3E,0x2A,0x2A,0x2A,0x3A,0x18,0x00},
+{0x38,0x7C,0x54,0x54,0x54,0x5C,0x18,0x00},
+
+If you turn your head to the left 90 degrees and look at the top
+of the letter you see 00111000 which is a 0x38.  Next row (with your
+head to the left it is a row) 01111100 or 0x7C and so on.
+
+There appear to be 64 pixels wide, with an 8x8 font that is 8 characters
+(the perfect amount for displaying a 32 bit hex number!) and 48 tall
+so with an 8x8 font that is 6 rows.  And that is how you address this
+thing they call the rows pages...
+
+You can set your column to some number and start from there but for
+all of these I start the column at 0, it appears that as you write data
+it auto-increments the column address for you so you set the page (row)
+and the column and then just blast bytes to it to paint 8 rows at once
+across.
+
+I didnt explain this in the spi01 example, the spi controller on the
+raspberry pi is fairly simple.  You of course have to talk to the
+gpio controller to select the spi alternate function for all of the
+spi controller signals you want to use.
+
+When setting the TA bit with a CS number selected it asserts the
+chip select, which you do before clocking out any bytes, and then
+clear the ta bit to de-assert the chip select.  Understand some basic
+terminology, assert doesnt always mean high or a 1 or a non-zero positive
+voltage.  The chip select is asserted low, so off is the 3.3Volt state
+and on, asserted, is at 0Volts.  both the raspberry pi and display
+datasheets show CS low asserted in the pictures and that is what
+is going on here.  I play a game with chip select 1, which is normally
+not asserted as a high output, I set the invert polarity bit in the
+control register which tells it that not asserted is low, making it
+output a 0 on that pin, then later I undo that and make it high again
+causing a reset (which is also asserted low) to the display.  Not sure
+if I really needed to do a reset and wire that up, maybe I could
+have used the CS1 for the D/C instead of the way I did it.  Oh well, that
+is an exercise for the reader...
+
+So after you set the TA bit to assert chip select.  Then for every write
+to the fifo, it takes the lower 8 bits and puts those in the fifo. In
+this case I mimiced the sparkfun example and only send 8 bits per
+chip select.  If you look at the display data sheet it shows multiple
+bytes per chip select is supported.   The one byte per is certainly
+easier to code up and use.  So that one byte is one write to the fifo
+register.  This is clocking out pretty slow relative to the speed of
+the arm so you have to wait for it to clock out the waveform by checking
+bit 16 of the control register.  Once done you can zero the TA bit to
+raise chip select.
+
+Wrap that with having the D/C bit high or low before you start and
+you can send commands or data.
+
+The datasheet command table is not immediately obvious in how
+the commands wor either.  You will see lots of individual lines for
+example that are some 0xA0 + 0-7 numbers.  They key to is that there
+are some visual separations using a horizontal line, for the command
+in question you have to send all the line items for that command, the
+first one is unique to the command and the ones that follow the
+controller is expecting.  So you need to make sure you dont short
+the controller some data otherwise it is out of sync and all messed
+up.  For example the first one set contrast control first you send
+a command (D/C is a 0) of 0x81, then you send a command (D/C is a 0)
+of the contrast value between 0x00 and 0xFF.  And no in that case it
+is not a 0xA0 with the value 0-7 in the lower bits it is just trying
+to show you there are 8 bits...
+
+I tried messing with the contrast and certainly didnt see 256 settings
+it seems to go from nothing to on pretty soon and doesnt change
+much after that, perhaps there are other settings that affect the
+contrast/brightness ultimately maybe a multiplier somewhere...
+
+So since I chose to write fonts with this you can see the program will
+write
+
+HELLO
+World!
+12345678
+ABCDEF00
+
+On the first four rows, then on the last row will count for a while so
+you can see the Hello World.  Then I made a simple hex value scroller
+that runs for a bit and there you go, you can see the last 6 values.
+
+You can certainly do more than write text on this, its just pixels,
+draw whatever you want.  The controller on the display has features
+for scrolling and perhaps other things.  I didnt mess with those.
+
+
+
+
+
+
+
+
+
+
