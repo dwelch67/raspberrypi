@@ -1,0 +1,5 @@
+raspberrypi/
+*.o
+*.elf
+*.bin
+*.hex
