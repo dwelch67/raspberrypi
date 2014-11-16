@@ -1,7 +1,7 @@
 
 
 
-ARMGNU ?= arm-none-linux-gnueabi
+ARMGNU ?= arm-linux-gnueabi
 
 COPS = -Wall -O2 -nostdlib -nostartfiles -ffreestanding 
 
@@ -11,6 +11,7 @@ clean :
 	rm -f *.o
 	rm -f *.bin
 	rm -f *.elf
+	rm -f *.hex
 	rm -f *.list
 
 vectors.o : vectors.s
@@ -25,6 +26,7 @@ uart.o : uart.c
 notmain.bin : memmap vectors.o uart.o notmain.o 
 	$(ARMGNU)-ld -T memmap vectors.o notmain.o uart.o -o notmain.elf
 	$(ARMGNU)-objdump -D notmain.elf > notmain.list
+	$(ARMGNU)-objcopy notmain.elf -O ihex notmain.hex 
 	$(ARMGNU)-objcopy notmain.elf -O binary notmain.bin 
 
 
