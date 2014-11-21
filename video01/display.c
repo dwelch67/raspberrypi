@@ -127,11 +127,11 @@ void drawTriangle(int x1, int y1, int x2, int y2, int x3, int y3, int color){
     cy2 = c2 + x23 * ymin - y23 * xmin;
     cy3 = c3 + x31 * ymin - y31 * xmin;
     int i,j, cx1, cx2, cx3;
-    for(j = ymin; j<ymax; j++){
+    for(j = ymax; j>=ymin; j--){
     	cx1 = cy1;
     	cx2 = cy2;
     	cx3 = cy3;
-    	for(i = xmin; i<xmax; i++){
+    	for(i = xmax; i>=xmin; i--){
     		if(cx1 >=0 && cx2 >=0 && cx3 >0){
     		setPixel(i,j,color);
     		}
