@@ -14,31 +14,40 @@
 // for the SD card work with this bootloader.  Change the ARMBASE
 // below to use a different location.
 
-#include "image_data.h"
+//#include "image_data.h"
+#include "functions.h"
+#include "periph.h"
+#include "timer.h"
+#include "terminal.h"
+#include "display.h"
+#include "vectors.h"
+#define SCREENBUF_LENGTH 100
 
-extern void PUT32 ( unsigned int, unsigned int );
-extern void PUT16 ( unsigned int, unsigned int );
-extern void PUT8 ( unsigned int, unsigned int );
-extern unsigned int GET32 ( unsigned int );
-extern unsigned int GETPC ( void );
-extern void BRANCHTO ( unsigned int );
-extern void dummy ( unsigned int );
+#define MMUTABLEBASE 0x00100000
 
-extern void uart_init ( void );
-extern unsigned int uart_lcr ( void );
-extern void uart_flush ( void );
-extern void uart_send ( unsigned int );
-extern unsigned int uart_recv ( void );
-extern unsigned int uart_check ( void );
-extern void hexstring ( unsigned int );
-extern void hexstrings ( unsigned int );
-extern void timer_init ( void );
-extern unsigned int timer_tick ( void );
+#define MMUTABLESIZE (0x8000)
+#define MMUTABLEMASK ((MMUTABLESIZE-1)>>2)
 
-extern void timer_init ( void );
-extern unsigned int timer_tick ( void );
+#define TOP_LEVEL_WORDS (1<<((31-20)+1))
+#define COARSE_TABLE_WORDS (1<<((19-12)+1))
+#define SMALL_TABLE_WORDS (1<<((11-0)+1))
+int multiplylookup[640];
 
-
+		
+static inline unsigned int min(unsigned int a, unsigned int b, unsigned int c)
+{
+    unsigned int m = a;
+    if (m > b) m = b;
+    if (m > c) m = c;
+    return m;
+}
+static inline unsigned int max(unsigned int a, unsigned int b, unsigned int c)
+{
+    unsigned int m = a;
+    if (m < b) m = b;
+    if (m < c) m = c;
+    return m;
+}
 unsigned int MailboxWrite ( unsigned int fbinfo_addr, unsigned int channel )
 {
     unsigned int mailbox;
@@ -74,6 +83,8 @@ unsigned int MailboxRead ( unsigned int channel )
 }
 
 
+
+
 //------------------------------------------------------------------------
 int notmain ( void )
 {
@@ -81,8 +92,6 @@ int notmain ( void )
     unsigned int ry,rx;
 
     uart_init();
-    hexstring(0x12345678);
-    hexstring(GETPC());
     timer_init();
 
     PUT32(0x40040000, 640); /* #0 Physical Width */
@@ -90,61 +99,55 @@ int notmain ( void )
     PUT32(0x40040008, 640); /* #8 Virtual Width */
     PUT32(0x4004000C, 480); /* #12 Virtual Height */
     PUT32(0x40040010, 0); /* #16 GPU - Pitch */
-    PUT32(0x40040014, 32); /* #20 Bit Depth */
+    PUT32(0x40040014, 16); /* #20 Bit Depth */
     PUT32(0x40040018, 0); /* #24 X */
     PUT32(0x4004001C, 0); /* #28 Y */
     PUT32(0x40040020, 0); /* #32 GPU - Pointer */
     PUT32(0x40040024, 0); /* #36 GPU - Size */
 
 
-    hexstring(MailboxWrite(0x40040000,1));
-    hexstring(MailboxRead(1));
+    MailboxWrite(0x40040000,1);
+    MailboxRead(1);
     rb=0x40040000;
-    for(ra=0;ra<10;ra++)
-    {
-        hexstrings(rb); hexstring(GET32(rb));
-        rb+=4;
+    int i;
+    for(i=0; i<640; i++){
+    	multiplylookup[i] = i * 640;
     }
 
-    rb=GET32(0x40040020);
-    hexstring(rb);
-    for(ra=0;ra<10000;ra++)
-    {
-        PUT32(rb,~((ra&0xFF)<<0));
-        rb+=4;
-    }
-    for(ra=0;ra<10000;ra++)
-    {
-        PUT32(rb,~((ra&0xFF)<<8));
-        rb+=4;
-    }
-    for(ra=0;ra<10000;ra++)
-    {
-        PUT32(rb,~((ra&0xFF)<<16));
-        rb+=4;
-    }
-    for(ra=0;ra<10000;ra++)
-    {
-        PUT32(rb,~((ra&0xFF)<<24));
-        rb+=4;
-    }
-    rb=GET32(0x40040020);
-    hexstring(rb);
+    
     ra=0;
-    for(ry=0;ry<480;ry++)
-    {
-        for(rx=0;rx<480;rx++)
-        {
-            PUT32(rb,image_data[ra++]);
-            rb+=4;
-        }
-        for(;rx<640;rx++)
-        {
-            PUT32(rb,0);
-            rb+=4;
-        }
-    }
-
+    rb=GET32(0x40040020);
+    //int x1, y1,x2,y2,color;
+    //color = Random(53);
+    drawLine(540,35,104,323,0b1111100000000000);
+    //int offset, i;
+    clrScreen(0x0000);
+    uart_puts("timestamp: ");
+    int timestamp;
+    int color;
+    color = Random(231452);
+    for(i = 0; i<10; i++){
+    //while(1){
+    //timestamp = GetTimeStamp();
+    int x0,x1,x2,y0,y1,y2;
+    x0 = Random(color);
+    x1 = Random(x0);
+    x2 = Random(x1);
+    y0 = Random(x2);
+    y1 = Random(y0);
+    y2 = Random(y1);
+    color = Random(y2);
+    drawTriangle(300,0, 0, 479, 639, 479, 0xF000 );
+    x0 = x0 & 511;
+    drawLine(x0,0,x1,300,0xFFFF);
+    //drawTriangle(x0,y0,x1,y1,x2,y2,color);
+    
+    //hexstring(GetTimeStamp()-timestamp);
+    
+	}
+	
+	uart_puts("\r\n");
+	WaitMicros(5000);
     return(0);
 }
 //-------------------------------------------------------------------------
@@ -164,4 +167,3 @@ int notmain ( void )
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
 //-------------------------------------------------------------------------
-
