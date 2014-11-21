@@ -1,7 +1,7 @@
 
 ARMGNU ?= arm-none-eabi
 
-COPS = -Wall -O2 -nostdlib -nostartfiles -ffreestanding -ggdb3 -finline-functions -ffunction-sections -fdata-sections 
+COPS = -Wall -nostdlib -nostartfiles -ffreestanding -ggdb3 -ffunction-sections -fdata-sections 
 ASOPS = -ggdb3
 LDFLAGS=-L ~/bin/yagarto-4.7.2/lib/gcc/arm-none-eabi/4.7.2/ -lgcc 
 gcc : kernel.img

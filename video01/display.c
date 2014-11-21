@@ -22,9 +22,10 @@ static inline unsigned int max(unsigned int a, unsigned int b, unsigned int c)
 
 void clrScreen(int color){
 	int i,j,address;
+	//color = color | (color << 16);
 	address=GET32(0x40040020);
-	for(i=0; i<640;i++){
-		for(j=0; j<480; j++){
+	for(i=640; i!=0;i--){
+		for(j=480; j!=0; j--){
 			PUT16(address, color);
 			address +=2;
 		}
