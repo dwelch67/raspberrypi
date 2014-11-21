@@ -125,19 +125,19 @@ int notmain ( void )
     uart_puts("timestamp: ");
     int timestamp;
     int color;
-    color = Random(231452);
-    //for(i = 0; i<10; i++){
+    
+    for(i = 0; i<10; i++){
     //while(1){
     timestamp = GetTimeStamp();
    	
-    drawTriangle(300,0, 0, 479, 639, 479, 0xF000 );
-   	
+    //drawTriangle(300,0, 0, 479, 639, 479, 0xF000 );
+   	clrScreen(0xF000);
     //drawTriangle(x0,y0,x1,y1,x2,y2,color);
     
     hexstring(GetTimeStamp()-timestamp);
-    
-	//}
-	
+    clrScreen(0x0000);
+	}
+	clrScreen(0xF000);
 	uart_puts("\r\n");
 	WaitMicros(5000);
     return(0);

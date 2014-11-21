@@ -21,12 +21,17 @@ static inline unsigned int max(unsigned int a, unsigned int b, unsigned int c)
 }
 
 void clrScreen(int color){
-	int i,j,address;
+	int i,j;
+	int register address;
+	color = color | (color << 16);
 	address=GET32(0x40040020);
-	for(i=0; i<640;i++){
-		for(j=0; j<480; j++){
-			PUT16(address, color);
-			address +=2;
+	for(i=480; i!=0;i--){
+		for(j=80; j!=0; j--){
+			asm volatile("str %[color],[%[address]]":: [color] "r" (color), [address] "r" (address));
+			asm volatile("str %[color],[%[address], #4]":: [color] "r" (color), [address] "r" (address));
+			asm volatile("str %[color],[%[address], #8]":: [color] "r" (color), [address] "r" (address));
+			asm volatile("str %[color],[%[address], #12]":: [color] "r" (color), [address] "r" (address));
+			address +=16;
 		}
 	}
 }
