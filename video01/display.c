@@ -35,7 +35,7 @@ void clrScreen(int color){
 		}
 	}
 }
-void setPixel(int x,int y, int color){
+void inline setPixel(int x,int y, int color){
 	if(x<640 && y<480){
 	int offset;
 	offset = GET32(0x40040020);
@@ -95,6 +95,18 @@ void drawString(char str[], int x, int y){
 		}
 		i++;
 	}
+}
+void drawRect(int x, int y, int width, int height, int color){
+	unsigned int i,j;
+	
+		for(j= y+height; j >= y; j--){
+			for(i= x+width; i>= x; i--){
+				setPixel(i,j,color);
+			}
+		}
+	
+	
+
 }
 void drawTriangle(int x1, int y1, int x2, int y2, int x3, int y3, int color){
 	x1 = x1 & 1023;
