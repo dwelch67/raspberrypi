@@ -131,13 +131,13 @@ int notmain ( void )
     timestamp = GetTimeStamp();
    	
     //drawTriangle(300,0, 0, 479, 639, 479, 0xF000 );
-   	clrScreen(0xF000);
+   	drawRect(50,50,300,300,0xF000);
     //drawTriangle(x0,y0,x1,y1,x2,y2,color);
     
     hexstring(GetTimeStamp()-timestamp);
     clrScreen(0x0000);
 	}
-	clrScreen(0xF000);
+	drawRect(50,50,300,300,0xF000);
 	uart_puts("\r\n");
 	WaitMicros(5000);
     return(0);
