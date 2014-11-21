@@ -137,7 +137,7 @@ int notmain ( void )
     hexstring(GetTimeStamp()-timestamp);
     clrScreen(0x0000);
 	}
-	
+	clrScreen(0xF000);
 	uart_puts("\r\n");
 	WaitMicros(5000);
     return(0);

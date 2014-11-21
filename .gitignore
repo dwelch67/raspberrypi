@@ -4,3 +4,4 @@ raspberrypi/
 *.bin
 *.hex
 *.img
+kernel.img
