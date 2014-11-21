@@ -126,25 +126,17 @@ int notmain ( void )
     int timestamp;
     int color;
     color = Random(231452);
-    for(i = 0; i<10; i++){
+    //for(i = 0; i<10; i++){
     //while(1){
-    //timestamp = GetTimeStamp();
-    int x0,x1,x2,y0,y1,y2;
-    x0 = Random(color);
-    x1 = Random(x0);
-    x2 = Random(x1);
-    y0 = Random(x2);
-    y1 = Random(y0);
-    y2 = Random(y1);
-    color = Random(y2);
+    timestamp = GetTimeStamp();
+   	
     drawTriangle(300,0, 0, 479, 639, 479, 0xF000 );
-    x0 = x0 & 511;
-    drawLine(x0,0,x1,300,0xFFFF);
+   	
     //drawTriangle(x0,y0,x1,y1,x2,y2,color);
     
-    //hexstring(GetTimeStamp()-timestamp);
+    hexstring(GetTimeStamp()-timestamp);
     
-	}
+	//}
 	
 	uart_puts("\r\n");
 	WaitMicros(5000);

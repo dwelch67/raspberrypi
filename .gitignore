@@ -3,3 +3,4 @@ raspberrypi/
 *.elf
 *.bin
 *.hex
+*.img
