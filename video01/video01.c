@@ -81,9 +81,9 @@ unsigned int MailboxRead ( unsigned int channel )
     }
     return(ra);
 }
-
-
-
+inline void put32(unsigned int address,unsigned int data){
+	asm volatile("str %[data],[%[address]]":: [data] "r" (data), [address] "r" (address));
+}
 
 //------------------------------------------------------------------------
 int notmain ( void )
@@ -125,17 +125,22 @@ int notmain ( void )
     uart_puts("timestamp: ");
     int timestamp;
     int color;
-    
+    int register addr;
     for(i = 0; i<10; i++){
     //while(1){
     timestamp = GetTimeStamp();
    	
     //drawTriangle(300,0, 0, 479, 639, 479, 0xF000 );
-   	drawRect(50,50,300,300,0xF000);
+   	//drawRect(50,50,300,300,0xF000);
     //drawTriangle(x0,y0,x1,y1,x2,y2,color);
+    addr=GET32(0x40040020);
+    int j;
+    for(j=1000000;j!=0;j--){
+    	put32(addr,0xFFFF);
     
+    }
     hexstring(GetTimeStamp()-timestamp);
-    clrScreen(0x0000);
+    
 	}
 	drawRect(50,50,300,300,0xF000);
 	uart_puts("\r\n");
