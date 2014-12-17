@@ -5,8 +5,8 @@ whatever your term is for this.
 
 I am in no way shape or form associated with the raspberry pi organization
 nor broadcom.  I just happen to own one (some) and am sharing my
-experiences.  The raspberry pi is about education, and I feel low
-level education is just as important as Python programming.
+experiences.  The raspberry pi is about education, and I feel bare
+metal education is just as important as Python programming.
 
 From what we know so far there is a gpu on chip which:
 

@@ -17,7 +17,13 @@ http://www.adafruit.com/products/338
 I got 5 of them on ebay for $13 with pins.
 
 Perhaps some soldering is required, in some way you need to hook up
-the signals.
+the signals.  Note both above and below the display you might have a
+row of pins on your board.  They are probably the same and you probably
+only need to hook up to one of the two.  Also note that the metal frame
+has a thick side and the rest are thin, that thick side is normally the
+TOP of the display or at least for this example it is.  You will note
+in the sparkfun and adafruit photos their examples also have the thick
+side up.
 
 I use these, but bought the 100 pack
 
@@ -61,11 +67,53 @@ are the same you only need one row.
 
 The various examples out there use the same init routine.
 
+    spi_command(0x21); //extended commands/horiz addressing/chip active
+    spi_command(0xB0); //vop
+    spi_command(0x04); //temp coef
+    spi_command(0x14); //bias mode 1:48
+    spi_command(0x20); //extended off/horizontal addressing, chip active
+    spi_command(0x0C); //display on
 
+So that set for horizontal addressing.  The display I bought on ebay
+said 84x84 but it is really 84x48 pixels, obviously a typo or maybe
+trying to sucker me in.  Doesnt matter wasnt holding my breath for a
+bigger display.  First lets set the address pointer to the top left
 
+    spi_command(0x80); //column left
+    spi_command(0x40); //row    top
 
+then if we just blast some bytes out start with a smaller number
 
+    for(ra=0;ra<32;ra++) spi_data(ra);
 
+you will see they swipe across the top left to right.  Each 8 bits
+draws a column with those 8 bits with the lsbit being on the top, this
+is also shown in the PCD8544 controller document that describes how
+to program this thing.
 
+and if you say write 100 bytes then after the 84th byte it
+drops down and writes the next 8 rows of pixels and so on.
+so 84*48 = 4032 pixels  4032 / 8 = 504 so if we write 504
+bytes in theory we cover the screen.
+
+    for(ra=0;ra<504;ra++) spi_data(ra);
+
+and that does work.
+
+so call it dumb luck or divine intervention or whatever the font
+data orientation from my prior spi02 example happens to already be
+lined up just right for this example...Didnt have to flip or rotate
+or anything.  A little experimenting here:
+
+    spi_command(0x80); //column
+    spi_command(0x40); //row
+    for(ra=0;ra<10;ra++)
+    {
+        for(rb=0;rb<8;rb++) spi_data(fontdata[ra][rb]);
+    }
+    show_string(1,"Hello");
+    show_string(2,"World");
+
+and that all works the characters are drawn in rows...
 
 
