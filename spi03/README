@@ -1,0 +1,71 @@
+
+See the top level README for information on where to find the
+schematic and programmers reference manual for the ARM processor
+on the raspberry pi.  Also find information on how to load and run
+these programs.
+
+See the top level README for information on how to connect the raspi
+uart to your host computer.
+
+This example uses the spi interface with a Nokia 5110 display, these
+are probably all recycled from old phones, who knows.  There seems
+to be a large quantity of the out there.
+
+https://www.sparkfun.com/products/10168
+http://www.adafruit.com/products/338
+
+I got 5 of them on ebay for $13 with pins.
+
+Perhaps some soldering is required, in some way you need to hook up
+the signals.
+
+I use these, but bought the 100 pack
+
+https://www.sparkfun.com/products/10898
+
+F/F means Female/Female both ends are female which is what you want
+if you have a row of pins on yours.
+
+Raspberry Pi signals of interest, all on the P1 connector
+
+alt function 0 for these
+GPIO8  SPI0_CE0_N  P1-24
+GPIO10 SPI0_MOSI   P1-19
+GPIO11 SPI0_SCLK   P1-23
+
+these are set gpio outputs
+GPIO7  SPI0_CE1_N  P1-26
+GPIO25 GPIO_GEN6   P1-22
+
+power and ground
++3V3               P1-1
+GND                P1-25
+
+Now the sparkfun and adafruit and ebay special dont have the same
+pinout, the same signals are there but not necessarily in the same
+order.  So this chart is not necessarily in the same pin order as your
+display.  The names may not exactly match either...
+
+Nokia 5110 to raspi
+
+GND                P1-25    ground
+VCC                P1-1     power
+DIN (MOSI)         P1-19    data in, spi mosi
+SCK/CLK            P1-23    spi clock
+D/C                P1-22    data/command
+RST                P1-26    reset
+CS/CE              P1-24    spi chip select
+
+Your board may have a row of pins above and below the display, they
+are the same you only need one row.
+
+The various examples out there use the same init routine.
+
+
+
+
+
+
+
+
+
