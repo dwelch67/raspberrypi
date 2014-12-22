@@ -259,7 +259,8 @@ int notmain ( void )
     PUT32(GPSET0,1<<7); //reset high
 
     spi_command(0x21); //extended commands
-    spi_command(0xB0); //vop
+//    spi_command(0xB0); //vop
+    spi_command(0xBF); //vop
     spi_command(0x04); //temp coef
     spi_command(0x14); //bias mode 1:48
     spi_command(0x20); //extended off
