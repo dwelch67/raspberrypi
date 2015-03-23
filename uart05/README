@@ -1,0 +1,66 @@
+
+See the top level README file for more information on documentation
+and how to run these programs.
+
+Derived from bootloader07.  This is a skeleton for building generic
+uart based programs.
+
+Starting with the Raspberry Pi 2 the peripheral base is now at
+0x3F000000 instead of 0x20000000 so in periph.c you need to uncomment
+the correct header file before building.
+
+Yes I did some self modifying code in there to make it easier to dump
+some registers of interest.  In particular the MIDR (Main Identification
+Register).  Which helps you figure out which ARM core you are using.
+The RPi 2 uses a Cortex-A7 r0p5 in the BCM2836, the predecessors to the
+RPi2 use an ARM1176JZF-S the one I have on hand which is a model A (not
+A+) has a r0p7 as shown below.
+
+Raspberry Pi 2
+
+00000000 410FC075 MIDR
+00000001 84448003 CTR
+00000002 00000000 TCMTR
+00000003 00000000 TLBTR
+00000004 410FC075 MIDR alias
+00000005 80000F00 MPIDR
+00000006 00000000 REVIDR
+00000007 410FC075 MIDR alias
+00000000 00001131 ID_PFR0
+00000001 00011011 ID_PFR1
+00000002 02010555 ID_DFR0
+00000003 00000000 ID_AFR0
+00000004 10101105 ID_MMFR0
+00000005 40000000 MD_MMFR1
+00000006 01240000 ID_MMFR2
+00000007 02102211 ID_MMFR3
+00000000 02101110 ID_ISAR0 *
+00000001 13112111 ID_ISAR1
+00000002 21232041 ID_ISAR2
+00000003 11112131 ID_ISAR3
+00000004 10011142 ID_ISAR4
+00000005 00000000 ID_ISA45
+
+rpi1     rpi2
+410FB767 410FC075 MRC p15, 0, r0, c0, c0, 0
+1D152152 84448003 MRC p15, 0, r0, c0, c0, 1
+00000000 00000000 MRC p15, 0, r0, c0, c0, 2
+00000800 00000000 MRC p15, 0, r0, c0, c0, 3
+410FB767 410FC075 MRC p15, 0, r0, c0, c0, 4
+410FB767 80000F00 MRC p15, 0, r0, c0, c0, 5
+410FB767 00000000 MRC p15, 0, r0, c0, c0, 6
+410FB767 410FC075 MRC p15, 0, r0, c0, c0, 7
+00000111 00001131 MRC p15, 0, r0, c0, c1, 0
+00000011 00011011 MRC p15, 0, r0, c0, c1, 1
+00000033 02010555 MRC p15, 0, r0, c0, c1, 2
+00000000 00000000 MRC p15, 0, r0, c0, c1, 3
+01130003 10101105 MRC p15, 0, r0, c0, c1, 4
+10030302 40000000 MRC p15, 0, r0, c0, c1, 5
+01222100 01240000 MRC p15, 0, r0, c0, c1, 6
+00000000 02102211 MRC p15, 0, r0, c0, c1, 7
+00140011 02101110 MRC p15, 0, r0, c0, c2, 0
+12002111 13112111 MRC p15, 0, r0, c0, c2, 1
+11231121 21232041 MRC p15, 0, r0, c0, c2, 2
+01102131 11112131 MRC p15, 0, r0, c0, c2, 3
+00001141 10011142 MRC p15, 0, r0, c0, c2, 4
+00000000 00000000 MRC p15, 0, r0, c0, c2, 5
