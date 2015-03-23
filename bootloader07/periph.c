@@ -2,34 +2,39 @@
 //-------------------------------------------------------------------------
 //-------------------------------------------------------------------------
 
+#ifdef RPI2
+#include "BCM2836.h" /* Raspberriy Pi 2 */
+#else
+#include "BCM2835.h" /* Original B,A,A+,B+ */
+#endif
+
 extern void PUT32 ( unsigned int, unsigned int );
 extern void PUT16 ( unsigned int, unsigned int );
 extern void PUT8 ( unsigned int, unsigned int );
 extern unsigned int GET32 ( unsigned int );
-extern void BRANCHTO ( unsigned int );
 extern void dummy ( unsigned int );
 
-#define ARM_TIMER_CTL 0x2000B408
-#define ARM_TIMER_CNT 0x2000B420
+#define ARM_TIMER_CTL   (PBASE+0x0000B408)
+#define ARM_TIMER_CNT   (PBASE+0x0000B420)
 
-#define GPFSEL1 0x20200004
-#define GPSET0  0x2020001C
-#define GPCLR0  0x20200028
-#define GPPUD       0x20200094
-#define GPPUDCLK0   0x20200098
+#define GPFSEL1         (PBASE+0x00200004)
+#define GPSET0          (PBASE+0x0020001C)
+#define GPCLR0          (PBASE+0x00200028)
+#define GPPUD           (PBASE+0x00200094)
+#define GPPUDCLK0       (PBASE+0x00200098)
 
-#define AUX_ENABLES     0x20215004
-#define AUX_MU_IO_REG   0x20215040
-#define AUX_MU_IER_REG  0x20215044
-#define AUX_MU_IIR_REG  0x20215048
-#define AUX_MU_LCR_REG  0x2021504C
-#define AUX_MU_MCR_REG  0x20215050
-#define AUX_MU_LSR_REG  0x20215054
-#define AUX_MU_MSR_REG  0x20215058
-#define AUX_MU_SCRATCH  0x2021505C
-#define AUX_MU_CNTL_REG 0x20215060
-#define AUX_MU_STAT_REG 0x20215064
-#define AUX_MU_BAUD_REG 0x20215068
+#define AUX_ENABLES     (PBASE+0x00215004)
+#define AUX_MU_IO_REG   (PBASE+0x00215040)
+#define AUX_MU_IER_REG  (PBASE+0x00215044)
+#define AUX_MU_IIR_REG  (PBASE+0x00215048)
+#define AUX_MU_LCR_REG  (PBASE+0x0021504C)
+#define AUX_MU_MCR_REG  (PBASE+0x00215050)
+#define AUX_MU_LSR_REG  (PBASE+0x00215054)
+#define AUX_MU_MSR_REG  (PBASE+0x00215058)
+#define AUX_MU_SCRATCH  (PBASE+0x0021505C)
+#define AUX_MU_CNTL_REG (PBASE+0x00215060)
+#define AUX_MU_STAT_REG (PBASE+0x00215064)
+#define AUX_MU_BAUD_REG (PBASE+0x00215068)
 
 //GPIO14  TXD0 and TXD1
 //GPIO15  RXD0 and RXD1

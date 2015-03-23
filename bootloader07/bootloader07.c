@@ -59,6 +59,7 @@ int notmain ( void )
     data=0;
     record_type=0;
     address=0;
+    byte_count=0;
     while(1)
     {
         ra=uart_recv();

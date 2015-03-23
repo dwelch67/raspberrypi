@@ -34,4 +34,11 @@ I normally do not deliver binaries.  In this case I have included all
 of the build files so that you can at least get started without having
 to build the bootloader.  Backup whatever kernel.img file you are using
 and replace with the kernel.img file in this repo (on your sd card) to
-use this program.
+use this program.  If on a Raspberry Pi 2 then use kernel7.img instead
+of kernel.img.
+
+blinker.hex is for older RPi boards the A and B whose activity led
+is tied to GPIO16.  The A+, B+, and RPi2 use GPIO47, also on these
+latter boards the power led is on GPIO35.  Last I checked they wouldnt
+provide a schematic for these latter boards (so much for being "open")
+so we have to just go on faith...

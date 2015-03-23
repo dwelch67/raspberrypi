@@ -2,20 +2,22 @@
 //-------------------------------------------------------------------------
 //-------------------------------------------------------------------------
 
+#include "BCM2835.h" /* Original B,A,A+,B+ */
+
 extern void PUT32 ( unsigned int, unsigned int );
 extern unsigned int GET32 ( unsigned int );
 extern void dummy ( unsigned int );
 
-#define ARM_TIMER_LOD 0x2000B400
-#define ARM_TIMER_VAL 0x2000B404
-#define ARM_TIMER_CTL 0x2000B408
-#define ARM_TIMER_DIV 0x2000B41C
-#define ARM_TIMER_CNT 0x2000B420
+#define ARM_TIMER_LOD   (PBASE+0x0000B400)
+#define ARM_TIMER_VAL   (PBASE+0x0000B404)
+#define ARM_TIMER_CTL   (PBASE+0x0000B408)
+#define ARM_TIMER_DIV   (PBASE+0x0000B41C)
+#define ARM_TIMER_CNT   (PBASE+0x0000B420)
 
-#define SYSTIMERCLO 0x20003004
-#define GPFSEL1 0x20200004
-#define GPSET0  0x2020001C
-#define GPCLR0  0x20200028
+#define SYSTIMERCLO     (PBASE+0x00003004)
+#define GPFSEL1         (PBASE+0x00200004)
+#define GPSET0          (PBASE+0x0020001C)
+#define GPCLR0          (PBASE+0x00200028)
 
 #define TIMEOUT 1000000
 
