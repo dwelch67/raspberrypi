@@ -1,0 +1,25 @@
+
+See the top level README file for more information on documentation
+and how to run these programs.
+
+Derived from uart05
+
+This is specific to the Raspberry Pi 2 as it experiments with the
+multiple processor cores.
+
+So thanks to JS2 in the raspberry pi bare metal forum for the info
+
+Not sure where or if this is really documented.  But if you write to
+address
+
+0x4000009C for core 1
+0x400000AC for core 2
+0x400000BC for core 3
+
+With the address to the entry point for the code you want that core
+to run...it will start that core.
+
+This program starts up the other three cores, lets them fight over the
+memory location at address 0x40.  Core 0 reads 0x40 and prints out
+when it sees it change.  It is going to look somewhat random.
+
