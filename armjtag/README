@@ -150,16 +150,6 @@ that sells FTDI parts might also sell FTDI boards.
 
 
 
-FT2232H Mini Module:
-
-TODO when I get one, I assume it is very very similar if not the same
-as the FT4232H below, the pinout should be the same I am using the A
-and B sections of the chip so those match, the board pinouts may or
-may not match the FT4232H board.  Not hard to figure out from the
-FTDI documents though.
-
-
-
 FT4232H Mini Module:
 
 Searching for this you get the datasheet for the development board.  You
@@ -290,7 +280,27 @@ show the four uarts (/dev/ttyUSBx) the first one on the list will go
 away when we take it over to do jtag, the second one listed will be
 the one you use for uart/serial communications to the raspberry pi.
 
+FT2232H Mini Module:
 
+The FT2232H Mini Module is very similar to the FT4232H above. The only
+difference relevant in our case is the location of the the UART pins,
+instead giving us the connections:
+
+JTAG: (FT board left, Raspi right)
+  TCK:   CN2-7   P1-22
+  TDI:   CN2-10  P1-7
+  TDO:   CN2-9   P1-18
+  TMS:   CN2-12  P1-13
+UART:
+  TXRX:  CN3-26  P1-10
+  RXTX:  CN3-25  P1-8
+Ground:
+  GND:   CN2-2   P1-6
+Raspi to Raspi:
+  TRST:  P1-1    P1-15
+FTDI board to FTDI board:
+  VCCIO: CN2-1   CN2-11
+  VCC:   CN3-1   CN3-3
 
 
 Other alternatives, it doesnt take too much work to use the ftdi drivers
