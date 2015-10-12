@@ -4,52 +4,161 @@ and how to run these programs.
 
 This example demonstrates MMU basics.
 
-So what an MMU does or at least what an MMU does for us is it translates
-virtual addresses into physical addresses as well as checking access
-permissions.  And lastly it gives us tighter control over cachable
+So what an MMU does or at least what an MMU does for us is it
+translates virtual addresses into physical addresses as well as
+checking access permissions, and gives us control over cachable
 regions.
 
-So what does all of that mean?  Well so far, FROM THE ARM'S PERSPECTIVE
-we have been using physical addresses.  We know from looking at the
-Broadcom manual for this chip that the actual physical addresses
-for peripherals for example as far as the manual is concerned are at
-addresses that start with 0x7E, but in the ARM's address space we use
-0x20.  So there is already an address translation going on somewhere.
-But from the ARM's address bus perspective the 0x20... addresses are
-the physical addresses as is the memory we use starting at 0x00000000.
+So what does all of that mean?
 
-So this address for example
+There is a boundary inside the chip around the ARM core, part of that
+boundary is the memory interface for the ARM for lack of a better term
+how the ARM accesses the world.  Nothing special all processors have
+some sort of address and data based interface and your peripherals
+or edge of the chip or whatever is address and data based.  That
+boundary uses physical addresses, that boundary is on the "chip side"
+or "world side" of the ARM's mmu.  Within the ARM core there is the
+"processor side" of the mmu, and all accesses to the world go through
+the mmu.  That is everything that is address based, all flavors of
+load and store.
 
-#define ARM_TIMER_CTL 0x2000B408
+When the ARM powers up the mmu is disabled, which means all accesses
+pass through unmodified making the "processor side" or virtual address
+space equal to the world side physical address space.  All of the
+examples thus far, blinkers and such are based on physical addresses.
+We already know that elswhere in the chip is another address translation
+of some sort, because the manual is written for 0x7Exxxxxx based
+adresses, but the ARM's physical addresses for those same things is
+0x20xxxxxx for the raspi 1 and 0x3Fxxxxxx for the raspi 2.  For this
+discussion we only care about the ARM mmu processor side and the far
+side (world side, physical address side).
 
-we consider to be a physical address within the arms address space, as
-is the address 0x00008000 where we assume our program is loaded before
-the GPU lets the ARM start.
+So when I say the mmu translates virtual addresses into physical
+addresses.  What that means is on the processor side you may have
+one address you are accessing, but that does not have to be equal to
+the physical address.  Lets say for example I am running a program on
+an operating system, Linux lets say, and I need to compile that program
+before I can use it and I need to link it for an address space so lets
+say that I link it to enter at address 0x8000 and use memory from
+0x00000000 to whatever I need and/or whatever is available.  So that
+is all fine, except what if I have two programs and I want both running
+"at the same time" how can both use the same address space without
+clobbering each other?  The answer is neither is at that address space
+the virtual address WHEN RUNNING one of them is in the virtual address
+space 0x00000000 to some number, but in reality program 1 might have
+that mapped to the physical address 0x01000000, program 2 might have its
+0x00000000 to some number mapped to 0x02000000.  So when program 1
+thinks it is writing to address 0xABCDE it is really writing to
+0x010ABCDE and when program 2 thinks it is writing to address 0xABCDE
+it is really writing to 0x020ABCDE.
 
-Basically ignore the man behind the curtain, you generally dont deal
-with this, the ARM is usually the main processor and the memory system
-is designed around it rather than what we have in this chip.
+It is techincally possible that some mmu out there might be able to
+translate any address into any address, but certainly not the ARM mmus
+you cannot have virtual 0x12345678 = physical 0xAAAABCDE.  From a
+hardware perspective and hopefully a programmers perspective it makes
+most sense to draw a line in the address and the upper side gets
+translated and the lower stays the same.  For example there is one
+mmu block size in the arm that is on one megabyte boundaries so with
+a 32 bit address space one megabyte is 20 bits, so the lower 20 bits
+dont change between virtual and physical but the upper 12 can/do.  So
+address 0x12345678 virtual could be mapped to 0xCDE345678 using a
+one megabyte mmu table entry.  The ARM mmu also allows for 4Kbyte
+pages for example, which means the lower 12 bits of the virtual and
+physical are the same but the upper 20 bits can be changed when going
+from virtual to physical.
 
-So physical addresses are the addresses that are used on the ARM's
-address bus when accessing memory or peripherals.  When we power up the
-MMU is off and the addresses we use when we write programs are physical
-addresses.  But the MMU sits in the middle, when it is turned on then
-the addresses we program with are considered virtual addresses, the
-MMU converts them into physical addresses and the physical address
-goes out on the address bus.  So we could for example program the
-MMU to have the virtual address 0x00000000 map to the physical address
-0x00100000 for example.  Now we cannot have any address map to any
-address we cannot have 0x01234 map to 0x45678 for example, it doesnt
-work that way.  If it did we would need a directory of addresses that
-is larger than the amount of memory we have, if we wanted to convert
-any address to any address we would need a look up table 4GBytes in
-size if any byte address could be any other byte address.
+What does access permission mean?  Lets think about program 1 and
+program 2 above, we dont want program 1 to be able to invade program
+2s memory space, that would make hacking a computer super easy if any
+program could access the ram used by any other program (the operating
+system can sure, but we have to trust the operating system but not
+trust any rogue program).  So when a program running at the application
+level is accessing something there has to be a mechanism to check the
+permissions of each access to make sure that that application is
+allowed, if not allowed the mmu has to abort the access and somehow
+call the operating system to handle this.  Different processor families
+handle this differently.  Initially we dont care as we are still
+running as the super user, which is also bound by the mmu, we just need
+to make sure we set the permissions so that we can access everything
+we care to access.
 
-What really happens is we can break up the space into blocks and the
-whole block is virtualized somewhere else so for example we will in
-this example have the virtual address range 0x00200000 to 0x002FFFFF
-access the physical 0x00000000 to 0x000FFFFF range.  Hopefully this
-will make sense soon...
+What does cachable regions mean?  We know from polling the uart to
+see if there is a spot in the tx buffer for the next character that
+reads to the uart need to actually go to the uart register to read
+that status.  But this is a memory mapped design, hardware registers
+like the uart status are accessed in the same way as some ram that
+contains a variable used in a program, using load and store
+instructions with some address.  We can use the instruction cache
+without the mmu one because arm allows us to, second because the
+arms internal bus has a signal (or set of) that differentiate fetch
+read cycles from data read cycles.  The mmu when disabled passes
+that through and it hits the cache which has different controls between
+instruction or i cache and data or d cache.  So without the mmu we
+can enable instruction caching, and only instruction fetches get
+cached, I hope you know what that means, the cache is fast ram closer
+to the processor when you do a read from slow dram on the far side,
+a copy is kept in the cache (if the cache for that access type and
+address space are enabled) so that if you read that address a second
+time before that prior read is evicted the second and subsequent reads
+are closer from faster ram and return an answer much faster. Because
+fast ram is expensive you have a relatively small amount so only the
+last small number of answers is stored there, make too many reads at
+different addresses and some answers have to be evicted to make room
+for new answers.  If the mmu is disabled then all accesses are marked
+as "cacheable" or able to be cached.  If the cache for that type (i or
+d) is enabled.  So you see the uart problem.  If we were to enable
+the d cache with the mmu off then all data accesses would be cached,
+so if in a tight loop polling the uart to wait for a spot in the tx
+buffer the first time through the loop we read the uart status and
+it goes actually to the uart to get that status, if the tx buffer is
+not got a spot, then we continue to loop, the second read though
+gets the copy of the first read from the cache, which says no room
+yet, the third read gets the copy of the first read from the cache
+which says there is no room yet.  This continues forever even after
+the uart has space for a character as we have stopped actually talking
+to the uart, we are reading a stale copy of the status register.  This
+is true for any hardware peripheral register or ram.  We cannot cache
+some or all of the peripheral address space.  We want data accesses
+to be cached for all or most of ram but not for peripherals.  In order
+to do that usually you use the mmu and for each of the chunks of
+address space controlled by an mmu entry there are bits in that entry
+that control whether or not that address space is cacheable.  So with
+the mmu we could make the general purpose memory cacheable but the
+hardare peripherals not.  This example will show that.
+
+Now something not mentioned above is the notion of virtual memory, do
+not confuse that with virtual address space.  We now know that you can
+allow the application some virtual address space to operate in and if
+it goes outside that space the operating system is alerted and takes
+over.  What if we wanted to do that on purpose?  Two very simple
+examples of this are, what if we wanted to pretend we have more memory
+than we really have.  Doesnt make too much sense on the raspberry pi
+but makes a lot of sense on your desktop/laptop.  You might have
+4GB of ram, but one or more TB of disk space.  Wouldnt it be cool if
+a program that is using some ram but is not running just this moment
+could have its ram saved to disk to free up that ram for another program
+that is running, and then later when that other program needs its ram
+then we swap the ram back from disk to memory so it can use it as
+memory?  that is exactly how swap or virtual memory works.  we let the
+program run off the end of its space and crash into a protection fault
+but instead of issuing an error and stopping the program the operating
+system instead knows how much ram this program thinks it has, if it is
+within that range, then it looks for more ram for this program if there
+is some free it simply maps it in using the mmu, if not then it
+hopefully swaps some ram from some other application to disk, freeing
+some ram for this application.  The second simplest use case would be
+a virtual machine, when I have say vmware running a virtual computer
+on a computer.  What if I want to have the virtual machine access the
+network?  I could make a range of address space that the virtual
+machine thinks is the network peripheral and let the virtual machine
+free run in some space, when it tries to access the network peripheral
+the operating system is alerted to the protection fault, but instead
+of stopping the program and issuing an error, it fakes the peripheral
+access and lets the program keep running.
+
+All very cool stuff but it requires first and foremost that all memory
+accesses are funneled through a memory management unit or mmu of some
+flavor.
 
 As with all baremetal programming, wading through documentation is
 the bulk of the job.  Definitely true here, with the unfortunate
@@ -59,17 +168,18 @@ are techically using an ARMv6 (architecture version 6) but when
 you go to http://infocenter.arm.com and look at the Reference Manuals
 there is an ARMv5 and then ARMv7 and ARMv8, but no ARMv6.  Well
 the ARMv5 manual is actually the original ARM ARM, that I assume they
-realized couldnt maintain all the architecture variations forever,
-so the perhaps wisely went to one ARM ARM per rev.  With respect to the
-MMU, that started in ARMv5 and with ARMv6 there were some changes
-made but it still has a backwards compatible mode such that programs
-that use the MMU (linux for example) dont necessarily need an overhaul
-every version.  So you can look at the various architectural reference
-manuals or sometimes technical reference manuals for specific cores
-and see descriptions of the MMU tables and addressing but the
-part I mentioned as unfortunate is that the drawings and descriptions
-dont have the same look and feel.  They have the same basic content
-though.
+realized couldnt maintain all the architecture variations forever in
+one document, so they perhaps wisely went to one ARM ARM per rev.  With
+respect to the MMU, that started in ARMv5 and with ARMv6 there were
+some changes made but it still has a backwards compatible mode such
+that programs that use the MMU (linux for example) dont necessarily
+need an overhaul every version (or need a lot of if-then-else code
+to cover all the supported architectures in one binary).  So you can
+look at the various architectural reference manuals or sometimes
+technical reference manuals for specific cores and see descriptions
+of the MMU tables and addressing but the part I mentioned as
+unfortunate is that the drawings and descriptions dont have the same
+look and feel.  They have the same basic content though.
 
 I am mostly using the ARMv5 Architectural Reference Manual.  Possibly
 an older one than the one on ARMs page.  ARM DDI0100I.  Where the I is
@@ -78,11 +188,24 @@ particular with respect to them MMU, so it is probably the right
 manual for this processor, although you could use the ARMv7 and be
 careful to ignore features added in v7.
 
-So there are blocks they call sections and blocks they call pages. If we
-were to simply take every possible address and make a look up table
-and the contents of the table are the physical address, we could then
-translate any virtual address to any physical address, but it would
-take up to 4GBytes for that table.  (and we would have to access
+So there are blocks they call sections and blocks they call pages.
+If we were to simply take every possible address and make a look up
+table and the contents of the table are the physical address, we could
+then translate any virtual address to any physical address, but it
+would take up to 4Giga-entries for that table for a 32 bit address
+space and each entry of the table would need to be more than 4 bytes,
+32 bits for the new address then some others for permissions and
+enables, so that would make no sense to have an mmu table larger than
+everything we would ever access.
+
+
+
+
+
+re-write in progress.
+
+
+.  (and we would have to access
 everything as bytes since a scheme like that would allow the four
 bytes in an instruction or other word sized access to be in up to
 four different physical places)  That is not exactly what happens
