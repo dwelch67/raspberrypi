@@ -2,12 +2,22 @@
 See the top level README file for more information on documentation
 and how to run these programs.
 
-This example demonstrates MMU basics.
+This example demonstrates ARM MMU basics.
 
-(This ONLY works on the Raspi 1 for now will get a Raspi 2 version
-working at some point).
+You will need the ARM ARM (ARM Architectural Reference Manual) for
+ARMv5.  I have a couple of pages included in this repo, but you still
+will need the ARM ARM.
+
+This code so far does not work on the Raspberry pi 2 yet, will get
+that working at some point, the knowledge here still applies, I expect
+the differences to be subtle between ARMv6 and 7 but will see.
+
+
 
 -- NEED TO RE-WRITE THIS AGAIN, SUBPAGES ENABLED, COARSE 1KB TABLES  --
+
+
+
 
 So what an MMU does or at least what an MMU does for us is it
 translates virtual addresses into physical addresses as well as
@@ -18,202 +28,157 @@ So what does all of that mean?
 
 There is a boundary inside the chip around the ARM core, part of that
 boundary is the memory interface for the ARM for lack of a better term
-how the ARM accesses the world.  Nothing special all processors have
-some sort of address and data based interface and your peripherals
-or edge of the chip or whatever is address and data based.  That
-boundary uses physical addresses, that boundary is on the "chip side"
-or "world side" of the ARM's mmu.  Within the ARM core there is the
-"processor side" of the mmu, and all accesses to the world go through
-the mmu.  That is everything that is address based, all flavors of
-load and store.
+how the ARM accesses the world.  Nothing special, all processors have
+some sort of address and data based interface between the processor and
+the ram and peripherals.  That boundary uses physical addresses, that
+boundary is on the memory side or "world side" of the ARM's mmu.
+Within the ARM core there is the "processor side" of the mmu, and all
+load and store (and fetch) accesses to the world go through the mmu.
 
 When the ARM powers up the mmu is disabled, which means all accesses
 pass through unmodified making the "processor side" or virtual address
-space equal to the world side physical address space.  All of the
+space equal to the world side physical address space.  All of my
 examples thus far, blinkers and such are based on physical addresses.
-We already know that elswhere in the chip is another address translation
-of some sort, because the manual is written for 0x7Exxxxxx based
-adresses, but the ARM's physical addresses for those same things is
-0x20xxxxxx for the raspi 1 and 0x3Fxxxxxx for the raspi 2.  For this
-discussion we only care about the ARM mmu processor side and the far
-side (world side, physical address side).
+We already know that elswhere in the chip is another address
+translation of some sort, because the manual is written for 0x7Exxxxxx
+based adresses, but the ARM's physical addresses for those same things
+is 0x20xxxxxx for the raspi 1 and 0x3Fxxxxxx for the raspi 2.  For this
+discussion we only care about that other mystery address translation
+we care about the ARM and the ARM mmu.
 
 So when I say the mmu translates virtual addresses into physical
-addresses.  What that means is on the processor side you may have
-one address you are accessing, but that does not have to be equal to
-the physical address.  Lets say for example I am running a program on
-an operating system, Linux lets say, and I need to compile that program
-before I can use it and I need to link it for an address space so lets
-say that I link it to enter at address 0x8000 and use memory from
-0x00000000 to whatever I need and/or whatever is available.  So that
-is all fine, except what if I have two programs and I want both running
-"at the same time" how can both use the same address space without
-clobbering each other?  The answer is neither is at that address space
-the virtual address WHEN RUNNING one of them is in the virtual address
-space 0x00000000 to some number, but in reality program 1 might have
-that mapped to the physical address 0x01000000, program 2 might have its
-0x00000000 to some number mapped to 0x02000000.  So when program 1
-thinks it is writing to address 0xABCDE it is really writing to
-0x010ABCDE and when program 2 thinks it is writing to address 0xABCDE
-it is really writing to 0x020ABCDE.
+addresses.  What that means is on the processor side there is an address
+you are accessing, but that does not have to be the same address on
+the physical address side of the mmu.  Lets say for example I am
+running a program on an operating system, Linux lets say, and I need
+to compile that program before I can use it and I need to link it for
+an address space so lets say that I link it to enter at address 0x8000
+and use memory from 0x0000 to whatever I need and/or whatever is
+available.  So that is all fine, except what if I have two programs
+and I want both running "at the same time" how can both use the same
+address space without clobbering each other?  The answer is neither is
+at that address space the virtual address WHEN RUNNING one of them is
+in the virtual address space 0x00000000 to some number, but in reality
+program 1 might have that mapped to the physical address 0x01000000 and
+program 2 might have its 0x00000000 to some number mapped to 0x02000000.
+So when program 1 thinks it is writing to address 0xABCDE it is really
+writing to 0x010ABCDE and when program 2 thinks it is writing to
+address 0xABCDE it is really writing to 0x020ABCDE.
 
-It is techincally possible that some mmu out there might be able to
-translate any address into any address, but certainly not the ARM mmus
-you cannot have virtual 0x12345678 = physical 0xAAAABCDE.  From a
-hardware perspective and hopefully a programmers perspective it makes
-most sense to draw a line in the address and the upper side gets
-translated and the lower stays the same.  For example there is one
-mmu block size in the arm that is on one megabyte boundaries so with
-a 32 bit address space one megabyte is 20 bits, so the lower 20 bits
-dont change between virtual and physical but the upper 12 can/do.  So
-address 0x12345678 virtual could be mapped to 0xCDE345678 using a
-one megabyte mmu table entry.  The ARM mmu also allows for 4Kbyte
-pages for example, which means the lower 12 bits of the virtual and
-physical are the same but the upper 20 bits can be changed when going
-from virtual to physical.
+If you think about it it doesnt make any sense to allow any virtual
+address to map to any physical address, for example from 0x12345678
+to 0xAABBCCDD.  Think about it, we are talking about a 32 bit address
+space or 4Giga addresses.  If we allowed any address to convert to
+any other address we would need a 4Giga to 4Giga map, we would actually
+need 16Gigabytes just to hold the 4Giga physical adresses worst case.
+To cut to the chase ARM has one option where the top 12 bits of the
+virtual get translated to 12 bits of physical, the lower 20 bits in
+that case are the same between the virtual and physical.  This means
+we can control 1MByte of address space with one definition, and have
+4096 entries in some table somewhere to convert from virtual to
+physical.  That is quite managable.  The minimum we would need to
+store are the 12 replacement bits per table entry, but ARM uses a full
+32 bit entry, which for this 1MB flavor, has the 12 physical bits plus
+some other control bits.
 
-What does access permission mean?  Lets think about program 1 and
-program 2 above, we dont want program 1 to be able to invade program
-2s memory space, that would make hacking a computer super easy if any
-program could access the ram used by any other program (the operating
-system can sure, but we have to trust the operating system but not
-trust any rogue program).  So when a program running at the application
-level is accessing something there has to be a mechanism to check the
-permissions of each access to make sure that that application is
-allowed, if not allowed the mmu has to abort the access and somehow
-call the operating system to handle this.  Different processor families
-handle this differently.  Initially we dont care as we are still
-running as the super user, which is also bound by the mmu, we just need
-to make sure we set the permissions so that we can access everything
-we care to access.
+What does cachable regions mean?  The mmu also gives you the feature
+of being able to choose per descriptor whether or not you want to
+enable caching on that block.  One obvious reason would be for the
+peripherals.  Think about a timer, ideally you read the current timer
+tick and each time you read it you get the current timer tick and
+as it changes you see it change.  But what if when we turned on the
+data cache it covered all addresses, all loads and stores?  Then you
+read the timer once, get a value, read it again, now you get the
+cached value over and over again you dont see the real timer value
+in the peripheral.  That is not good, you cannot manage a peripheral
+if you cannot read its status register or read the data coming out
+of it, etc.  So at a minimum your peripherals need to be in non-cached
+blocks.  Likewise, if you have some ram that is shared by more than
+one resource, say the GPU and the ARM or for the raspberry pi 2 shared
+between multiple ARM cores, you have a similar situation, another
+resource may change the ram on the far side of your cache but your
+cache assumes it has a copy of what is in ram.  Basically a cache
+only helps you if whatever on the far side of it is only modified by
+writes through the cache, if there are ways to change the data on
+the far side you should not cache that area.   The mmu gives you
+the ability to control cached and non-cahced spaces.
 
-What does cachable regions mean?  We know from polling the uart to
-see if there is a spot in the tx buffer for the next character that
-reads to the uart need to actually go to the uart register to read
-that status.  But this is a memory mapped design, hardware registers
-like the uart status are accessed in the same way as some ram that
-contains a variable used in a program, using load and store
-instructions with some address.  We can use the instruction cache
-without the mmu one because arm allows us to, second because the
-arms internal bus has a signal (or set of) that differentiate fetch
-read cycles from data read cycles.  The mmu when disabled passes
-that through and it hits the cache which has different controls between
-instruction or i cache and data or d cache.  So without the mmu we
-can enable instruction caching, and only instruction fetches get
-cached, I hope you know what that means, the cache is fast ram closer
-to the processor when you do a read from slow dram on the far side,
-a copy is kept in the cache (if the cache for that access type and
-address space are enabled) so that if you read that address a second
-time before that prior read is evicted the second and subsequent reads
-are closer from faster ram and return an answer much faster. Because
-fast ram is expensive you have a relatively small amount so only the
-last small number of answers is stored there, make too many reads at
-different addresses and some answers have to be evicted to make room
-for new answers.  If the mmu is disabled then all accesses are marked
-as "cacheable" or able to be cached.  If the cache for that type (i or
-d) is enabled.  So you see the uart problem.  If we were to enable
-the d cache with the mmu off then all data accesses would be cached,
-so if in a tight loop polling the uart to wait for a spot in the tx
-buffer the first time through the loop we read the uart status and
-it goes actually to the uart to get that status, if the tx buffer is
-not got a spot, then we continue to loop, the second read though
-gets the copy of the first read from the cache, which says no room
-yet, the third read gets the copy of the first read from the cache
-which says there is no room yet.  This continues forever even after
-the uart has space for a character as we have stopped actually talking
-to the uart, we are reading a stale copy of the status register.  This
-is true for any hardware peripheral register or ram.  We cannot cache
-some or all of the peripheral address space.  We want data accesses
-to be cached for all or most of ram but not for peripherals.  In order
-to do that usually you use the mmu and for each of the chunks of
-address space controlled by an mmu entry there are bits in that entry
-that control whether or not that address space is cacheable.  So with
-the mmu we could make the general purpose memory cacheable but the
-hardare peripherals not.  This example will show that.
-
-Now something not mentioned above is the notion of virtual memory, do
-not confuse that with virtual address space.  We now know that you can
-allow the application some virtual address space to operate in and if
-it goes outside that space the operating system is alerted and takes
-over.  What if we wanted to do that on purpose?  Two very simple
-examples of this are, what if we wanted to pretend we have more memory
-than we really have.  Doesnt make too much sense on the raspberry pi
-but makes a lot of sense on your desktop/laptop.  You might have
-4GB of ram, but one or more TB of disk space.  Wouldnt it be cool if
-a program that is using some ram but is not running just this moment
-could have its ram saved to disk to free up that ram for another program
-that is running, and then later when that other program needs its ram
-then we swap the ram back from disk to memory so it can use it as
-memory?  that is exactly how swap or virtual memory works.  we let the
-program run off the end of its space and crash into a protection fault
-but instead of issuing an error and stopping the program the operating
-system instead knows how much ram this program thinks it has, if it is
-within that range, then it looks for more ram for this program if there
-is some free it simply maps it in using the mmu, if not then it
-hopefully swaps some ram from some other application to disk, freeing
-some ram for this application.  The second simplest use case would be
-a virtual machine, when I have say vmware running a virtual computer
-on a computer.  What if I want to have the virtual machine access the
-network?  I could make a range of address space that the virtual
-machine thinks is the network peripheral and let the virtual machine
-free run in some space, when it tries to access the network peripheral
-the operating system is alerted to the protection fault, but instead
-of stopping the program and issuing an error, it fakes the peripheral
-access and lets the program keep running.
-
-All very cool stuff but it requires first and foremost that all memory
-accesses are funneled through a memory management unit or mmu of some
-flavor.
+What is meant by access permissions?  Lets think about those two
+programs running "at the same time" on some operating system (Linux
+for example) you dont want to allow one program to gain access to
+the operating systems data nor some other programs data.  Some
+operating systems sure that are meant for only running trusted and
+well mannered programs.  But you dont want some video game on your
+home computer to have access to your banking account data in another
+window/program?  The mechanisms vary across processor families but
+an important job for the mmu is to provide a protection mechanism.
+Such that when a particular program has a time slice on the processor
+there is some mechanism to allow or restrict memory spaces.  If some
+code accesses an address that it does not have permission for then
+an abort happens and the processor is notified.  An interesting
+side effect of this is that this doesnt have to be fatal, in fact it
+could be by design.  Think of a virtual machine, you could let the
+virtual machine software run on the processor, and when it accesses
+one of its peripherals the real operating system gets an abort but
+instead of killing the virtual machine it actually simulates the
+peripheral and lets the virtual machine keep running.  Another one
+that you have probably run into is when you run out of ram in your
+computer, the notion of virtual memory which is differen than virtual
+address space.  Virtual memory in this case is when your program
+ventures off the end of its allowed address space into ram it thinks
+it has.  The operating system gets an abort, finds some ram from
+some other program, swaps that ram to disk for example, then allows
+the program that was running to have a little more ram by mapping it
+back in and allowing it to run.  Later when the program whose data
+got swapped to disk needs it it swaps back and whatever was in the
+ram it swaps with then goes to disk.  The term swap comes from the
+idea that these blocks of ram are swapped back and forth to disk,
+program A's ram goes to disk and is swapped with program T's, then
+program T's is swapped with program K's and so on.  This is why
+starting right after you venture off that edge from real ram to
+virtual, your computers performance drops dramatically and disk
+activity goes way up, the more things running the more swapping going
+on and disk is significantly slower than ram.
 
 As with all baremetal programming, wading through documentation is
 the bulk of the job.  Definitely true here, with the unfortunate
 problem that ARM's docs dont all look the same from one Archtectural
 Reference Manual to an other.  We have this other problem that we
-are techically using an ARMv6 (architecture version 6) but when
-you go to http://infocenter.arm.com and look at the Reference Manuals
-there is an ARMv5 and then ARMv7 and ARMv8, but no ARMv6.  Well
-the ARMv5 manual is actually the original ARM ARM, that I assume they
-realized couldnt maintain all the architecture variations forever in
-one document, so they perhaps wisely went to one ARM ARM per rev.  With
-respect to the MMU, that started in ARMv5 and with ARMv6 there were
-some changes made but it still has a backwards compatible mode such
-that programs that use the MMU (linux for example) dont necessarily
-need an overhaul every version (or need a lot of if-then-else code
-to cover all the supported architectures in one binary).  So you can
-look at the various architectural reference manuals or sometimes
-technical reference manuals for specific cores and see descriptions
-of the MMU tables and addressing but the part I mentioned as
-unfortunate is that the drawings and descriptions dont have the same
-look and feel.  They have the same basic content though.
+are techically using an ARMv6 (architecture version 6)(for the raspi 1)
+but when you go to ARM's website there is an ARMv5 and then ARMv7 and
+ARMv8, but no ARMv6.  Well the ARMv5 manual is actually the original
+ARM ARM, that I assume they realized couldnt maintain all the
+architecture variations forever in one document, so they perhaps
+wisely went to one ARM ARM per rev.  With respect to the MMU, the ARMv5
+reference manual covers the ARMv4 (I didnt know there was an mmu option
+there) ARMv5 and ARMv6, and there is mode such that you can have the
+same code/tables and it works on all three, meaning you dont have to
+if-then-else your code based on whatever architecture you find.  This
+raspi 1 example is based on subpages enabled which is this legacy or
+compatibility mode across the three.
 
 I am mostly using the ARMv5 Architectural Reference Manual.
-ARM DDI0100I.  Where the I is the rev of that ARM ARM document.  The
-ARMv5 ARM does show ARMv6 stuff in particular with respect to them MMU,
-so it is probably the right manual for this processor.
+ARM DDI0100I.
 
-So there are blocks they call sections and blocks they call pages.
-If we were to simply take every possible address and make a look up
-table and the contents of the table are the physical address, we could
-then translate any virtual address to any physical address, but it
-would take up to 4Giga-entries for that table for a 32 bit address
-space and each entry of the table would need to be more than 4 bytes,
-32 bits for the new address then some others for permissions and
-enables, so that would make no sense to have an mmu table larger than
-everything we would ever access, actually we couldnt even access that
-whole table as it takes more address space than we would have much
-less the physical 32 bit address space we are trying to map to.
+The 1MB sections mentioned above are called...sections...The ARM
+mmu also has blobs that are smaller sizes 4096 byte pages for
+example, will touch on those two sizes.  The 4096 byte one is called
+a small page.
 
-If we think about what arm did and we will get to the manual in a
-second.  Lets start with a 1MByte page.  That means we take the 4GByte
-possible addresses and divide them by 1MByte, we get 4096.  That
-is a manageable number.  1MByte is 20 bits, 32-20 is 12 (thus 4096).
-So we would need to be able to replace the 12 bits of virtual address
-with 12 bits of physical address plus have other bits in the table to
-indicate permissions and cache control and ideally some to indicate
-this is a 1MB page or not.  And ARM has fit all of that into a 32
-bit entry.  So if we wanted to map the whole 32 bit virtual address
-space for the ARM we could do that with a 4096 entry (4096*32 bits is
-16KBytes) MMU table.
+As mentioned above, 32 bit address space, 1MB is 20 bits so 32-20 is
+12 bits or 4096 possible combinations or the address space is broken
+up into 4096 1MB sections.  The top 12 bits of the virtual address
+get translated to 12 bits of physical.  No rules on the translation
+you can have virtual = physical or have any combination, or have
+a bunch of virtual sections point at the same physical space, whatever
+you want/need.
+
+ARM uses the term Virtual Memory System Architecture or VMSA and
+they say things like VMSAv6 to talk about the ARMv6 VMSA.  There
+is a section in the ARM ARM titled Virtual Memory System Architecture.
+In there we see the coprocessor registers, specifically CP15 register
+2 is the translation table base register.
+
 
 So the ARMv5 ARM ARM (ARM Architectural Reference Manual) is what
 we need now.  See the top level README for finding this document,
@@ -221,7 +186,8 @@ I have included a few pages in the form of postscript, any decent pdf
 viewer should be able to handle these files.  Before the pictures
 though, the section in quesiton is titled Virtual Memory System
 Architecture.  In the CP15 subsection register 2 is the the translation
-table base register.
+table base register.  There are three opcodes which give us access to
+three things, TTBR0, TTBR1 and the control register.  
 
 First we read this comment
 
@@ -229,100 +195,154 @@ If N = 0 always use TTBR0. When N = 0 (the reset case), the translation
 table base is backwards compatible with earlier versions of the
 architecture.
 
-we will leave that as N = 0 and not touch it and use TTBR0
+That is the one we want, we will leave that as N = 0 and not touch it
+and use TTBR0
 
 Now what the TTBR0 description initially is telling me that bit 31
 down to 14-n or 14 in our case since n = 0 is the base address, in
-PHYSICAL address space (the mmu cant possibly go through the mmu to
-figure out how to go through the mmu)  we basically need to align to
-16384 bytes.  (2 to the power 14, the lower 14 bits if our TLB base
-address needs to be all zeros).
+PHYSICAL address space.  Note the mmu cannot possibly go through the
+mmu to figure out how to go through the mmu, the mmu itself only
+operates on physical space and has direct access to it.  In a second
+we are going to see that we need the base address for the mmu table
+to be aligned to 16384 bytes.  (2 to the power 14, the lower 14 bits
+of our TLB base address needs to be all zeros).
 
 We write that register using
 
     mcr p15,0,r0,c2,c0,0 ;@ tlb base
 
 TLB = Translation Lookaside Buffer.  As far as we are concerned think
-of it as an array of 32 bit integers, each integer being used to
-completely or partially convert from virtual to physical and describe
-permissions and caching.  Thinking of it as an array we can talk about
-the 3rd thing in the table, but being 32 bits wide that is really
-times 4 (and plus one depending on if we are talking zero based or
-one based).  This will hopefully make sense in a second.
+of it as an array of 32 bit integers, each integer (descriptor) being
+used to completely or partially convert from virtual to physical and
+describe permissions and caching.
 
 My example is going to have a define called MMUTABLEBASE which will
 be where we start our TLB table.
 
-So on the second page of the section_translation.ps file I have included
-in this repo directory.  This is hopefully not too complicated but in
-order to do this kind of work you have to be able to manipulate/compute
-addresses.  So what this is telling us is we start with the MMUTABLEBASE
-at the top, this is some space in physical memory that we have decided
-we are going to use to keep our mmu table, which means nobody else
-can mess with it, if we were an operating system we would only allow
-us permission to touch it, and block all applications from it, but since
-we are bare metal supervisor we just have to not step on our own toes.
+Here is the reality of the world.  Some folks struggle with bit
+manipulation, orring and anding and shifting and such, some dont.  The
+MMU is logic so it operates on these tables in the way that logic would,
+meaning from a programmers perspective it is a lot of bit manipulation
+but otherwise is relatively simple to something a program could do.  As
+programmers we need to know how the logic uses portsion of the virtual
+address to look into this descriptor table or TLB, and then extracts
+from those bits the next thing it needs to do.  We have to know this so
+that for a particular virtual address we can place the descriptor we
+want in the place where the hardware is going to find it.  So we need
+a few lines of code plus some basic understanding of what is going on.
+Just like bit manipulation causes some folks to struggle, reading
+a chapter like this mmu chapter is equally daunting.  It is nice to
+have somehone hold your hand through it.  Hopefully I am doing more
+good than bad in that respect.
 
-SBZ = should be zero.  Our MMUTABLEBASE as described above is 14 bits
-of zeros at the bottom and 32-14 = 18 bits of whatever we choose within
-our physical address space.  Using a 0 for the MMUTABLEBASE would
-not be a wise idea as interrupts and other vectors are there and we
-cant be having both vectors and the mmu table in the same place so
-the first sane place we could put this is 0x00004000  upper 18
-bits being a 1 the lower 14 being all zeros.  We will pick our address
-in a bit.
+There is a file, section_translation.ps in this repo, you should be
+able to use a pdf viewer to open this file.  The figure on the
+second page shows just the address translation from virtual to physical
+for a 1MB section.  This picture uses X instead of N, we are using an
+N = 0 so that means X = 0.   The translation table base at the top
+of the diagram is our MMUTABLEBASE, the address in physical space
+of the beginning of our first level TLB or descriptor table.  The
+first thing we need to do is find the table entry for the virtual
+address in question (the Modified virtual address in this diagram,
+as far as we are concerned it is unmodified it is the virtual
+address we intend to use).  The first thing we see is the lower
+14 bits of the translation table base are SBZ = should be zero.
+Basically we need to have the translation table base aligned on a
+16Kbyte boundary (2 to the 14th is 16K).  It would not make sense
+to use all zeros as the translation table base, we have our reset
+and interrupt vectors at and near address zero in the arms address
+space so the first sane address would be 0x00004000.  The first
+level descriptor is based on the top 12 bits of the virtual address
+or 4096 entries, that is 16KBytes (not a coincidence), 0x4000 + 0x4000
+is 0x8000, where our arm programs entry point is, so we have space
+there if we want to use it.  But any address with the lower 14 bits
+being zero will work so long as you have enough memory at that address
+and you are not clobbering anything else that is using that memory
+space.
 
-So this picture says take the MMUTABLEBASE address at the top, then
-take bits 31-20 or the top 12 bits of the VIRTUAL ADDRESS, multiply
-by 4 (shift left two zeros) and add that to the MMUTABLEBASE.  This
-is the address in PHYSICAL memory where the "First-level descriptor"
-is found.  This is how the hardware works so when we in our software
-place a descriptor in memory we need to compute the address the same
-way to get the descriptor in the right place.
-
-Now *IF* the lower two bits of the first level descriptor are 0b10 then
-this is a 1MB section descriptor.  the picture then shows that we
-create the physical address by taking the lower 20 bits of the virtual
-address and placing the 12 bits from the first level descriptor on the
-top (31:20) and that is how, for this section, we convert from
-virtual to physical.  Part of the virtual being used to look up into
-the mmu table, and that first lookup being a 1MB section, and the
-physical being a combination of the descriptor and the virtual.
-
-If the lower two bits of the first level descriptor, the first lookup,
-are not 0b10 then we will get to that in a second.
-
-You should be able to find the same picture in your ARM ARM that I have
-stolen here.   The subsection titled "Hardware page table translation"
-
-Now they have this optional thing called a supersection which is a 16MB
-sized thing rather than 1MB and one might think that that would make
-life easier, instead of 4096 entries we would only need 256 to describe
-the whole world in the easiest way with the largest chunks.  But
-the lookup works the same bits 31:20 are used for the first lookup
-no matter what (well we could play with that N=0 register, but are not
-going to here, that is not legacy, lets start with legacy works on
-the most chips) so you basically have to write 16 entries for a
-super section, you dont save anything.  the super section is broken into
-16 1MB chunks and each 1MB chunk is a first level mmu table lookup.  So
-it doesnt buy us anything for now.  Note how the hardware knows a
-1MB section from a 16MB supersection is bit 18 in the first level entry.
-
-Hopefully I have not lost you yet, we are doing address manipulation,
-and maybe you are one step ahead of me, yes EVERY load and store with
-the mmu enabled requires at least one mmu table lookup, the mmu when it
-accesses this memory does not go through itself, but EVERY other fetch
-and load and store.  Which does have a performance hit, they do have
-a bit of a cache in the mmu to store the last so many tlb lookups to
-make walking through the same space much faster, but that tlb cache
-is limited in size, if you jump around a lot in ram you will have
-a penalty here.  Cant really avoid it too much.
+So what this picture is showing us is that we take the top 12 bits
+of the virtual address, multiply by 4 or shift left 2, and add tat
+to the translation table base, this gives the address for the first
+level descriptor for that virtual address.  The diagram shows the
+first level fetch which returns a 32 bit value that we have placed
+in the table.  If the lower 2 bits of that first level descriptor are
+0b10 then this is a 1MB Section.  If a 1MB section then the top 12
+bits of the first level descriptor replace the top 12 bits of the
+virtual address to convert it into a physical address.  Understand
+here first and foremost so long as we do the N = 0 thing, the first
+level descriptor or the first thing the mmu does is look at the top
+12 bits of the virtual address, always.  If the lower two bits of
+the first level descriptor are not 0b10 then we get into
+a second level descriptor and more virtual bits come into play, but
+for now if we start by learning just 1MB sections, the conversion
+from virtual to physical only cares about the top 12 bits of the
+address.  So for 1MB sections we dont have to concentrate on every
+actual address we are going to access we only need to think about
+the 1MB aligned ranges.  The uart for example on the raspi 1 has
+a number of registers that start with 0x202150xx, if we use a 1MB
+section for those we only care about the 0x202xxxxx part of the
+address.  To not have to change our code we would want to have
+the virtual = physical for that and do not mark it as cacheable.
 
 So if my MMUTABLEBASE was 0x00004000 and I had a virtual address of
 0x12345678 then the hardware is going to take the top 12 bits of that
 address 0x123, multiply by 4 and add that to the MMUTABLEBASE.
 0x4000+(0x123<<2) = 0x448C.  and that is the address the mmu is going
-to use for the first-level lookup.
+to use for the first-level lookup.  Ignoring the other bits in the
+descriptor for now, if the first-level descriptor has the value
+0xABC00002, the lower two bits are 0x10, a 1MB section, so the top
+12 bits replace the virtual addresses top 12 bits and our 0x12345678
+is converted to the physical address 0xABC45678.
+
+
+Now they have this optional thing called a supersection which is a 16MB
+sized thing rather than 1MB and one might think that that would make
+life easier, right?  Wrong.  No matter what, assuming the N = 0 thing
+the first level descriptor is found using the top 12 bits of the
+virtual address, so in order to do some 16MB thing you need 16 entries
+one for each of the possible 1MB sections.  If you are already
+generating 16 descriptors might as well just make them 1MB sections,
+you can read up on the differences between super sections and sections
+and try them if you want.  For what I am doing here dont need them,
+just wanted to point out you still need 16 entries per super section.
+
+Hopefully I have not lost you yet with this address manipulation,
+and maybe you are one step ahead of me, yes EVERY load and store with
+the mmu enabled requires at least one mmu table lookup, the mmu when it
+accesses this memory does not go through itself, but EVERY other fetch
+and load and store.  Which does have a performance hit, they do have
+a bit of a cache in the mmu to store the last so many tlb lookups.
+That helps, but you cannot avoid the mmu having to do the conversion
+on every address.
+
+In the ARM ARM I am looking at the subsection on first-level descriptors
+has a table:
+Table B4-1 First-level descriptor format (VMSAv6, subpages enabled)
+What this is telling us is that if the first-level descriptor, the
+32 bit number we place in the right place in the TLB, has the lower
+two bits 0b10 then that entry is a 1MB section and the mmu can get
+everything it needs from that first level descriptor.  But if the
+lower two bits are 0b01 then this is a coarse page table entry and
+we have to go to a second level descriptor to complete the
+conversion from virtual to physical.  Not every address will need
+this only the address ranges we want to be more coarsely divided than
+1MB.  Or the other way of saying it is of we want to control an
+address range in chunks smaller than 1MB then we need to use pages
+not sections.  You can certainly use pages for the whole world, but
+if you do the math, 4096Byte pages would mean your mmu table needs
+to be 4MB+16K worst case.  And you have to do more work to set that
+all up.
+
+The coarse_translation.ps file I have included in t
+
+
+
+
+--  REWRITE IN PROGRESS HERE ---
+
+
+
+
 
 If you look in the ARM ARM at the first level descriptor format.  The
 lower two bits of the value read at that address tells the mmu hardware
