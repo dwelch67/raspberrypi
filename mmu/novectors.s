@@ -76,8 +76,8 @@ handler:
 data_abort:
     mov r6,lr
     ldr r8,[r6,#-8]
-    mrc p15,0,r4,c5,c0,0 ;@ data/combined 
-    mrc p15,0,r5,c5,c0,1 ;@ instruction 
+    mrc p15,0,r4,c5,c0,0 ;@ data/combined
+    mrc p15,0,r5,c5,c0,1 ;@ instruction
     mov sp,#0x00004000
     bl hexstring
     mov r0,r4
@@ -141,6 +141,7 @@ invalidate_tlbs:
     mcr p15,0,r2,c8,c7,0  ;@ invalidate tlb
     mcr p15,0,r2,c7,c10,4 ;@ DSB ??
     bx lr
+
 
 
 ;@-------------------------------------------------------------------------
