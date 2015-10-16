@@ -114,49 +114,27 @@ int notmain ( void )
     hexstring(GET32(0x00345678));
     uart_send(0x0D); uart_send(0x0A);
 
-    for(ra=0;ra<4;ra++)
-    {
-        hexstring(system_timer_low());
-    }
-    uart_send(0x0D); uart_send(0x0A);
-
-    mmu_section(0x20000000,0x20000000,0x0000|8); //CACHED
-    invalidate_tlbs();
-
-    for(ra=0;ra<4;ra++)
-    {
-        hexstring(system_timer_low());
-    }
-    uart_send(0x0D); uart_send(0x0A);
-
     mmu_small(0x0AA45000,0x00145000,0,0x00000400);
     mmu_small(0x0BB45000,0x00245000,0,0x00000800);
     mmu_small(0x0CC45000,0x00345000,0,0x00000C00);
     mmu_small(0x0DD45000,0x00345000,0,0x00001000);
     mmu_small(0x0DD46000,0x00146000,0,0x00001000);
-    mmu_small(0x0DD03000,0x20003000,0,0x00001000);
+    //put these back
+    mmu_section(0x00100000,0x00100000,0x0000);
+    mmu_section(0x00200000,0x00200000,0x0000);
     mmu_section(0x00300000,0x00300000,0x0000);
     invalidate_tlbs();
-
 
     hexstring(GET32(0x0AA45678));
     hexstring(GET32(0x0BB45678));
     hexstring(GET32(0x0CC45678));
     uart_send(0x0D); uart_send(0x0A);
 
-
     hexstring(GET32(0x00345678));
     hexstring(GET32(0x00346678));
     hexstring(GET32(0x0DD45678));
     hexstring(GET32(0x0DD46678));
     uart_send(0x0D); uart_send(0x0A);
-
-    for(ra=0;ra<4;ra++)
-    {
-        hexstring(GET32(0x0DD03004));
-    }
-    uart_send(0x0D); uart_send(0x0A);
-
 
     //access violation.
 
