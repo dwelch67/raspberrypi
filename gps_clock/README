@@ -1,0 +1,42 @@
+
+See the top level README for information on where to find the
+schematic and programmers reference manual for the ARM processor
+on the raspberry pi.  Also find information on how to load and run
+these programs.
+
+This is derived from the spi03 example which uses the Nokia 5110
+display.  Also uses a generic 9600 baud gps receiver to extract accurate
+time in nmea format.
+
+Nokia 5110 to raspi
+
+GND                P1-25    ground
+VCC                P1-1     power
+DIN (MOSI)         P1-19    data in, spi mosi
+SCK/CLK            P1-23    spi clock
+D/C                P1-22    data/command
+RST                P1-26    reset
+CS/CE              P1-24    spi chip select
+
+GPS to raspi
+
+VCC                P1-17 (3.3v)
+GND                P1-6
+TX                 P1-8
+
+
+I will have to re-read my code or the docs some day but the math for
+baud rate in case you have a 4800 or 1200 baud (or faster) gps
+receiver output
+
+//    PUT32(AUX_MU_BAUD_REG,270); //115200
+    PUT32(AUX_MU_BAUD_REG,3254); //9600?
+
+trim fraction off of (250000000/(8*baud))-1
+
+I am not bothering to check the checksum, nor if it is even locked,
+quick and dirty.
+
+change this for your timezone.  or daylight savings
+
+                        ra=5; //time zone adjustment

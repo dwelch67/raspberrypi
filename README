@@ -285,4 +285,26 @@ I know.  the older ones being more pure, but also some notable bugs
 in the docs, instruction encodings and some other things.
 http://www.home.marutan.net/arcemdocs/
 
+Actually the preferred place is to go to http://infocenter.arm.com
+On the left expand ARM Architecture, expand Reference Manuals, then
+select ARMv5 Reference Manual then on the main part of the page click
+on the pdf file to download.  You might have to give up an email address
+to make an account on the site to download.  Yes the Raspberry pi 1
+uses an ARMv6 but the ARMv5 manual is the original ARM ARM and covers
+the ARMv6.  The raspberry pi 2 uses an ARMv7 so you will want to also
+or instead get the ARMv7-AR Reference Manual.  The ARMv6-M does NOT
+apply to the Rasperry pi 1 core.
+
+
+I managed to get a pi zero ordered the first day somehow.  And it works
+like the pi 1, I assume it is 1000mhz now instead of 750, but the
+peripheral clock for the uart still uses the same divisor and works.
+I did need to get a new bootcode.bin and start.elf, not sure how old
+the ones I had on the sd card were, but pulled new ones and the uart01
+example worked just fine.  You do have to solder pins now or somehow
+solve that and I soldered a momentary button on the run pins and like
+the other boards those appear to be the reset.
+
+
+
 
