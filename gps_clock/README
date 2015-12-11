@@ -22,7 +22,7 @@ GPS to raspi
 
 VCC                P1-17 (3.3v)
 GND                P1-6
-TX                 P1-8
+TX                 P1-10
 
 
 I will have to re-read my code or the docs some day but the math for
