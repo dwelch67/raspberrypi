@@ -30,8 +30,8 @@ Disassembly of section .text:
     8030:	e3811701 	orr	r1, r1, #262144	; 0x40000
     8034:	e59f004c 	ldr	r0, [pc, #76]	; 8088 <notmain+0x68>
     8038:	ebfffff3 	bl	800c <PUT32>
-    803c:	e59f0048 	ldr	r0, [pc, #72]	; 808c <notmain+0x6c>
-    8040:	e3a01801 	mov	r1, #65536	; 0x10000
+    803c:	e3a01801 	mov	r1, #65536	; 0x10000
+    8040:	e59f0044 	ldr	r0, [pc, #68]	; 808c <notmain+0x6c>
     8044:	ebfffff0 	bl	800c <PUT32>
     8048:	e3a04000 	mov	r4, #0
     804c:	e1a00004 	mov	r0, r4
@@ -39,8 +39,8 @@ Disassembly of section .text:
     8054:	ebfffff0 	bl	801c <dummy>
     8058:	e3540601 	cmp	r4, #1048576	; 0x100000
     805c:	1afffffa 	bne	804c <notmain+0x2c>
-    8060:	e59f0028 	ldr	r0, [pc, #40]	; 8090 <notmain+0x70>
-    8064:	e3a01801 	mov	r1, #65536	; 0x10000
+    8060:	e3a01801 	mov	r1, #65536	; 0x10000
+    8064:	e59f0024 	ldr	r0, [pc, #36]	; 8090 <notmain+0x70>
     8068:	ebffffe7 	bl	800c <PUT32>
     806c:	e3a04000 	mov	r4, #0
     8070:	e1a00004 	mov	r0, r4
@@ -61,10 +61,10 @@ Disassembly of section .ARM.attributes:
    8:	01006962 	tsteq	r0, r2, ror #18
    c:	00000020 	andeq	r0, r0, r0, lsr #32
   10:	4d524105 	ldfmie	f4, [r2, #-20]	; 0xffffffec
-  14:	54347620 	ldrtpl	r7, [r4], #-1568	; 0x620
+  14:	54347620 	ldrtpl	r7, [r4], #-1568	; 0xfffff9e0
   18:	08020600 	stmdaeq	r2, {r9, sl}
   1c:	12010901 	andne	r0, r1, #16384	; 0x4000
-  20:	15011404 	strne	r1, [r1, #-1028]	; 0x404
+  20:	15011404 	strne	r1, [r1, #-1028]	; 0xfffffbfc
   24:	18031701 	stmdane	r3, {r0, r8, r9, sl, ip}
   28:	Address 0x0000000000000028 is out of bounds.
 
@@ -74,6 +74,6 @@ Disassembly of section .comment:
 00000000 <.comment>:
    0:	3a434347 	bcc	10d0d24 <notmain+0x10c8d04>
    4:	4e472820 	cdpmi	8, 4, cr2, cr7, cr0, {1}
-   8:	34202955 	strtcc	r2, [r0], #-2389	; 0x955
-   c:	322e382e 	eorcc	r3, lr, #3014656	; 0x2e0000
+   8:	35202955 	strcc	r2, [r0, #-2389]!	; 0xfffff6ab
+   c:	302e332e 	eorcc	r3, lr, lr, lsr #6
 	...
