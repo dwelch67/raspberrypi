@@ -4,6 +4,11 @@ schematic and programmers reference manual for the ARM processor
 on the raspberry pi.  Also find information on how to load and run
 these programs.
 
+The code in this directory is for the old/original-ish raspberry pi
+which you can still get raspberry pi 1 if you will.  The pi2 directory
+is for the raspberry pi 2 the one with the quad core arm.  You have to
+match the right program to the right raspberry pi.
+
 This simple example sets up a small stack, not much to this program
 so the stack doesnt need much room.  It then enables gpio16 as
 an output.  Then goes into a loop that sets the gpio, waits, resets it,
