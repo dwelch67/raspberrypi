@@ -8,6 +8,41 @@ nor broadcom.  I just happen to own one (some) and am sharing my
 experiences.  The raspberry pi is about education, and I feel bare
 metal education is just as important as Python programming.
 
+So I started this years ago when got my first ARM11 based raspberry pi
+maybe we call that a raspberry pi 1, I dont know a good term.  But
+now there is a growing number of variations.
+
+ARM11 based (BCM2835)
+Raspberry Pi B
+Raspberry Pi A+
+Raspberry Pi B+
+Raspberry Pi Zero
+Cortex-A7 based (BCM2836)
+Raspberry Pi 2 B
+
+There is also the compute module but I dont have one of those.
+
+General differences that we care about for these examples.  The amount
+of ram varies from board to board.  The peripheral base address is
+different between the BCM2835 and BCM2836.  The BCM2835 looks for the
+file kernel.img the BCM2836 looks for kernel7.img.  The ARM11 based
+Zero is a B with stuff removed and a new layout, but they up/over
+clocked the processor from 750MHz to 1000MHz, one led on gpio 16.  The
+A+ and B+ they moved the led (or put two) on gpio 35 and 47.  The
+raspberry pi 2 is B+ like but with the different chip, supposedly the
+BCM2836 is  BCM2835 with the ARM11 core removed and replaced with
+the Cortex A7 and for the most part it appears to be.
+
+As of this writing I am adding plus and pi2 versions of the examples
+as many of them are based on the early/original.  No guarantees I will
+do that, just looking at the differences between the blinker01 examples
+should show you what to do to convert these yourself.  In some cases
+I am intentionally not trying to have one code base build for all
+three with ifdefs and such, keep it simple stupid then complicate it
+as needed.  The text may say kernel.img but substitute with kernel7.img
+as needed.
+
+
 From what we know so far there is a gpu on chip which:
 
 1) boots off of an on chip rom of some sort
@@ -15,15 +50,16 @@ From what we know so far there is a gpu on chip which:
 bootcode.bin and start.elf in the root dir of the first partition
 (fat32 formatted, loader.bin no longer used/required)
 3) in the same dir it looks for config.txt which you can do things like
-change the arm speed from the default 700MHz, change the address where
-to load kernel.img, and many others
+change the arm speed, or change the address where to load kernel.img,
+and many others
 4) it reads kernel.img the arm boot binary file and copies it to memory
 5) releases reset on the arm such that it runs from the address where
 the kernel.img data was written
 
 The memory is split between the GPU and the ARM, I believe the default
 is to split the memory in half.  And there are ways to change that
-split (to give the ARM more).  Not going to worry about that here.
+split (to give the ARM more)(using config.txt).  Not going to worry
+about that here.
 
 From the ARMs perspective the kernel.img file is loaded, by default,
 to address 0x8000.  (there are ways to change that, not going to worry
@@ -33,12 +69,18 @@ Hardware and programming information:
 
 You will want to go here
 http://elinux.org/RPi_Hardware
-And get the datasheet for the part
-http://www.raspberrypi.org/wp-content/uploads/2012/02/BCM2835-ARM-Peripherals.pdf
-(might be an old link, find the one on the wiki page)
-And the schematic for the board
-http://www.raspberrypi.org/wp-content/uploads/2012/04/Raspberry-Pi-Schematics-R1.0.pdf
-(might be an old link, find the one on the wiki page)
+And the datasheet and schematic.  These are moving targets the above
+elinux link has the datasheet and errata which is important.  They
+didnt give us a full datasheet for the BCM2836 have to go with the
+BCM2835.
+You will want to go to
+http://raspberrypi.org and then the forum tab then slide down to
+the Bare Metal forum, the first (only) Sticky topic is Bare Metal
+Resources.  There are many more links there for good information.
+Also go to
+http://infocenter.arm.com and get the Architectural Reference Manual
+and the Techincal Reference Manual for the ARM1176JZF-S (BCM2835)
+and/or the Cortex-A7 (BCM2836).
 
 Early in the BCM2835 document you see a memory map.  I am going to
 operate based on the middle map, this is how the ARM comes up.  The
@@ -60,9 +102,12 @@ physical address.  Experimentally I have seen the memory repeats every
 0x40000000, read 0x40008000 and you see the data from 0x8000.  From the
 Broadcom doc this looks to be giving us access to the memory with
 different caching schemes (cached, uncached, etc) depending on which
-upper address bits you use.
+upper address bits you use.  Most likely to allow more room for RAM
+the Raspberry Pi 2 uses a peripheral base address of 0x3Fxxxxxx instead
+of the 0x20xxxxxx.
 
-I do not normally zero out .bss or use .data so if you do this to my examples
+I do not normally zero out .bss or use .data so if you do this to my
+examples
 
 int x;
 fun()
@@ -70,7 +115,8 @@ fun()
   static int y;
 }
 
-dont assume x and y are zero when your program starts. Nor if you do this
+dont assume x and y are zero when your program starts. Nor if you do
+this
 
 int x=5;
 fun()
@@ -78,16 +124,24 @@ fun()
   static int y=7;
 }
 
-will x=5 or y=7.  See the bssdata directory for more information.
+will x=5 or y=7.
+
+See the bssdata directory for more information, you can most likely
+use the linker script to solve the problem for you since .text, .data,
+.bss, (.rodata), everything lives in ram.
 
 Nor do I use gcc libraries nor C libraries so you can build most if not
 all of my examples using a gcc cross compiler.  Basically it doesnt
-matter if you use arm-none-linux-gnueabi or arm-none-eabi.  What was
-formerly codesourcery.com still has a LITE version of their toolchain
-which is easy to come by, easy to install and well maybe not easy to use
-but you can use it.  Building your own toolchain from gnu sources (binutils
-and gcc) is fairly straight forward see my build_gcc repository for a
-build script.
+matter if you use arm-none-linux-gnueabi or arm-none-eabi.  I have not
+looked in a while but formerly codesourcery.com (now a part of Mentor
+Graphics) had a free LITE version of their toolchain which was pretty
+easy to come by.  An even easier place is here
+https://launchpad.net/gcc-arm-embedded
+to get a cross compiler.  Building your own toolchain from gnu sources
+(binutils and gcc) is fairly straight forward see my build_gcc
+repository for a build script (Linux only but from that you might get
+other platforms to build).  And also rememeber that you can run linux
+on the pi and on that it has a native, not cross, gnu toolchain.
 
 As far as we know so far the Raspberry Pi is not "brickable".  Normally
 what brickable means is the processor relies on a boot flash and with
@@ -102,14 +156,19 @@ calculator, etc and you may see some holes or pads on the circuit board,
 for some of these devices just opening the battery case you have a view
 of some of the pcboard.  This is no doubt a programming header.  Long
 story short, so far as I know the Raspberry Pi is not brickable because
-the rom/flash that performs the initial boot is for the gpu and we dont
-have access to the gpu nor its boot rom/flash.  The gpu relies on the
-sd card to complete the boot, so there is something in hardware or
-perhaps there is an on chip flash for the gpu, from there on it is all
-sd card.  It is very easy for the customer to remove and
-replace/modify that boot flash.  So from a software perspective
-unless you/we accidentally figure out how to change/erase the gpu boot
-code (my guess is it is a one time programmable) you cant brick it.
+it boots off of an sd card which we can easily remove and replace
+ourselves.  I dont know for sure, a lot more info is out about the
+GPU since I started with this, but I assume that there is some GPU code
+that boots off of an internal rom, I doubt with two on chip processors
+they created pure logic to read the sd card, wade through the filesystem
+to find a specific bootcode.bin file, load that into ram and run it.
+If that assumption is true is that on chip rom one time programmable
+or can it be erased/reprogrammed, and if the latter how lucky do we have
+to be with a broken program to erase that?  So I am not 100% sure but
+almost 100% sure the Raspberry Pi is not brickable.  This is actually
+a big deal for bare metal programming, in particular if it is your first
+platform.  With decades of experience I still make mistakes from time
+to time and brick a board, never to be recovered.
 
 To use my samples you do not need a huge sd card.  Nor do you need nor
 want to download one of the linux images, takes a while to download,
@@ -124,13 +183,14 @@ For each of these files, bootcode.bin and start.elf (NOT kernel.img,
 dont need it, too big)(loader.bin is no longer used/required).  Click
 on the file name, it will go to another page then click on View Raw and
 it will let you download the file.  For reference, I do not use nor
-have a config.txt file on my sd card.  I only have the three files (
-bootcode.bin, start.elf, and then kernel.img from one of my examples).
+have a config.txt file on my sd card.  I only have the minimum number
+of files on the sd card, bootcode.bin, start.elf and either kernel.img
+or kernel7.img (or sometimes both).
 
 My examples are basically the kernel.img file.  Not a linux kernel,
 just bare metal programs.  Since the GPU bootloader is looking for
 that file name, you use that file name.  The kernel.img file is just a
-blob that is copied to memory, nothing more.
+blob that is copied to memory, dont worry about what they named it.
 
 What I do is setup the sd card with a single partition, fat32.  And
 copy the above files in the root directory.  bootcode.bin and start.elf.
@@ -153,9 +213,10 @@ this is going to get painful.
 There are ways to avoid this, one is jtag, which is not as expensive
 as it used to be.  It used to be in the thousands of dollars, now it
 is under $50 and the software tools are free.  Now the raspi does have
-jtag on the arm, getting the jtag connected requires soldering on some
-models, but not on the newer models.  I do not yet have a newer model.
-How to use the jtag and how to hook it up is described later and in
+jtag on the arm, getting the jtag connected requires soldering on older
+of the older models, but unless you were an early adopter, you dont
+need to worry about that all the signals are on the P1 connector. How
+to use the jtag and how to hook it up is described later and in
 the armjtag sample.
 
 Another method is a bootloader, typically you use a serial port connected
@@ -172,18 +233,32 @@ bootloader dance:
 2) power on raspi
 3) type command to load and start new program
 
-I have working bootloader examples.  bootloader05 is the currently
-recommended version.  But you need more hardware (no soldering is
-required).  For those old enough to know what a serial port is, you
-CANNOT connect your raspberry pi directly to this port, you will fry
-the raspberry pi.  You need some sort of serial port at 3.3V either
-a level shifter of some sort (transceiver like a MAX232) or a usb
-serial port where the signals are 3.3V (dont need to use RS232 just
-stay at the logic level).  The solution I recommend is a non-solder
+Or if you solder on a reset button
+
+1) reset raspi
+2) type command to load and start new program
+
+I have working bootloader examples.  bootloader05 is currently the last
+of the xmodem based ones (that basically take a kernel.img file),
+personally I use bootloader07 which takes an intel hex formatted file
+which these examples also build.  The .bin file would be used with
+bootloader05, the .hex with bootloader07.  But you need more hardware
+(no soldering is required).  For those old enough to know what a serial
+port is, you CANNOT connect your raspberry pi directly to this port,
+you will fry the raspberry pi.  You need some sort of serial port at
+3.3V either a level shifter of some sort (transceiver like a MAX232) or
+a usb serial port where the signals are 3.3V (dont need to use RS232
+just stay at the logic level).  The solution I recommend is a non-solder
 solution:
 
 A recent purchase, experimentally white is RX and green is TX, black GND
 http://www.nexuscyber.com/usb-to-ttl-serial-debug-console-cable-for-raspberry-pi
+Sparkfun has one
+https://www.sparkfun.com/products/12977
+As does Adafruit
+https://www.adafruit.com/products/954
+The above, assuming you figure out rx from tx, are all you need.  The
+ones below you may need to solder or may need some jumper wires.
 
 http://www.sparkfun.com/products/9873
 plus some male/female wire
@@ -216,7 +291,7 @@ P1.  Starting at that corner of the board, the outside corner pin is
 pin 2.  From pin 2 heading toward the yellow rca connector the pins
 are 2, 4, 6, 8, 10.  Pin 6 connect to gnd on the usb to serial board
 pin 8 is TX out of the raspi connect that to RX on the usb to serial
-board.  pin 10 is RX into the raspi, connect that to TX on the usb to
+board.  Pin 10 is RX into the raspi, connect that to TX on the usb to
 serial board.  Careful not to have metal items on the usb to serial
 board touch metal items on the raspberry pi (other than the three
 connections described).  On your host computer you will want to use
@@ -245,13 +320,14 @@ jtag solution is the most powerful and useful.  My typical setup is the
 armjtag binary as kernel.img, a usb to jtag board like the amontec
 jtag-tiny and a usb to serial using minicom.
 
+If you can solder, the A+, B+, Zero and Pi 2 all have a pair of holes
+sometimes with the text RUN next to them.  I use buttons like this
+https://www.sparkfun.com/products/97
+with two of the legs broken off then the others twisted and adjusted
+to fit in the holes and soldered down.
+
 As far as these samples go I recommend starting with blinker01 then
-follow the discovery of the chip into uart01, etc.  I took one path
-with the first bootloader then switched gears to use xmodem, if
-interested at all you may wish to just skip to that one.  It has no
-features and isnt even robust, quick and dirty, and most of the time
-it works just fine, if not power cycle the raspberry pi and try again.
-(power cycle = unplug then plug back in)
+follow the discovery of the chip into uart01, etc.
 
 The bssdata and baremetal directories attempt to explain a little
 bit about taking control of the gnu toolchain to build bare metal
@@ -267,44 +343,3 @@ makes life a lot easier, but leaves out some important bare metal
 experiences that you will have to find elsewhere.
 
 -----------
-
-Sources for ARM ARMs
-
-Google
-  ARM DDI 0100E
-or
-  ARM DDI 0100I
-
-https://www.scss.tcd.ie/~waldroj/3d1/arm_arm.pdf
-http://morrow.ece.wisc.edu/ECE353/arm_reference/ddi0100e_arm_arm.pdf
-http://reds.heig-vd.ch/share/cours/aro/ARM_Thumb_instructions.pdf
-They have a rev B here...Which was the blue covered one in print.  This
-was the I learned from (the print version) later I got a rev a, then
-rev e all in print then it was only electronic from there out as far as
-I know.  the older ones being more pure, but also some notable bugs
-in the docs, instruction encodings and some other things.
-http://www.home.marutan.net/arcemdocs/
-
-Actually the preferred place is to go to http://infocenter.arm.com
-On the left expand ARM Architecture, expand Reference Manuals, then
-select ARMv5 Reference Manual then on the main part of the page click
-on the pdf file to download.  You might have to give up an email address
-to make an account on the site to download.  Yes the Raspberry pi 1
-uses an ARMv6 but the ARMv5 manual is the original ARM ARM and covers
-the ARMv6.  The raspberry pi 2 uses an ARMv7 so you will want to also
-or instead get the ARMv7-AR Reference Manual.  The ARMv6-M does NOT
-apply to the Rasperry pi 1 core.
-
-
-I managed to get a pi zero ordered the first day somehow.  And it works
-like the pi 1, I assume it is 1000mhz now instead of 750, but the
-peripheral clock for the uart still uses the same divisor and works.
-I did need to get a new bootcode.bin and start.elf, not sure how old
-the ones I had on the sd card were, but pulled new ones and the uart01
-example worked just fine.  You do have to solder pins now or somehow
-solve that and I soldered a momentary button on the run pins and like
-the other boards those appear to be the reset.
-
-
-
-
