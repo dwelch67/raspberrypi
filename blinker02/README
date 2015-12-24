@@ -13,5 +13,6 @@ per second.
 Hmm, there are comments in the manual about the system clock coming up
 at 250MHz.  I wonder if this system timer is 250MHz/256 = 0.976MHz.
 
-
-
+This directory contains an example for the ARM11 raspberry pi, for the
+ARM11 based A+ and B+ see the plus directory and for the Cortex A7 based
+raspberry pi 2 see the pi2 directory.
