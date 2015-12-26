@@ -46,7 +46,8 @@ LLCOPS = -march=arm -mcpu=arm1176jzf-s
 LLCOPS0 = -march=arm 
 LLCOPS1 = -march=arm -mcpu=arm1176jzf-s
 COPS = -Wall  -O2 -nostdlib -nostartfiles -ffreestanding
-OOPS = -std-compile-opts
+#OOPS = -std-compile-opts
+OOPS = -std-link-opts
 
 clang : blinker01.clang.hex blinker01.clang.bin
 
