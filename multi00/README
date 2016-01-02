@@ -7,10 +7,17 @@ Derived from uart05
 This is specific to the Raspberry Pi 2 as it experiments with the
 multiple processor cores.
 
-So thanks to JS2 in the raspberry pi bare metal forum for the info
+So thanks to JS2, rst, ultibo and others in the raspberry pi bare metal
+forum for the info
 
-Not sure where or if this is really documented.  But if you write to
-address
+My current understanding is that the boot code that the GPU places
+in ram that is run before branching to our code at 0x8000, causes the
+other three cores to sit and wait for an event that comes through a
+mailbox.  I am still trying to understand the connection between the
+mailbox and the ARM (does it create an interrupt? is the code polling
+something, if so where exactly is this code, etc)
+
+So if you write to address
 
 0x4000009C for core 1
 0x400000AC for core 2
