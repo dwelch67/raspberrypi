@@ -1,0 +1,12 @@
+
+See the top level README for information on where to find the
+schematic and programmers reference manual for the ARM processor
+on the raspberry pi.  Also find information on how to load and run
+these programs.
+
+Same as blinker05 in the directory above, except the raspberry pi 1
+A+ and B+ have two leds one on gpio47 the other gpio35.
+
+I tested this on an A+.  I probably have a B+ around somewhere, but
+not sure where.  The A+ does appear to have two leds and they are both
+blinking.

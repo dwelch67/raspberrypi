@@ -4,6 +4,12 @@ schematic and programmers reference manual for the ARM processor
 on the raspberry pi.  Also find information on how to load and run
 these programs.
 
+The code in this directory is for the old/original-ish raspberry pi
+which you can still get raspberry pi 1 if you will.  The pi2 directory
+is for the raspberry pi 2 the one with the quad core arm.  The plus
+directory is for the raspberry pi B+ and A+.  You have to match the
+right program to the right raspberry pi.
+
 This is derived from blinker04.
 
 I dont understand why but way too many blinker examples use interrupts.
