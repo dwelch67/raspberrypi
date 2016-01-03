@@ -8,15 +8,21 @@ This is specific to the Raspberry Pi 2 as it experiments with the
 multiple processor cores.
 
 So the little additional information we have from Broadcom about
-the raspberry pi 2 processor, shows some mailbox addresses that
-cause interrupts.  If you disassemble the first 0x100 bytes of memory
-as we find it when kernel7.img runs.  At least as of this writing it
-is in that space.  There is vbar, mvbar manipulation (moving the
-entry from that interrupt/event to somewhere other than zero) various
-things including the other cores waiting on an interrupt.  These
-addresses are one of four mailboxes for each of these cores, writing
-with an address triggers the interrupt which triggers this code to then
-ultimately branch to that address for that core.
+the raspberry pi 2 processor, shows some mailbox addresses, a set for
+each core.  Thanks a lot to the folks at the bare metal forum for
+educating me on this.  Currently it appears the other cores are sitting
+in the loop between 0xCC and 0xD4, waiting for the value in a mailbox
+to change from zero.
+
+  c0:   e3a03000    mov r3, #0
+  c4:   e7853200    str r3, [r5, r0, lsl #4]
+  c8:   e2855040    add r5, r5, #64 ; 0x40
+  cc:   e7954200    ldr r4, [r5, r0, lsl #4]
+  d0:   e1540003    cmp r4, r3
+  d4:   0afffffc    beq 0xcc
+
+So we have to be careful not to trash the beginning of ram so long
+as the other three cores are using it.
 
 So if you write to address
 
@@ -27,17 +33,7 @@ So if you write to address
 With the address to the entry point for the code you want that core
 to run...it will start that core.
 
-This program starts up the other three cores, lets them fight over the
+This example starts up the other three cores, lets them fight over the
 memory location at address 0x40.  Core 0 reads 0x40 and prints out
 when it sees it change.  It is going to look somewhat random.
 
-So we have to be careful not messing with this first 0x100 bytes, unless
-you know what you are doing or you have started each core.  Check
-blinker05 rpi2 version.  As of late 2015 the GPU loader (start.elf)
-which leaves this code for the ARM is now putting the ARM in what is
-called hyp mode or hypervisor mode.  A little/lot different than the
-supervisor mode that we have been used to for so many years.  You dont
-switch modes for an interrupt, etc you are just in hyp mode.  With
-or without hyp mode we can move the exception handler table from the
-traditional address zero to other places, and not having to mess with
-this bootcode left for us if we dont want to, yet still do fun things.
