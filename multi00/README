@@ -7,15 +7,16 @@ Derived from uart05
 This is specific to the Raspberry Pi 2 as it experiments with the
 multiple processor cores.
 
-So thanks to JS2, rst, ultibo and others in the raspberry pi bare metal
-forum for the info
-
-My current understanding is that the boot code that the GPU places
-in ram that is run before branching to our code at 0x8000, causes the
-other three cores to sit and wait for an event that comes through a
-mailbox.  I am still trying to understand the connection between the
-mailbox and the ARM (does it create an interrupt? is the code polling
-something, if so where exactly is this code, etc)
+So the little additional information we have from Broadcom about
+the raspberry pi 2 processor, shows some mailbox addresses that
+cause interrupts.  If you disassemble the first 0x100 bytes of memory
+as we find it when kernel7.img runs.  At least as of this writing it
+is in that space.  There is vbar, mvbar manipulation (moving the
+entry from that interrupt/event to somewhere other than zero) various
+things including the other cores waiting on an interrupt.  These
+addresses are one of four mailboxes for each of these cores, writing
+with an address triggers the interrupt which triggers this code to then
+ultimately branch to that address for that core.
 
 So if you write to address
 
@@ -30,3 +31,13 @@ This program starts up the other three cores, lets them fight over the
 memory location at address 0x40.  Core 0 reads 0x40 and prints out
 when it sees it change.  It is going to look somewhat random.
 
+So we have to be careful not messing with this first 0x100 bytes, unless
+you know what you are doing or you have started each core.  Check
+blinker05 rpi2 version.  As of late 2015 the GPU loader (start.elf)
+which leaves this code for the ARM is now putting the ARM in what is
+called hyp mode or hypervisor mode.  A little/lot different than the
+supervisor mode that we have been used to for so many years.  You dont
+switch modes for an interrupt, etc you are just in hyp mode.  With
+or without hyp mode we can move the exception handler table from the
+traditional address zero to other places, and not having to mess with
+this bootcode left for us if we dont want to, yet still do fun things.
