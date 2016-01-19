@@ -12,12 +12,16 @@ FOR THIS TUTORIAL.  ASSEMBLY LANGUAGE KNOWLEDGE IS NOT REQUIRED FOR
 THIS TUTORIAL.  ASSEMBLY LANGUAGE KNOWLEDGE IS NOT REQUIRED FOR THIS
 TUTORIAL.
 
-
-
 See the top level README for information on where to find the
 schematic and programmers reference manual for the ARM processor
-on the raspberry pi.  Also find information on how to load and run
+on the Raspberry Pi.  Also find information on how to load and run
 these programs.
+
+This was originally written for the ARM11 based Raspberry Pi since
+then a Cortex-A7 based (Raspberry Pi 2) has come out.  When you get
+to this point the ARM11 based uses a file named kernel.img the
+Cortex-A7 uses one named kernel7.img.  I will use kernel.img in the
+text, but if you are on a Raspberry Pi 2 use kernel7.img instead.
 
 The purpose of this tutorial is to give you a foundation for bare
 metal programming.  The actual touching of registers and making the
@@ -47,7 +51,7 @@ when it boots.
 
 The second generalization I will make is that with bare metal programming
 you are often programming registers and memory for peripherals directly.
-For example printf() is not bare metal, there areway to many layers of
+For example printf() is not bare metal, there are way too many layers of
 stuff often landing in system calls which are often tied to an operating
 system.  That doesnt mean you cant rig up a printf that works in a bare
 metal environment, but it does contradict the concept of bare metal.
@@ -61,7 +65,7 @@ read file, close file, etc.  Being your own creation it doesnt have to
 conform to any other file function call standard fopen(), fclose(),
 etc.  So what happens when one person writes some bare metal code, no
 operating system involved, that can open, read, write, close files on
-the sd card on the raspberry pi, then shares that code?  Is that bare
+the sd card on the Raspberry Pi, then shares that code?  Is that bare
 metal? Tough question.
 
 I have seen some folks argue that you are not bare metal if you are
@@ -83,20 +87,20 @@ rewrite it myself before even trying it.  What I have learned since is
 that unless the other persons programming environment or tools or
 whatever are not so painful to get up and running, you should make an
 attempt to use their environment with their code the way they do it.
-For these kinds of things that you have not learned and dont know how
-to do but the author appears to know how to do.  THEN, start to make
-that code your own.  Eventually if you are like me, completely replacing
-all of it including the environment.  Other than the potential pain of
-trying to get their environment up and running, this path of just
-trying it their way then re-inventing the wheel to make it your own,
-will have greater success sooner and less frustration.
+In particular for these kinds of things that you have not learned and
+dont know how to do but the author appears to know how to do, THEN,
+start to make that code your own.  Eventually if you are like me,
+completely replacing all of it including the environment.  Other than
+the potential pain of trying to get their environment up and running,
+this path of just trying it their way then re-inventing the wheel to
+make it your own, will have greater success sooner and less frustration.
 
-I assume you are running linux.  The things I am doing here for the
+I assume you are running Linux.  The things I am doing here for the
 most part can be done easily in Windows or on a MAC, but I am not going
 to get into explaining certain things three times or N times to cover
 all the possible operating system variations.  I tend to run a 64
-bit linux, I switched from Ubuntu to Linux Mint when the post gnome 2
-disaster happened.  Linux Mint has worked to salvage the linux desktop
+bit Linux, I switched from Ubuntu to Linux Mint when the post gnome 2
+disaster happened.  Linux Mint has worked to salvage the Linux desktop
 for everyone else and I am using Mint now.  I do have a number of
 computers or laptops that I develop on and not all run the same distro
 or version.  For the most part the focus will be on using the gnu tools
@@ -108,7 +112,7 @@ So as soon as we say no operating system, we open a big can of worms.
 That is as big a problem as the fear of programming peripherals directly,
 perhaps the biggest problem of bare metal programming.  Why is it a
 problem?  Well lets think about the classic hello world C program and
-maybe what you do or dont realize is going on.  In some way shape or
+maybe what you do or dont realize is going on.  In some way, shape, or
 form you have installed a C compiler on your computer, and they tell
 you how to compile your first hello world program and it works.  One or
 a few includes, the main() function and a single printf() call.  Well
@@ -142,40 +146,43 @@ specific library calls, we will see what that means in a bit.
 A C compiler is just a program that takes an input and produces an
 output.  That program is compiled to run on a particular computer, my
 computer.  That compiler's job is to create other programs that will
-also run natively on my computer.  The raspberry pi uses an ARM
+also run natively on my computer.  The Raspberry Pi uses an ARM
 processor, most computers out there (servers, desktops and laptops) are
 running some flavor of the x86 instruction set, generally Intel or AMD
 chips.  ARM is a completely separate company from intel and  AMD and
 their processors use a completely different and incompatible in any
 way instruction set.  On a side note Intel and AMD make chips, ARM does
 not make chips it just sells its processor designs to people who make
-chips.  It is quite possible to use a compiler on my computer to
-generate a program that runs on an ARM processor.  A general term for
-a compiler that runs on one computer but produces output (instructions)
-that are for another computer/instruction set is called a cross compiler.
-Just because a compiler is open source doesnt mean that that compiler
+chips.
+
+It is quite possible to use a compiler on my computer to generate a
+program that runs on an ARM processor.  A general term for a compiler
+that runs on one computer but produces output (instructions) that are
+for another computer/instruction set is called a cross compiler.
+
+Just because a compiler is open source does not mean that that compiler
 can be made to be a cross compiler.  Some/many compilers in history are
 targetted to their native platform and not cross compiler capable.  GCC
 is designed to generate code for many different instruction sets on
 the backend.  And itself can be built as a cross compiler, but the way
 GCC works for each architecture you want to target you need to compile
 gcc for that architecture.  LLVM/Clang for example is designed from
-the ground up to be a Just In Time tool, so its output remains mostly
-target independent until Just In Time.  It also contains and I would
-assume is more widely used a backend that turns it into a compiler, you
-dont have to wait until JIT, you can get targetted output now.  And
-to take this further LLVM in its native build has all the targets built
-in at once you build LLVM/Clang one time an can use it as a cross
-compiler for many targets, you dont have to do a separate build per
-target.  And just because a compiler CAN be built as a cross compiler
-doesnt mean it is a good compiler, the more generic you get the more
-you take away from tuning for a particular instruction set.  Both GNU
-tools and LLVM do a pretty good job in general for each target.
-Understanding that each target is maintained to some extent by
-individuals and different individuals produce different quality code
-so either of these toolchains might have a bad apple or two due to
-the maturity of the target or the individual or team working on it but
-other targets may be mature.
+the ground up to be both a traditional compiler and a Just In Time tool,
+so its output remains mostly target independent until Just In Time.  I
+suspect it is mostly used as a static compiler though.  It has a backend
+that turns the generic into target specific.  A big difference from
+the gnu tools is that the default build of this backend can output
+for any of the supported targets with the one tool.  No need to re-build
+for each desired target.
+
+Just because a compiler CAN be built as a cross compiler does not mean
+it is a good compiler, the more generic you get the more you take away
+from tuning for a particular instruction set.  Both GNU tools and LLVM
+do a pretty good job in general for each target.  Understanding that
+each target is maintained to some extent by individuals and different
+individuals produce different quality code so either of these toolchains
+might have a bad apple or two due to the maturity of the target or the
+individual or team working on it but other targets may be mature.
 
 This tutorial is going to focus primarily on the gnu toolchain,
 which is one of those that can be used as a cross compiler but is not
@@ -187,113 +194,97 @@ other tools in there, the assembler and linker are the first we care
 about.  This is NOT a tutorial on teaching assembly language, you will
 see some, but just enough to get a C programming running.  That means
 we will need a C compiler as well fairly soon.   Now I say that this
-is a non-trivial task.  The more trivial way to do this is to go to
-http://codesourcery.com (which is not codesourcery anymore but now
-part of mentor graphics, it is easier on me to just remember the
-codesourcery link).  You are looking for the Lite version of their
-compiler this is a free version (you might have to give up an email
-address to get it) of their tools.  Lite does not mean limited
-necesarily, just means that you dont get any tech support for it.  If
-you get a pay-for version from them then you get some level of support
-for the toolchain.  Now because of how I use the gnu tools (no C
-libraries, no gcc libraries) it usually  doesnt matter which one you
-get the Linux compiler or the embedded eabi compiler will both work
-just fine.  The non-linux, eabi compiler is  the more correct one to
-use for bare metal programming.  This is one of those personal things
+is a non-trivial task.  Since this is more of a moving target than
+this README (hopefully), see the file TOOLCHAIN in this directory for
+info on finding a gnu toolchain for your platform.
+
+As with C libraries, I also try to not use gcc libraries (I will let
+you figure out what that means).  This is one of those personal things
 not a general bare metal thing, and the benefit here is that I am only
 relying on the compiler to do the job of compiling, turn C into ASM.
 Dont try to do more than that.  I become less dependent on the specific
-compiler and the code is more portable, more of you and myself too can
-use it over time.
-
-Another pre-built you may want to get also or instead is
-https://launchpad.net/gcc-arm-embedded.  Another tool alternative is to
-go and find one of the hobby gnu based toolchains, winarm, yagarto,
-devkitarm, etc.  Or you can build your own...sometimes...and sometimes
-that can turn into a long research project.  I have a build_gcc
-repository at github (https://github.com/dwelch67/build_gcc) that has
-scripts for building gcc based cross comipilers for a few targets as
-well as a script for building LLVM/Clang from sources.  These are
-the scripts I use myself and the toolchains built are the ones I use
-at work and at home.  There are a number of packages you will need to
-have installed on your system and I wont get into that here.
+compiler and the code is more portable.
 
 So you will need a GNU ARM cross compiler toolchain.  binutils and gcc
 at a minimum, more than that is beyond the scope of this tutorial, have
 fun.  If you cant get that toolchain up you may be stuck at this point.
 Now the one get out of jail free card you have here is that your
-raspberry pi can run linux, and you can get a native, non-cross-compiler
-ARM gnu toolchain on your raspberry pi when running linux fairly easy.
-Simply prepare a raspbian sd card and use it.  At the price point of a
-raspberry pi, if you want to do it this way you might want to have a
-second raspberry pi.  One as a linux development machine where you
-create the programs and the other as the bare metal machine where you
-try to run those programs.  Where you see arm-none-eabi-gcc for example,
-on an arm based linux system just type gcc instead.  if you are using
-the linux cross compiler you may have something like
-arm-linux-gnueabi-gcc.  If I have done my work right then any one of
-these will work.  if you are on an x86 computer though the gcc command
-by itself WILL NOT WORK.  Let me say that again WILL NOT WORK.
+Raspberry Pi can run Linux, and you can get a native, non-cross-compiler
+ARM gnu toolchain on your Raspberry Pi when running Linux fairly easy.
+Simply prepare a Linux sd card for your Raspberry Pi and use it as a
+normal computer.  At the price point of a Raspberry Pi, if you want to
+do it this way you might want to have a second Raspberry Pi.  One as a
+Linux development machine where you create the programs and the other as
+the bare metal machine where you try to run those programs.  Where you
+see arm-none-eabi-gcc for example, on an ARM based Linux system just
+type gcc instead.  If you are using the Linux cross compiler you may
+have something like arm-Linux-gnueabi-gcc.  If I have done my work right
+then any one of these will work.  If you are on an x86 computer though
+the gcc command by itself WILL NOT WORK.  Let me say that again WILL
+NOT WORK (it builds x86 programs not ARM).
 
 Well beyond the scope of this document but you can also run Linux in a
 virtual machine like qemu, and within that virtual machine like running
 on a Raspberry Pi, you can then use a native ARM compiler.  And there
-are other ARM boards as well the BeagleBones and such that can
-natively compile.
+are other ARM based boards as well the BeagleBones and such that can
+run Linux and have a native gnu toolchain.
 
 For bare metal the first thing we have to learn is how does our
 processor/computer boot.  We have to know this so we can make our
 program work, we have to build our program so that the first
 instruction in our program is placed in the computer such that it is
-the first instruction run by the computer.  The Raspberry Pi is very
-much NON STANDARD with respect to how the ARM is brought up.  ARM
-processors boot in one of two ways normally.  The normal way an ARM
-boot is the first instruction executed its at address 0x00000000.  The
-Cortex-M processors specifically (the Raspberry Pi does NOT use a
-Cortex-M) the ADDRESS of the first instruction executed is at address
-0x00000004, the processor reads 0x00000004 then uses the value read as
-an address, and then starts executing there.  The Raspberry Pi contains
-two primary processors one is a GPU, a processor dedicated to graphics
-processing.  It is a fully capable general purpose processor with
-floating point and other features that allow it to be used for graphics
-as well.  The gpu and the ARM share the rest of the chip resources for
-the most part, they share the same RAM, they share the peripherals, etc.
-The GPU boots first, how exactly, I dont know, it eventually reads
-things from the sd card, then it reads the file kernel.img which it
-loads into ram.  Then the gpu controls the ARM boot.  So where does the
-GPU place the ARM code?  What address?  Well that is part of the problem.
-From our (users) perspective, the firmware available at the time that
-the Raspberry Pi first hit the streets was placing kernel.img in
-memory such that the first instruction it executed that we had control
-over was at address 0x00000000.  Understand that the purpose for the
-Raspberry Pi is to run linux (for educational purposes) and at least on
-ARM, the linux kernel (also known as a kernel image) is typically loaded
-at ARM address 0x8000.  So those early (to us) kernel.img files had
-0x8000 bytes of padding.  Later this was changed to a typical kernel.img
-that instead of being loaded at address 0x00000000 was loaded at
-0x00008000.  The GPU would place the first instruction the ARM executed
-(at address 0x00000000 per the rules of an ARM processor like this) that
-would branch to the first instruction we controlled at address 0x8000.
-Since kernel.img is our entry point, it is the ARM boot code that we
-can control, we have to build our program based on where this file is
-placed and how it is used.  The presense of a file named config.txt and
-its contents can change the way the GPU boots the ARM, including moving
-where this file is placed and/or what address the ARM boots.  All of
-these things combined can put the contents of the file in memory where
-you didnt expect and your program may not run properly.
+the first instruction run by the computer.
+
+The Raspberry Pi is very much NON STANDARD with respect to how the ARM
+is brought up.  ARM processors boot in one of two ways normally.  The
+normal way an ARM boots is the first instruction executed its at address
+0x00000000.  The Cortex-M processors specifically (the Raspberry Pi does
+NOT use a Cortex-M) the ADDRESS of the first instruction executed is at
+address 0x00000004, the processor reads 0x00000004 then uses the value
+read as an address, and then starts executing there.  The Raspberry Pi
+contains two primary processors one is a GPU, a processor dedicated to
+graphics processing.  It is a fully capable general purpose processor
+with floating point and other features that allow it to be used for
+graphics as well.  The GPU  and the ARM share the rest of the chip
+resources for the most part, they share the same RAM, they share the
+peripherals, etc.  The GPU boots first, how exactly, I dont know, it
+eventually reads and things from the sd card, then it reads the file
+kernel.img which it loads into ram for us.  Then the GPU  controls the
+ARM boot.  So where does the GPU place the ARM code?  What address?
+Well that is part of the problem. From our (users) perspective, the
+firmware available at the time that the Raspberry Pi first hit the
+streets was placing kernel.img in memory such that the first instruction
+it executed that we had control over was at address 0x00000000.
+Understand that the purpose for the Raspberry Pi is to run Linux (for
+educational purposes) and at least on ARM, the Linux kernel (also
+known as a kernel image) is typically loaded at ARM address 0x00008000.
+So those early (to us) kernel.img files had 0x8000 bytes of padding.
+Later this was changed to a typical kernel.img that instead of being
+loaded at address 0x00000000 was loaded at 0x00008000.
+
+So the typical setup is the GPU copies the kernel.img contents to
+address 0x00008000 in the ARM address space, then it places code at
+address 0x00000000 which does a little bit of prep then branches to the
+kernel.img code at offset 0x00008000.  Since kernel.img is our entry
+point, it is the ARM boot code that we can control, we have to build our
+program based on where the bytes in this file are placed and how it is
+used.  The presence of a file named config.txt and its contents can
+change the way the GPU boots the ARM, including moving where this file
+is placed and/or what address the ARM boots.  All of these things
+combined can put the contents of the file in memory where you didnt
+expect and your program may not run properly.
 
 Here is another one of my personal preferences to deal with.  I prefer
 to use the most current GPU firmware files from the Raspberry Pi
-repository: bootcode.bin; loader.bin; and start.elf.  I prefer to
-not use config.txt, not have a file named that on the sd card, and the
-only other file beeing kernel.img that I am creating instead of the one
-from the Raspberry Pi folks.  This means that I prefer to deal with
-how the kernel.img file is used for the linux folks.  From the time that
-I received my first Raspberry Pi to the present, the up to date
-bootcode.bin, loader.bin, and start.elf have placed kernel.img at
-0x00008000 in ARM address space, and that is my ARM entry point.
-0x00008000 is the location for the first ARM instruction that we can
-control.
+repository: bootcode.bin and start.elf.  I prefer to not use config.txt,
+not have a file named that on the sd card, and the only other file
+being kernel.img that I create instead of the one from the Raspberry Pi
+folks.  This means that I prefer to deal with how the kernel.img file
+is used for the Linux folks.  From the time that I received my first
+Raspberry Pi to the present, the up to date bootcode.bin and start.elf
+have placed kernel.img at 0x00008000 in ARM address space, and that is
+my ARM entry point.  0x00008000 is the location for the first ARM
+instruction that we choose to control.
 
 So now we are ready to approach our first program.  We know that our
 program is a file named kernel.img which is just a binary file that
@@ -316,11 +307,11 @@ int main ( void )
     ...
 }
 
-With the code above as a C programmer you are not only under the
-impression the language dictates that apple will have the value zero,
-orange and pear will have the values indicated in the code when you
-start.  Now you should also know that peach will be undefined, you have
-to assign it a value before you can safely use it.
+With the code above as a C programmer your are taught that apple will
+have the value zero, orange and pear will have the values indicated in
+the code when the body of your main program runs.  Now you should also
+know that peach will be undefined, you have to assign it a value before
+you can safely use it.
 -How does all of that happen?
 -Is there C code that runs before main() is called that  prepares memory
 so that your program has those memory locations filled with values?
@@ -332,42 +323,43 @@ chicken or the egg" problem.  But it is not.  The answer is there is
 some code written in assembly language the is executed before main() is
 called and that assembly language code prepares these memory locations
 so that when your C code starts apple, orange and pear have the proper
-values loaded.  This assembly language code is often called the bootstrap
-code.  A very appropriate term for us as that small bit of assembly
-language code will both be the boot code for the ARM, the first
+values loaded.  This assembly language code is often called the
+bootstrap code.  A very appropriate term for us as that small bit of
+assembly language code will both be the boot code for the ARM, the first
 instructions, that we control, that the ARM runs and it is also the
 code that we are using to prepare memory, etc so that the C programs
 work as desired.
 
-Here comes another one of my preferences.  For the code that follows
-and much of the code in my repos, I DO NOT support the initializing of
-variables.  If you were to take one of my examples and add the apple
-orange and pear variables above you should not expect to get 0, 5, and
-7.  Further what you do find you should not expect to find every time,
-simply make no assumptions about the starting contents of variables.
-This is my preference not a generic bare metal thing.  It is a problem
-that you have to solve for generic bare metal programming and this is
-how I solved it.  When you finish this tutorial go over to the bssdata
-directory, and read about why I do it the way I do it and what other
-work you have to do to insure those variables are pre-initialized
-before main() is called.  The short answer is it involves toolchain
-specific things you have to do, and I prefer to lean toward more portable
-including portable across toolchains (minimizing effort to port)
-solutions.  So one thing is I try to make my C code so that it does not
-use  "implementation defined" features of the language (that do not port
-from one compiler to another, inline assembly for example).  Second
-I try to keep the boot code and linker scripts, etc as simple as possible
-with a little sacrifice on adding some more code.  Linker scripts in
-particular are toolchain specific and the the entry label and perhaps
-other boostrap items are also toolchain specific.  You will see what
-all of that means in the bssdata directory.
+And this is my preference on this with respect to bare metal.  For the
+code that follows and much of the code in my repos, I DO NOT support the
+initializing of variables in the way described above.  If you were to
+take one of my examples and add the apple orange and pear variables
+above you should not expect to get 0, 5, and 7.  Further what you do
+find you should not expect to find every time, simply make no assumptions
+about the starting contents of variables.  This is my preference not a
+generic bare metal thing.  It is a problem that you have to solve for
+generic bare metal programming and this is how I solved it.  When you
+finish this tutorial go over to the bssdata directory, and read about
+why I do it the way I do it and what other work you have to do to insure
+those variables are pre-initialized before main() is called.  The short
+answer is it involves toolchain specific things you have to do, and I
+prefer to lean toward more portable including portable across toolchains
+(minimizing effort to port) solutions.  So one thing is I try to make
+my C code so that it does not use  "implementation defined" features of
+the language (that do not port from one compiler to another, inline
+assembly for example).  Second I try to keep the boot code and linker
+scripts, etc as simple as possible with a little sacrifice on adding
+some more code.  Linker scripts in particular are toolchain specific
+and the the entry label and perhaps other boostrap items are also
+toolchain specific.  You will see what all of that means in the bssdata
+directory.
 
 Also note that I do not use main() as the entry point funciton in my
 code.  The first time I learned all of this stuff the compiler tools I
 was using at the time would add extra junk to your binary when it saw
 the word main().  If you used some other name then it would not add
 that junk, and not bloat the binary.  The Raspberry Pi has relatively
-lots of memory at 128KB + for the ARM.  In the embedded bare metal
+lots of memory at 128KB+ for the ARM.  In the embedded bare metal
 programming world you very often face 8KB or 16Kb or 32KB etc and you
 cannot afford the toolchain sucking up chunks of that memory with stuff
 you are not using.  Part of bare metal programming is you being in
@@ -376,7 +368,7 @@ control of everything, the code, the peripherals, and the binary.
 Good, bad, or otherwise the GNU tools dominate, binutils which includes
 an assembler, linker and library tools and gcc which includes a C
 compiler and can include other things.  One of the pro's is that when
-you learn the gcc tools for one platform most of that knowledge
+you learn the GNU tools for one platform most of that knowledge
 translates to other platforms (learn embedded ARM with gnu tools and
 the learning curve for MIPS is much smaller).  What are the tools we
 are going to be using?  We should at this point already know that gcc
@@ -388,13 +380,13 @@ hello world program on your Linux machine, the first one or few files
 generated is your C code in different forms they make another file
 which is your C code plus all of the includes expanded into that file.
 Eventually the actual C compiler is called and that turns the C code
-into assembly language in a txt file.  Yes, assembly language.  Then
+into assembly language in a text file.  Yes, assembly language.  Then
 the assembler is called by the compiler and the assembler assembles
 the assembly language into an object file, which in this case is a
 flavor of binary file that has most of the instructions in machine code
 but is not a complete binary because there may be some functions or
 variables in other objects that wont be resolved until link time.  For
-our hello world printf to output something it needs to link witha C
+our hello world printf to output something it needs to link with a C
 library which makes system calls and may or may not have to link with
 other stuff.  So the linker takes the object that came from our code
 and links that with these other items and creates a binary that is
@@ -439,7 +431,7 @@ as the name of my entry point into C.  But you ask:  What is a stack
 pointer?  You should have learned about stacks in general in your prior
 programming training or experience.  The stack is nothing more than a
 chunk of memory.  How it differs from memory is not that it is special
-because it isnt, it is how it is accessed.  Our apple and orange
+because it is not, it is how it is accessed.  Our apple and orange
 variables above are global, they are at a fixed place in memory, lets
 say they end up after compiling and linking these variables end up at
 addresses 0x1234 and 0x1238 respectively.  Any code in any function that
@@ -453,13 +445,13 @@ in the function.  The stack pointer is simply a register that holds a
 number which is an address in memory.  Not special memory just memory on
 this platform the same memory we use for our program and our variables.
 When the compiler converts our C code into assembly code one of the
-things it has to do is manage these local varaibles and other things.
+things it has to do is manage these local variables and other things.
 Any C function that has local variables will cause the compiler to
 create code that moves the stack pointer as a way to allocate memory
 for that variable.  We will cover this topic more as we go, for now
 understand that the minimum bootstrap code for this platform is to set
 the stack pointer and then to branch to our top level C function.  Here
-is some code thae does that:
+is some code that does that:
 
 .globl _start
 _start:
@@ -489,15 +481,15 @@ unsigned int orange:
 The apple variable which becomes a label or an address in assembler
 would not be global, where orange would be marked as global.
 
-We read above that _start is a special name the linker is looking for
-the linker interprets this as our entry point.  Since we are not running
+We read above that _start is a special name the linker is looking for.
+The linker interprets this as our entry point.  Since we are not running
 this program on an operating system for example it doesnt actually
 matter if _start is our entry point, but for places where it is used
 it is a good habit to place it at our entry point for sake of habit.  And
 that is what we are doing here.
 
-The mov sp,  line basically says put the number 0x00010000 in the
-reigster named sp, which is an alias for r13.  R13 in the ARM is a
+The mov sp line basically says put the number 0x00010000 in the
+register named sp, which is an alias for r13.  R13 in the ARM is a
 register that has special use as the stack pointer.  Registers in a
 processor are very much like variables in a C program in how they are
 used.
@@ -507,12 +499,13 @@ known as a jump in other assembly languages and is exactly like a goto
 in C.
 
 We are going to start using the tools that you installed, this step
-may be a major research project for you or it might just work.  You might
-only need to set the path to your tools to make this all work:
+may be a major research project for you or it might just work.  You
+might only need to set the path to your tools to make this all work
+( "baremetal >" being the command prompt):
 
 baremetal > arm-none-eabi-as --version
 arm-none-eabi-as: command not found
-baremetal > PATH=/gnuarm/bin/:$PATH
+baremetal > PATH=/opt/gnuarm/bin/:$PATH
 baremetal > arm-none-eabi-as --version
 GNU assembler (GNU Binutils) 2.22
 Copyright 2011 Free Software Foundation, Inc.
@@ -521,11 +514,12 @@ the GNU General Public License version 3 or later.
 This program has absolutely no warranty.
 This assembler was configured for a target of `arm-none-eabi'.
 
-Your path may be and probably is different than mine.  Again this
-may be a research project for you or it may just work or somewhere
-in the middle.
+Your path may be and probably is different than mine.  If you dont
+get the command not found, then you wont need to mess with the PATH
+it is ready to go.  Again this may be a research project for you or it
+may just work or somewhere in the middle.
 
-The gnu assembler is a program named as.  When we make it a cross
+The gnu assembler is a program named "as".  When we make it a cross
 assembler to not confuse it with the as assembler that we need for the
 operating system we are running on, we add a prefix to the name.  A
 common one you will find in this day and age for gnu tools is
@@ -560,9 +554,9 @@ the term binary when you are talking about a program running the
 binary loading the binary, compiling to binary.  Is a loaded term
 sometimes it is all binary bits and bytes that make up your program.
 Most of the time, esp when running on an operating system, that file
-is a mixture of the bits and bytes of your program but wrapped by
-a file format that contains things like debugging information or other
-things.
+is a mixture of the bits and bytes of your program that are wrapped by
+a file format that contains things like debugging information and
+other things.
 
 If the file only contained the machine code and data that makes up the
 program it would only need these 8 bytes (this is not a real, functioning
@@ -600,13 +594,13 @@ default format for ARM based programs and many others as well.  But we
 can convert those into other formats using another of the binutils tools
 and we will have to use that tool for the Raspberry Pi.  First off
 notice that the .elf file format is binary itself most of the information
-is not directly human readable you need to use other programs (like o
-bjdump) to extract information from that file.  Another format that you
+is not directly human readable you need to use other programs (like
+objdump) to extract information from that file.  Another format that you
 will see "binaries" in is the intel hex file format.  This is an ASCII
-format file making it easier for us to read and manipulate as programmers and
-hack at if so desired...You will still find this format used in various
-corners of the embedded world.  Many rom/flash programmers suppor this
-file format, many bootloaders (like my bootloader01) support this
+format file making it easier for us to read and manipulate as programmers
+and hack at if so desired...You will still find this format used in various
+corners of the embedded world.  Many rom/flash programmers support this
+file format, many bootloaders (like my bootloader07) support this
 format.
 
 baremetal > arm-none-eabi-objcopy bootstrap.o -O ihex bootstrap.hex
@@ -634,7 +628,7 @@ baremetal > hexdump -C a.bin
 That little exercise shows how to take just the bytes of our program
 and put them in what we would most accurately call a binary file, just
 the 8 bytes of our program nothing more nothing less.  We will need
-to do this for the raspberry pi.  Notice how objcopy was not able
+to do this for the Raspberry Pi.  Notice how objcopy was not able
 to recognize the file format for the intel hex file and we had to
 specify it using the -I.
 
@@ -683,7 +677,7 @@ S10B000001D8A0E3FEFFFFEAB2
 S9030000FC
 
 You can use wikipedia to get the definitions for the intel hex and
-s record file formats and very easily write a program that parses those
+s-record file formats and very easily write a program that parses those
 files and extracts things, maybe write your own disassembler for
 educational purposes or write a bootloader or an instruction set
 simulator or any place where you need to take a compiler/assembler/linker
@@ -717,7 +711,7 @@ So what does bx lr mean?  Bx is an ARM instruction that means branch
 exchange, and lr is the link register.  When you call a function in
 your C code your expectation is that the processor will jump somewhere
 and execute the code in the function then it will come back and
-keep running your program/code after that funcion call.
+keep running your program/code after that function call.
 
 ...
   a = b + 7;
@@ -743,7 +737,7 @@ mov pc,lr
 Depending on the tools and how you use them you should mostly see the
 bx lr in assembly and in the code generated by the compiler if you dont
 then there may be a reason which you may or may not be concerned about
-at this time.  I will keep saying this, this is not a tutorail on
+at this time.  I will keep saying this, this is not a tutorial on
 assembly language, but you may already see that assembly language is
 required in order to start up C code, and I argue required in order
 to debug bare metal code.  I am only touching on a little bit of
@@ -778,7 +772,7 @@ not a bin file.  How do we fix these things?
 So now that I have mentioned the link register and how it is used to get
 back from one function after calling it.  If you think about the
 compilers job, at one level it doesnt really know or care what the name
-of your function is or its purpose, when compiling the code in the
+of your function is or its purpose.  When compiling the code in the
 main() function it for the most part doesnt care if it is called main()
 or notmain() or pickle() it does a job, it assumes that function is
 called from another function and it uses the proper return instruction.
@@ -841,7 +835,7 @@ the function call which takes us back to the hang line which is an
 infinite loop, hang branches to hang forever or until the power is
 turned off.
 
-A few things you should have noticed.  When we disasembled the object
+A few things you should have noticed.  When we disassembled the object
 files the address was zero not 0x8000.  Well the object files are by
 definition incomplete programs, even if everything we are going to
 run is there we should use the linker to polish that file.
@@ -2049,7 +2043,7 @@ interrupt or exception the cpsr is restored along with your
 program counter and you return to the mode you were in.  This is the
 exception to the rule that you use bx to change modes (or blx).
 
-So the arm is going to come out of reset in ARM mode and whatever
+So the ARM is going to come out of reset in ARM mode and whatever
 mechanism that the Raspberry Pi uses to have our code at 0x8000 run we
 start running our code in full 32 bit ARM mode.
 
@@ -2144,7 +2138,7 @@ _start:
 
 thumbstart_add: .word thumbstart
 
-;@ ----- arm above, thumb below
+;@ ----- ARM above, thumb below
 .thumb
 
 .thumb_func
@@ -2208,7 +2202,7 @@ Disassembly of section .text:
     801a:   46c0        nop         ; (mov r8, r8)
 
 
-So we see the arm instructions mov sp, ldr r0, and bx r0.  These
+So we see the ARM instructions mov sp, ldr r0, and bx r0.  These
 are 32 bit instructions and most of them start with an E which makes
 them kind of stand out in a crowd.  The .code 32 directive tells
 the assembler to assemble the following code using 32 bit arm
@@ -2229,7 +2223,7 @@ bx is used even if you are staying in the same mode, that is the key
 to it, if you have used the proper address you dont care what
 mode you are branching to.  You can write code that calls functions
 and the code making the call can be thumb mode and the code you are
-calling can be arm mode and so long as the compiler and/or you has
+calling can be ARM mode and so long as the compiler and/or you has
 not messed up, it will properly switch back and forth.  Problem is
 the compiler doesnt always get it right.  You may see or hear
 the word interwork or thumb interwork (command line options for the
@@ -2257,7 +2251,7 @@ _start:
 
 thumbstart_add: .word thumbstart
 
-;@ ----- arm above, thumb below
+;@ ----- ARM above, thumb below
 .thumb
 
 thumbstart:
@@ -2298,13 +2292,13 @@ Not a single peep from the compiler tools and we have created perfectly
 broken code.  It is hard to see in the dump above if you dont know
 what to look for but it will make for a very long day or very expensive
 waste of time playing with thumb if you dont know what to look for.
-that little 0x8010 being loaded into r0 and then the bx r0 in arm mode
+that little 0x8010 being loaded into r0 and then the bx r0 in ARM mode
 is telling the processor to branch to address 0x8010 AND STAY IN ARM
 MODE.  But the instructions at 0x8010 and the ones that follow are
-thumb mode, they might line up with some sort of arm instruction
-and the arm may limp along executing gibberish, but at some point
+thumb mode, they might line up with some sort of ARM instruction
+and the ARM may limp along executing gibberish, but at some point
 in a normal sized program it will hit a pair of thumb instructions
-whose binary pattern are not a valid arm instruction and the arm
+whose binary pattern are not a valid ARM instruction and the arm
 will fire off the undefined instruction exception.  One wee little
 bit is all the difference between success and massive failure in the
 above code.
@@ -2326,14 +2320,14 @@ the GNU General Public License version 3 or later.
 This program has absolutely no warranty.
 This assembler was configured for a target of `arm-none-eabi'.
 
-I have been using the gnu tools for arm since the 2.95.x days of gcc.
+I have been using the gnu tools for ARM since the 2.95.x days of gcc.
 starting with thumb in the 3.x.x days pretty much every version from
 then to the present.  And there have been good ones and bad ones as
 to how the mixing of modes is resolved.  I have to say these newer
 versions are doing a better job, but I know in recent months I did
 trip it up, will see if I can again.
 
-Fixing our bootstrap and not using the -mthumb option, builds arm code:
+Fixing our bootstrap and not using the -mthumb option, builds ARM code:
 
 baremetal > arm-none-eabi-gcc -O2 -c notmain.c -o notmain.o
 baremetal > arm-none-eabi-ld -T lscript bootstrap.o notmain.o -o hello.elf
@@ -2373,7 +2367,7 @@ very nicely handled.  after thumbstart they use a bl instruction
 as we had in the assemblly language code so that the link register
 is filled in not only with a return address but the return address
 with the lsbit set so that we return to the right mode with a bx lr
-instruction.  Instead of branching right to the arm code though
+instruction.  Instead of branching right to the ARM code though
 which would not work you cannot use bl to switch modes, they
 branch to what I call a trampoline, when they hit
 __notmain_from_thumb the link register is prepped to return to address
@@ -2386,7 +2380,7 @@ address 0x8024 and note that that address has a zero in the lsbit so
 this is a cool trick, the linker by adding these instructions at a
 four byte aligned address (lower two bits are zero) 0x8020 then doing
 a bx pc, and sticking a nop in between although I dont think it matters
-what is there.  The bx pc causes a switch to arm mode and a branch to
+what is there.  The bx pc causes a switch to ARM mode and a branch to
 address 0x8024, which being a trampoline to bounce off of, that instruction
 bounces us back to 0x8018 which is the ARM instruction we wanted
 to get to.  this is all good, this code will run properly.
@@ -2495,7 +2489,7 @@ _start:
 
 thumbstart_add: .word thumbstart
 
-;@ ----- arm above, thumb below
+;@ ----- ARM above, thumb below
 .thumb
 
 .thumb_func
@@ -2518,7 +2512,7 @@ void notmain ( void )
     PUT32(0x0000B000,0x12345678);
 }
 
-And make notmain arm code
+And make notmain ARM code
 
 
 
@@ -2572,13 +2566,13 @@ Disassembly of section .text:
     804c:   00000000    andeq   r0, r0, r0
 
 So we start in arm, use 0x8011 to swich to thumb mode at address 0x8010
-trampoline off to get to 0x801C entering notmain in arm mode.  and we
+trampoline off to get to 0x801C entering notmain in ARM mode.  and we
 branch link to another trampoline.  this one is not complicated as
 we did this ourselves right after _start.  load a register with
 the address orred with one.  0x8017 fed to bx means switch to thumb
 mode and branch to 0x8016 which is our put32 in thumb mode.
 
-lets go the other way, put32 in arm mode called from thumb code
+lets go the other way, put32 in ARM mode called from thumb code
 
 
 baremetal > arm-none-eabi-as bootstrap.s -o bootstrap.o
@@ -2625,13 +2619,13 @@ Disassembly of section .text:
 
 And we did it, this code is broken and will not work.  Can you see
 the problem?  PUT32 is in ARM mode at address 0x8010.  Notmain is
-thumb code.  You cannot use a branch link to get to arm mode from
+thumb code.  You cannot use a branch link to get to ARM mode from
 thumb mode you have to use bx (or blx).  the bl 0x8010 will start
 executing the code at 0x8010 as if it were thumb instructions, and
 you might get lucky in this case and survive long enogh to run
 into the thumbstart code which in this case puts you right back into
 notmain sending you into an infinite loop.  One might hope that at
-least the arm machine code at 0x8010 is not valid thumb machine code
+least the ARM machine code at 0x8010 is not valid thumb machine code
 and will cause an undefined instruction exception which if you bothered
 to make an exception handler for you might start to see why the
 code doesnt work.
@@ -2719,16 +2713,16 @@ Disassembly of section .text:
     804a:   46c0        nop         ; (mov r8, r8)
     804c:   eafffffb    b   8040 <fun>
 
-fun() which is in arm mode, when called from notmain() which is thumb
+fun() which is in ARM mode, when called from notmain() which is thumb
 mode is handled properly.  So there is something there that tells the
-linker that fun is arm and needs a mode change.
+linker that fun is ARM and needs a mode change.
 
 When we use .thumb_func for thumb functions in assembly that triggers
 the linker to do the right thing.  I wonder if there is something
-in arm functions in assembly that we can use to do the same thing.
+in ARM functions in assembly that we can use to do the same thing.
 
 This is another one of my personal preferences:  when using thumb mode
-on an arm booting system I use the minimal arm code to get into thumb
+on an ARM booting system I use the minimal ARM code to get into thumb
 mode in the bootstrap code then everywhere else I stay in thumb mode
 as far as I know.  If there is a time where I need ARM mode then I
 am careful to see if the tools changed mode properly or I may do my

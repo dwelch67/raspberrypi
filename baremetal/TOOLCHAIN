@@ -1,0 +1,43 @@
+
+Toolchain.  I run on linux, these examples are tested on linux, other
+than subtle differences like rm vs del in the Makefile, you should be
+able to use these examples on a windows or mac system.
+
+My code is written to be somewhat generic, but the assembly and in
+particular the linker script are specific to the gnu tools because
+that is how the toolchain world works unfortunately.  Since everyone
+can get the gnu tools, they are available for Windows, Mac and Linux,
+but not everyone can or wants to use the pay-for tools (or free tools
+that are specific to one operating system) these examples are written
+and tested using a gnu tool chain.  My personal style is such that
+this code tends to port across the various versions of the gnu tools
+also it is not specific to arm-none-eabi, arm-none-gnueabi,
+arm-linux-gnueabi and so on.  You may need to change the ARMGNU line
+at the top of my Makefile though.
+
+So, if you are running Ubuntu Linux or a derivative you might only
+need to do this:
+
+apt-get install gcc-arm-linux-gnueabi binutils-arm-linux-gnueabi
+
+Or you can go here and get a pre-built for your operating system
+
+https://launchpad.net/gcc-arm-embedded
+
+Or in another one of my github repositories you can get a build_arm
+script
+
+https://github.com/dwelch67/build_gcc
+
+Which builds a cross compiler from sources.  Here again tested on
+Linux (Ubuntu derivative) I used to use prior versions of this
+script on Windows, but I gave up on maintaining that...This latter
+build from the script is what I use as my daily driver arm toolchain.
+
+Easier to come by but you can also get the llvm/clang toolchain as
+an alternate compiler, it is not like gcc, one toolchain supports
+all targets (normally).  I still use gnu binutils to do the assembling
+and linking when using clang/llvm as a compiler (that part is target
+specific for llvm).  So for this last solution you still need binutils
+(which is easier to get built and working than gcc).  And my build_gcc
+repo has a build_llvm script that I use for clang/llvm.
