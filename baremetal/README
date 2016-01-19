@@ -1,6 +1,7 @@
 this is a rough draft, if/when I complete this draft I will at some point
 go back through and rework it to improve it.
 Update: draft 2.  I went through almost all of this and cleaned it up.
+Update: draft 3.  Lots of typos and misspellings that I had missed before
 
 THIS IS NOT AN ASSEMBLY LANGUAGE TUTORIAL, IT DOES HAVE A LOT OF
 ASSEMBLY LANGUAGE IT IT.  IF YOU ARE STUCK FOCUSING ON THE ASSEMBLY
@@ -881,14 +882,14 @@ orange global variables way above.  Data actually is broken up into
 different segments sometimes, and in particular with the GNU tools.
 Most of the code out there that has global variables the globals are
 not defined, not initialized in the code, but the language declares
-those are assumed to be zero when you start using them (if you have
-not changed them before you used them).  So there is a special data
-segment called .bss which holds all of our global variables that when
-we start running C code should be zero.  These are lumped together so
-that some code can easily go through that chunk of memory and zero that
+those as assumed to be zero when you start using them (if you have
+not changed them before you read them).  So there is a special data
+segment called .bss which holds all of our .data that when we start
+running C code should be zero.  These are lumped together so that some
+code can easily go through that chunk of memory and zero that
 area before branching to the C entry point.  Another segment we may
 encounter is the .rodata segment.  Sometimes even with GNU tools you
-may find the read only data in the .text segment.
+may find the read only data in the .text segment.  
 
 For fun lets make one of each:
 
@@ -932,10 +933,10 @@ Well notice that I used -O2 on the gcc command line this means
 optimization level 2.  -O0 or optimizaiton level 0 means no optimization
 -O1 means some and -O2 is the maximum safe level of optimization using
 the gcc compiler.  There is a -O3 but we are not supposed to trust that
-to be as tested as -O2.  I am not going to get into that but recommend
-you use -O2 often, esp with embedded bare metal where size and speed
-are important.  I use it here because it produces much less code than
-no optimization, you can play with compiling and disassembling these
+to be as well tested as -O2.  I am not going to get into that but
+recommend you use -O2 often, esp with embedded bare metal where size and
+speed are important.  I use it here because it produces much less code
+than no optimization, you can play with compiling and disassembling these
 things on your own with less or without optimization to see what
 happens.
 
@@ -1056,7 +1057,8 @@ the value 9 that we pre-initialized.
 I want to point something out here that is very important for general
 bare metal programming.  What do we have above, something like 12 32
 bit numbers which is 12*4 = 48 bytes.  So if I make this a true
-binary we should see 48 bytes right?  Well you would be wrong:
+binary (memory image) we should see 48 bytes right?  Well you would be
+wrong:
 
 baremetal > ls -al hello.elf
 -rwxr-xr-x 1 root root 38002 Sep 23 15:06 hello.elf
@@ -1126,7 +1128,7 @@ There are 0x60000000 bytes between these two items, that means the
 binary file created would at least be 0x60000000 bytes which is
 1.6 GigaBytes.  If you are like me you probably dont always have
 1.6Gig of disk space handy.  Much less wanting it to be filled with a
-singel file which is mostly zeros.  You can start to see the appeal for
+single file which is mostly zeros.  You can start to see the appeal for
 these not really a binary binary file formats like elf and ihex and
 srec.  They only define the real data and dont have to hold the zero
 filler.
@@ -1520,7 +1522,7 @@ variable pear now has its own address in memory, it did not get
 optimized out.
 
 I dont expect you to know assembly language but what I want to you to
-see is a continuation what we discussed before with respect to the
+see is a continuation of what we discussed before with respect to the
 branch link instruction and the link register.  The ARM instruction
 set uses branch link (bl) to make function calls.  The branch means
 goto or jump or branch the program to some address.  The link means
@@ -1689,7 +1691,7 @@ runtime=end-start;
 
 And this may lead you to believe that this is not the code causing
 your performance problems.  Or hopefully you realize that this code
-is executing way to fast and there is something wrong with your
+is executing way too fast and there is something wrong with your
 experiment.  Knowing enough assembly code to see what is going on
 will clue you into the optimization, just like in the notmain() example
 above.
@@ -1705,10 +1707,9 @@ compiler to do what you want or of you have borrowed some code you
 might have to have GCC do the assembling or linking.  Some folks like
 to put C stuff like defines and comment symbols in their assembler code
 which works fine if you feed it through gcc, but it is not assembly
-code it is some sort of hybrid.  Doesnt stop people from doing it, and
-when you borrow that code you either have to fix the code or use the C
-compiler as an assembler.
-
+language it is some sort of hybrid.  Doesnt stop people from doing it,
+and when you borrow that code you either have to fix the code or use the
+C compiler as an assembler.
 
 bootstrap.s
 
@@ -2004,7 +2005,7 @@ instructions provide some cost and performance benefits for embedded
 systems.  First off you can pack more instructions into the same
 amount of memory, understanding that it may take more instructions to
 perform the same task using thumb instructions than it would have using
-ARM.  My experiements at the time showed about 10-15% more instructions,
+ARM.  My experiments at the time showed about 10-15% more instructions,
 but half the memory so that was a fair tradeoff.  I know of one platform
 that went so far as to use 16 bit memory busses, which actually made
 thumb mode run much faster than ARM mode on that platform.  That
@@ -2021,7 +2022,13 @@ bits you can have in that register.  Note that that lower bit
 is stripped off it is only used by the bx instruction itself the
 address in the program counter always has the lower two bits zero
 for ARM mode (4 byte instructions) and the lower bit zero for
-thumb instructions (2 or 4 byte instructions).
+thumb instructions (2 or 4 byte instructions).  Note the bx/blx
+instruction is not the only way to switch modes, sometimes you can
+use the pop instruction, but bx works the same way on all ARM
+architectures that I know of, the other solutions (pop for example)
+vary in if/how they work for switching modes depending on the ARM
+architecture in question.  So that makes for very unportable code
+across ARM if you are not careful.  When in doubt just use BX.
 
 Here again the goal is not to teach assembly but you may want to
 get the ARM Architectural Reference Manual for this platform
@@ -2054,19 +2061,18 @@ least try.  Assembly language in general does not have a standard.
 A company designs a chip, which means they create an instruction set,
 binary machine code instructions, and generally they create an
 assembly language so that they can write down and talk about those
-instructions without going insane with confusion and/or pain.  And
-not always but often if that company actually wants to sell those
-processors they create or hire someone to create an assembler and
+instructions using mnemonics instead of patterns of ones and zeros.
+And not always but often if that company actually wants to sell those
+processors, so they create or hire someone to create an assembler and
 a compiler or few.  Assembly language, like C language, has
 directives that are not actually code like #pragma in C for example
 you are using that to talk to the compiler not using it as code
-necessarily.  Assembly has those as well, many of them.  The vendor
-will often at a minimum use the syntax for the assembly language
-instructions in the manual they create or have someone create to
-provide to users of this processor they want to sell and if smart
-will have the assembler match that manual.  But that manual although
-you might consider it a standard, is not, the machine code is the
-hard and fast standard, the ASCII assembly language is fair game and
+necessarily.  Assembly has those as well, many of them.  It is in the
+processor vendors best interest to use the same assembly language
+syntax for the instructions in the processor manual in the assembler
+that they create or have someone create for them.  But that manual
+although you might consider it a standard, is not, the machine code is
+the hard and fast standard, the ASCII assembly language is fair game and
 anyone can create their own assembly language for that processor
 with whatever syntax and directives that they want.  ARM has a nice
 set of compiler tools, or at least when I worked at a place that paid
@@ -2084,7 +2090,9 @@ instead of @ because this ; is the proper, almost universal, symbol for
 a comment in assembly languages from many vendors.  This @ is not.
 Combined like this ;@ and you get code that is commented in both worlds
 equally.  Enough with that rant, this asm code will continue to be GNU
-assembler specific I dont know if it works on any other assembler.
+assembler specific as that is the toolchain I am using, I dont know if
+it works on any other assembler, I keep the directives to a bare
+minimum though.
 
 Another side effect of thumb and in particular thumb2 is that ARM
 decided to change their syntax in subtle ways to come up with a unified
@@ -2210,16 +2218,16 @@ instructions or at least until I tell you otherwise.  the .thumb
 directive is me telling the assembler otherwise.  Start assembling
 using 16 bit thumb instructions.  Yes the bl is actually two separate
 16 bit instructions and are documented by ARM as such, but always shown
-as a pair in disassembly.
+as a pair in disassembly.  It is not a 32 bit instruction.
 
 The .thumb_func is used to tell the assembler that the label
 that follows is branch destination for thumb code, when you see this
 label set the lsbit so that I dont have to play any games to switch
 or stay in the right mode.  You can see that the thumbstart label
-is at address 0x8010, but the thumb_start add is 0x8011, the thumbstart
+is at address 0x8010, but the thumbstart_add is 0x8011, the thumbstart
 address with the lsbit set, so that when it hits the bx instruction
 it tells the processor that we want to be in thumb mode.  Note that
-bx is used even if you are staying in the same mode, that is the key
+bx can be used even if you are staying in the same mode, that is the key
 to it, if you have used the proper address you dont care what
 mode you are branching to.  You can write code that calls functions
 and the code making the call can be thumb mode and the code you are
@@ -2385,16 +2393,17 @@ address 0x8024, which being a trampoline to bounce off of, that instruction
 bounces us back to 0x8018 which is the ARM instruction we wanted
 to get to.  this is all good, this code will run properly.
 
+
 You may or may not know that compilers for a processor follow a "calling
 convention" or binary interface or whatever term you like.  It is a set
 of rules for generating the code for a function so that you can have
 functions call functions call functions and any function can
 return values and the code generated will all work without having to
 have some secret knowledge into the code for each function calling it.
-conform to the calling convention and the code will all work together.
+Conform to the calling convention and the code will all work together.
 Now the conventions are not hard and fast rules any more than assembly
-language is a standard for any particular processor.  these things
-change from time to time in some cases.  For the arm, in general across
+language is a standard for any particular processor.  These things
+change from time to time in some cases.  For the ARM, in general across
 the compilers I have used the first four registers r0,r1,r2,r3 are
 used for passing the first up to 16 bytes worth of parameters, r0 is
 used for returning things, etc.   I find it surprising how often
@@ -2424,7 +2433,7 @@ Disassembly of section .text:
 So what did I just figure out?  Well if I had that function in C and
 used that compiler and linked in that object code it would work with
 other code created by that compiler, so that object code must follow
-the calling convention.  what I figured out is from that trivial experiment
+the calling convention.  What I figured out is from that trivial experiment
 is that if I want to make a function in assembly code that uses two
 inputs and one output (unsigned 32 bits each) then the first parameter,
 a in this case, is passed in r0, the second is passed in r1, and the
@@ -2439,14 +2448,15 @@ Disassembly of section .text:
    4:   44 00 48 00     l.jr r9
    8:   e1 64 18 00     l.add r11,r4,r3
 
-Call me twisted an evil toward you but, what I see here is that
-the first parameter is passed in register r3, the second parameter
+This is not ARM but some completely different instruction set, and the
+compiler for it has a different calling convention.  What I see here is
+that the first parameter is passed in register r3, the second parameter
 is passed in r4 and the return value goes back in r11.  and it just
 so happens that the link register is r9.
 
 Yes, it is true that I have not yet figured out what registers
 I can modify without preserving them and what registers I have to
-preserve, etc, etc.  You can figure that out with these simple experiements
+preserve, etc, etc.  You can figure that out with these simple experiments
 with practice.  Because sometimes you may think you have found the
 docment describing the calling convention only to find you have not.
 And as far as preservation, if in doubt preserve everything but the
@@ -2455,8 +2465,8 @@ return registers...
 So if you have looked at my work you see that I prefer to perform
 singular memory accesses using hand written assembly routines like
 PUT32 and GET32.  Not going to say why here and now, I have mentioned
-it elsewhere and it doesnt matter for this discussion.  Moving on, lets
-do a quick thumb experiment:
+it elsewhere and it doesnt matter for this discussion.  Lets accept
+it and move on to use it, a quick thumb experiment:
 
 
 baremetal > arm-none-eabi-gcc -mthumb -O2 -c fun.c -o fun.o
@@ -2567,12 +2577,12 @@ Disassembly of section .text:
 
 So we start in arm, use 0x8011 to swich to thumb mode at address 0x8010
 trampoline off to get to 0x801C entering notmain in ARM mode.  and we
-branch link to another trampoline.  this one is not complicated as
-we did this ourselves right after _start.  load a register with
+branch link to another trampoline.  This one is not complicated as
+we did this ourselves right after _start.  Load a register with
 the address orred with one.  0x8017 fed to bx means switch to thumb
-mode and branch to 0x8016 which is our put32 in thumb mode.
+mode and branch to 0x8016 which is our PUT32 in thumb mode.
 
-lets go the other way, put32 in ARM mode called from thumb code
+lets go the other way, PUT32 in ARM mode called from thumb code
 
 
 baremetal > arm-none-eabi-as bootstrap.s -o bootstrap.o
@@ -2620,7 +2630,7 @@ Disassembly of section .text:
 And we did it, this code is broken and will not work.  Can you see
 the problem?  PUT32 is in ARM mode at address 0x8010.  Notmain is
 thumb code.  You cannot use a branch link to get to ARM mode from
-thumb mode you have to use bx (or blx).  the bl 0x8010 will start
+thumb mode you have to use bx (or blx).  The bl 0x8010 will start
 executing the code at 0x8010 as if it were thumb instructions, and
 you might get lucky in this case and survive long enogh to run
 into the thumbstart code which in this case puts you right back into
@@ -2630,7 +2640,7 @@ and will cause an undefined instruction exception which if you bothered
 to make an exception handler for you might start to see why the
 code doesnt work.
 
-it was very easy to fall into this trap, and very very hard to find
+It was very easy to fall into this trap, and very very hard to find
 out where and why the failure is until you have lived the pain or been
 shown where to look.  Even with me showing you where to look you may
 still end up spending hours or days on this.  But as you do know
