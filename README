@@ -19,6 +19,7 @@ Raspberry Pi B+
 Raspberry Pi Zero
 Cortex-A7 based (BCM2836)
 Raspberry Pi 2 B
+Raspberry Pi 3 B
 
 There is also the compute module but I dont have one of those.
 
@@ -31,7 +32,9 @@ clocked the processor from 750MHz to 1000MHz, one led on gpio 16.  The
 A+ and B+ they moved the led (or put two) on gpio 35 and 47.  The
 raspberry pi 2 is B+ like but with the different chip, supposedly the
 BCM2836 is  BCM2835 with the ARM11 core removed and replaced with
-the Cortex A7 and for the most part it appears to be.
+the Cortex A7 and for the most part it appears to be.  The raspberry
+pi 3 is Cortex A8 based, 64 bit.  And they moved the LED (the leds)
+to an i2c gpio expander.
 
 As of this writing I am adding plus and pi2 versions of the examples
 as many of them are based on the early/original.  No guarantees I will
@@ -42,6 +45,10 @@ three with ifdefs and such, keep it simple stupid then complicate it
 as needed.  The text may say kernel.img but substitute with kernel7.img
 as needed.
 
+I still have a number of raspberry pi 2 examples to port, and now a
+bunch of examples to port to the raspberry pi 3.  The raspberry pi 3
+as of this writing, without a config.txt, is switched to 32 bit
+compatibility mode.  See the aarch64 directory for 64 bit ARM examples.
 
 From what we know so far there is a gpu on chip which:
 
@@ -176,7 +183,7 @@ takes a bigger sd card to use, and takes forever to write to the sd card.
 I use the firmware from http://github.com/raspberrypi.  The minimum
 configuration you need to get started at this level is:
 
-go to http://github.com/raspberrypi, you DO NOT need to download
+go to https://github.com/raspberrypi, you DO NOT need to download
 the repo, they have some large files in there you will not need (for
 my examples).  go to the firmware directory and then the boot directory.
 For each of these files, bootcode.bin and start.elf (NOT kernel.img,
