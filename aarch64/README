@@ -29,3 +29,7 @@ cores in an infinite loop.
     cbz x0,master
     b .
 master:
+
+My build_gcc repository has a build_arm64 script that will build a
+gnu based toolchain that can be/was used to build these examples.
+
