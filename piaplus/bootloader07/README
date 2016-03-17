@@ -1,0 +1,50 @@
+
+See the top level README for information on where to find documentation
+for the raspberry pi and the ARM processor inside.  Also find information
+on how to load and run these programs.
+
+This example is for the pi A+, see other directories for other flavors
+of raspberry pi.
+
+This is a very simple bootloader.  Instead of the sd dance (see
+top level README), this makes life a bit simpler and greatly reduces
+physical wear and tear on the sd card socket.  Do the sd card dance one
+more time with this kernel.img.  Get some sort of serial solution to
+connect a dumb termial program with the ability to download raw/ascii
+files.
+
+bootloader01 was .hex based, this one is also .hex based but a
+different way to parse it.  bootloader02 through bootloader06
+expect binary files, a binary image of the memory starting at
+address 0x8000.  I intend to release bootloader08 at the same time
+and it will be .bin based but have the go feature.
+
+This bootloader07 parses intel hex formatted files.  Look that up at
+wikipedia, it is very simple and historically widely used for bare
+metal embedded work.  (S record is another format like intel hex but
+of course motorola had to have their own.  Intel hex and Motorola S-
+record).  I felt like doing another state machine and honestly had
+forgotten I did one before in bootloader01.  This bootloader does
+not make any of the others obsolete, it was just a fun exercise.
+
+The thing that annoyed me the most about my bootloader is that
+I use minicom and minicom spawns a separate program to do the file
+transfers, xmodem, ascii, kermit, etc, and there is a delay and
+a loss of data when the spawned program exits and minicom returns.
+The solution is that you hit the g key when you want the program
+to start so you are basically back in the terminal at that point.
+
+I normally do not deliver binaries.  In this case I have included all
+of the build files so that you can at least get started without having
+to build the bootloader.  Backup whatever kernel.img file you are using
+and replace with the kernel.img file in this repo (on your sd card) to
+use this program.
+
+There are a pair of holes on the board labelled RUN.  If you are able
+to solder or find other solutions (there are pins that can be pushed
+into holes like this), you can put a momentary switch that when closed
+will reset the board, and released allow it to boot again.  Then you
+can use this bootloader and simply press the button to try another
+program.
+
+
