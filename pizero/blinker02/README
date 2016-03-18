@@ -3,6 +3,9 @@ See the top level README for information on where to find documentation
 for the raspberry pi and the ARM processor inside.  Also find information
 on how to load and run these programs.
 
+This example is for the pi zero, see other directories for other flavors
+of raspberry pi.
+
 There is a free-running 64 bit timer, super easy to use, just read it.
 
 //0x01000000 17 seconds
