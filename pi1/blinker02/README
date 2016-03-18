@@ -1,0 +1,27 @@
+
+See the top level README for information on where to find documentation
+for the raspberry pi and the ARM processor inside.  Also find information
+on how to load and run these programs.
+
+This example is for the older pi1 boards, see other directories for
+other flavors of raspberry pi.
+
+There is a free-running 64 bit timer, super easy to use, just read it.
+
+//0x01000000 17 seconds
+//0x00400000 4 seconds
+//#define TIMER_BIT 0x01000000
+#define TIMER_BIT 0x00400000
+
+I think what they are doing is using a 1GHz clock for the ARM core
+(and GPU?) That is divided by 4 to get the 250MHz system clock (and
+or there is a 250MHz reference clock that is multiplied by 4).  Either
+way there is a 250MHz system clock, and my guess is this is divided by
+256 to get 977KHz.  0x01000000 ticks would be 17.18 seconds and I am
+using a watch with a second hand, so very plausible.
+
+Can change the TIMER_BIT to a different one to change the blink rate
+of the LED for example try:
+
+#define TIMER_BIT 0x00100000
+

@@ -1,0 +1,23 @@
+
+See the top level README for information on where to find documentation
+for the raspberry pi and the ARM processor inside.  Also find information
+on how to load and run these programs.
+
+These examples are for the older pi1 boards, the A, the B, the B rev 2.
+But not the A+ nor B+ there are other directories for that.
+
+The raspberry pi family is more similar than different, but I have
+decided it is easier to manage by grouping the examples by board type.
+
+My preferred way to run examples is to use my bootloader07 kernel.img on
+the board with an ftdi usb to uart board or cable.  I also solder a
+momentary pushbutton on the RUN pins, which is basically a board reset.
+There are ways to do this without soldering, pins you can push in rather
+than solder.
+
+Once the sd card is in with bootloader07, press reset, download the
+intel hex (.hex) version of the program I want to run. Press 'g' to go.
+Repeat as necessary.
+
+Or you can copy the blinker01.bin file to the kernel.img file on your
+sd card, replace the sd card and turn the power on.
