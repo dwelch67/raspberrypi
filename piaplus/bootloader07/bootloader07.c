@@ -30,6 +30,8 @@ extern unsigned int timer_tick ( void );
 extern void timer_init ( void );
 extern unsigned int timer_tick ( void );
 
+extern void leds_off ( void );
+
 //------------------------------------------------------------------------
 int notmain ( void )
 {
@@ -42,6 +44,7 @@ int notmain ( void )
     unsigned int sum;
     unsigned int ra;
 
+    leds_off();
     uart_init();
     hexstring(0x12345678);
     hexstring(GETPC());
