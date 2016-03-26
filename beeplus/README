@@ -1,7 +1,0 @@
-
-This directory is specific to the Raspberry Pi B+ board, which has
-changed a little from the A and B boards, first thing is the led has
-changed from GPIO16 to GPIO47.
-
-As of this writing the schematics are not available so will have to
-figure things out along the way...
