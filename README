@@ -1,4 +1,13 @@
 
+This repo is getting a bit messy starting with the first released to
+the public pi and then all that came after.  I want to rework it but
+it is going slowly.  Recently started creating directories pi1, piaplus
+and so on to target the examples specifically to the different cards.
+Again that is slow going.  Likewise this README will be rewritten perhaps
+but for now...
+
+--------------
+
 This repo serves as a collection of low level examples.  No operating
 system, embedded or low level embedded or deeply embedded or bare metal,
 whatever your term is for this.
@@ -19,6 +28,7 @@ Raspberry Pi B+
 Raspberry Pi Zero
 Cortex-A7 based (BCM2836)
 Raspberry Pi 2 B
+Cortex-A8 based
 Raspberry Pi 3 B
 
 There is also the compute module but I dont have one of those.
