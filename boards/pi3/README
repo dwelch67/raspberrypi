@@ -1,0 +1,33 @@
+
+See the top level README for information on where to find documentation
+for the raspberry pi and the ARM processor inside.  Also find information
+on how to load and run these programs.
+
+These examples are for the pi3, see other directories for other
+flavors of raspberry pi.  The raspberry pi family is more similar than
+different, but I have decided it is easier to manage by grouping the
+examples by board type.
+
+The pi3 is not only a different board but the Broadcom chip is different
+as well.  This time they cut out the Cortex A7 from the pi2 and replaced
+it with a Cortex A8 which is a quad core 64 bit ARM core.  Like the
+pi2 the peripherals are now found a base address of 0x3Fxxxxxx.
+
+The 64 bit ARM instruction set is a complete do-over, not binary
+compatible with their 32 bit instruction set.  But they do have a
+compatibility mode which runs the legacy 32 bit instruction set.  See
+the aarch32 directory for legacy 32 bit mode, and aarch64 for the
+64 bit mode.
+
+My preferred way to run examples is to use my bootloader07 kernel.img on
+the board with an ftdi usb to uart board or cable.  I also solder a
+momentary pushbutton on the RUN pins, which is basically a board reset.
+There are ways to do this without soldering, pins you can push in rather
+than solder.
+
+Once the sd card is in with bootloader07, press reset, download the
+intel hex (.hex) version of the program I want to run. Press 'g' to go.
+Repeat as necessary.
+
+Or you can copy the .bin file in an example to the kernel7.img file on
+your sd card, replace the sd card and turn the power on.
