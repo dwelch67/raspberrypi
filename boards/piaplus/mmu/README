@@ -1,0 +1,903 @@
+
+See the top level README for information on where to find documentation
+for the raspberry pi and the ARM processor inside.  Also find information
+on how to load and run these programs.
+
+This example is for the pi A+, see other directories for other flavors
+of raspberry pi.
+
+This example demonstrates ARM MMU basics.
+
+You will need the ARM ARM (ARM Architectural Reference Manual) for
+ARMv5.  I have a couple of pages included in this repo, but you still
+will need the ARM ARM.
+
+So what an MMU does or at least what an MMU does for us is it
+translates virtual addresses into physical addresses as well as
+checking access permissions, and gives us control over cachable
+regions.
+
+What does all of that mean?
+
+Well lets go back a little. If you are old enough to have a desktop
+computer then a CPU to you may not or may have meant the big box that
+you plugged the monitor, keyboard, and mouse into.  And that isnt
+all that incorrect.  But when we get into understanding things at
+this level, bare metal, we have to dig way deeper.
+
+I currently use processor core or ARM core or some such terms.  You
+have to separate the notion of the system and break it into smaller
+parts.  There is a processor core, that somehow magically gets our
+instructions, it executes them which means from time to time it does
+memory bus accesses to talk to the things that our instructions have
+told it to do.  We the programmer know the addresses for things the
+processor is very stupid in that respect, it knows basically nothing.
+
+Now the processor has a bus (or busses sometimes), a bunch of signals,
+address, data in, data out, and control signals to indicate reads from
+writes and so on.  That bus is for this discussion is connected to the
+mmu, and there is a similar if not identical one on the other side,
+but everything we want to say to the outside world we say through
+the mmu.  When the mmu is not doing its thing, it just passes those
+requests right on through unmodified.   This example has to do with
+what happens when you enable the mmu.
+
+So for this discussion lets say the processor side of the mmu addresses
+are called virtual addresses and the world side (memory, perpherals
+(uart, gpio, etc), and almost everything else) are physical addresses.
+One job of the mmu is to translate from virtual to physical.
+
+You may have used tools in your toolchain other than the compiler and
+may have realized that programs you compile to run on top of the
+operating system you use on your computer are all compiled to run at
+the same address.  How is that possible and have them run "at the same
+time"?  Well the reality is that none of them are running at that
+address.  You might have two programs both compiled to run at address
+0x8000, but the reality is thanks to the mmu and the operating system
+managing resources, program A may actually be running at 0x10008000 and
+program B at 0x20008000, no conflict at all.  When program A accesses
+what it thinks is address 0xABCDE it is really talking 0x100ABCDE,
+likewise if program B accesses 0xABCDE it is really 0x200ABCDE.
+The 0x8000 or 0xABCDE addresses are virtual, that is what the program
+thinks it is talking to, the 0x10008000 or 0x20008000 addresses are
+physical, that is what we are really talking to or at least that is
+what the MMU thinks it is talking to <grin>.  We already know by this
+point that there is another magic address translation in the raspberry
+pi.  The Broadcom documents talk about peripherals being at some address
+0x7Fxxxxxx, but depending on which pi we have we have to access 0x20xxxxxx
+or 0x3Fxxxxxx from the ARMs perspective.  And that is not atypical but
+also not as obvious.  Take any of the peripherals for example we may
+have to have some 0x20ABCDEF address for something but when we push
+down into the logic of that peripheral many of those address bits
+go away and we may be left with 0xEF or 0xF or 0x3, no reason to carry
+about extra address bits in the logic if you only have a few registers.
+
+So for this discussion the processor and our programs operate using
+virtual addresses.  The mmu turns those into physical addresses.  When
+the mmu is disabled then physical = virtual.  And when it is on there
+is no reason we cannot make physical = virtual if we want, and we will
+for most of this.  Not making an operating system here just
+demonstrating some basics.
+
+Checking access permissions, what does that mean.  Well remember our
+two programs one at 0x10008000 and the other at 0x20008000.  Well if
+one program is smart enough what is to keep it from accessing the
+other programs memory?  Let us start with thinking single core
+processors which the ARM11 on this chip is.  We now live in a world
+where even our phones have 4 or 8 processor cores working together.
+The idea translates from single to multiple.  With any one of these
+single cores, the operating system gives each program a little slice
+of time.  Then usually an interrupt happens either based on time or
+based on some other event and the operating system says it is time
+for someone else to use the processor for a while.  The operating
+system has to do a little mmu swizzling to say switch 0x8000 to point
+at 0x10008000 instead of 0x20008000, but it also changes the virtual
+id (or whatever term your processor uses) for the code it is about to
+allow to run (remember the operating system is code itself and runs
+in an address space with permissions as well).  The mmu tables not
+only operate on converting virtual addresses to physical but they
+also are or can be set to allow or dis-allow virtual ids.  How exactly
+varies widely from one processor family to another, one mmu to another
+(ARM vs x86, vs mips, etc).  But if you want to have a computer that
+is not trivial to hack by having one program run around where it isnt
+supposed to you have to have this layer of protection.  And we will
+see that, initially we will just allow everyone or at least us full
+access.
+
+Control over cachable regions.  That gets into what is a cache in this
+context.  Well memory is expensive, it takes a lot of transistors, we
+have two basic volatile types SRAM and DRAM.  SRAM when you set one
+bit to a value a one or a zero, so long as the power stays on it
+remembers that value.  DRAM is more like a rechargeable battery, it
+drains over time, if you want it to remember a zero, no problem (just
+run with this simplification if you actually know how they work) if
+you want it to remember a one though, you have to keep reminding it
+that it is a one by charging it back up, if you forget to charge it
+back up it will drain to a zero.  We dont actually have to do this
+there is logic that does this refresh for us.  But...SRAM takes twice
+as many transistors per bit than DRAM, so that right there makes it
+more expensive, also the speed of the memory drives up the prices
+in crazy ways as well.  You may think that the DRAM in your computer
+is 1 or 2000Mhz, but it is really much much slower, they are just
+playing parallel games to allow the bus to be that fast.  So what
+does this have to do with caches?  Well the state of the world today
+is we have gobs of relatively slow DRAM.  And programs tend to do
+a couple of things.  First off obviously programs run sequentially
+you run one instruction after another until you hit a branch, so
+if you had a way to read a head a little bit of the code you are running
+you would have to wait so long for that slow memory.  Another thing
+that we/programs do with data other than instrucitons, is we tend
+to re-use a variable for some period of time.  We re-use the same
+memory address for a while then go onto somewhere else and maybe come
+back and mabye not.
+
+So the state of the world is gobs of slow DRAM then we put one or more
+layers of caches in front made of faster SRAM but because of the cost
+of SRAM they are relatively small but still big enough to store some
+instructions and some data that we are actively using.  Just like the
+MMU, these caches are inline between us and the rest of the world.
+Whenever we perform a read with the cache enabled the cache will see
+if it has a copy of our data, if so that is a hit and it returns its
+copy of our data.  If it is a miss then it will go get our data plus
+some more data after or around our data just in case we are sequentially
+working through some memory or accessing various portions of a struct,
+etc (or are executing code linearly before hitting a branch).  Now the
+cache knows what copies of things it has, and it is very limited in
+size relative to the address space.  So obviously it is going to run
+out of space.  So before it can go get the thing we are asking for, it
+has to make room by evicting something it has.  Before going into that
+understand that when we write the cache looks at that as well, sometimes
+a write to something causes the cache to go get a copy of that area of
+memory and sometimes only reads cause the cache to make a copy.  But
+either way if the cache has a copy of that thing in the cache, it will
+complete that write by writing to the caches copy, now the cache has a
+copy that is newer and different than the outside world.  So now we
+have this situation where the cache needs to make room by evicting
+somebody.  Caches are designed by different people and they dont all
+use the same logic to make this decision, some keep track of the oldest
+stuff, some keep track of the oldest stuff, some just use a randomizer
+and the unlucky data gets evicted.  The cache knows if the data it has
+a copy of has been written to, meaning that its copy is the fresh copy
+with new data and the copy out in the world is stale/old and must be
+updated before we free up that portion of the cache.  If there have
+been no modifications then we really dont have to write that data out,
+buf if there are we do.  Now we have a hole, can read the data from
+the world and return the one thing the processor asked for.
+
+Am I ever going to get to the point about control over cachable regions?
+We understand that the cache keeps a copy of stuff we read so that
+if we read it or something right next to it we dont have to go out to
+slow memory.  We get an answer for those second and third reads much
+faster hoping that overall the one long read of extra data at a slow
+speed is balanced by several reads that take very little time to make
+it overall faster.  But what if the address we are reading is the
+status of something?  It is an address that is managed by maybe us
+but also by someone (logic or program) else too?  Like the uart status
+that tells us there is room to send another character?  If we read
+the uart status, and the cache reads the uart status one time and keeps
+a copy (that says the uart is busy) in the cache, and so long as that
+doesnt get evicted every time we read that status we get the copy that
+says the uart is busy, possibly forever.  Well that wont work.  This
+is cache coherence, and has to do with more than one owner of a resource
+that is on the far side of one or more caches.  In the case of the
+uart that other resource is the uart logic itself.  But in the case
+of multiple processors (the arm and the gpu, or in multi-core systems
+one core and another).  So we as the manager of the mmu need to be able
+to specify whether a region that we map can be cached or not.  There
+are signals on the bus on the world side of the mmu that runs into
+the processor/mmu side of the cache that tell the cache if a particular
+access is cacheable.  Only the ones marked cacheable go through all
+of that rambling above, ones marked as not cacheable pass on through
+essentially.
+
+And one last cache comment before moving into real stuff.  Instruction
+vs data.  When the processor needs to fetch more instructions to
+execute it knows those reads are instruction fetches.  Likewise when
+our program tells the processor to do a read, the processor knows those
+are data reads.  Instruction fetches are always reads, and if we assume
+no self modifying code, then the copy in the cache always matches
+the copy out in the world.  So we dont have to have an mmu to help
+us isolate regions for purposes of cache coherncy with respect to
+instruction fetches.  The problem comes with data reads and writes.
+So we often have separate instruction cache controls and data cache
+controls in the mmu and perhaps in the L1 cache as it can sometimes
+treat the two separately.  Here again caches and mmus vary from one
+architecture to another (ARM, x86, MIPS, etc).  So we can actually
+turn on instruciton caching without the mmu and hope for a performance
+improvement.  But we cannot in general turn on a data cache and not
+have cache coherency problems with our peripherals, so we need the
+mmu for that.  Some designs, some microcontrollers for example, will
+be designed such that memory is below some address, and peripherals
+and will only cache data accesses below that line, preventing the need
+for an MMU for that reason, and being a microcontroller we dont need
+the mmu for the other reasons either.
+
+As with all baremetal programming, wading through documentation is
+the bulk of the job.  Definitely true here, with the unfortunate
+problem that ARM's docs dont all look the same from one Archtectural
+Reference Manual to an other.  We have this other problem that we
+are techically using an ARMv6 (architecture version 6)(for the raspi 1)
+but when you go to ARM's website there is an ARMv5 and then ARMv7 and
+ARMv8, but no ARMv6.  Well the ARMv5 manual is actually the original
+ARM ARM, that I assume they realized couldnt maintain all the
+architecture variations forever in one document, so they perhaps
+wisely went to one ARM ARM per rev.  With respect to the MMU, the ARMv5
+reference manual covers the ARMv4 (I didnt know there was an mmu option
+there) ARMv5 and ARMv6, and there is a mode such that you can have the
+same code/tables and it works on all three, meaning you dont have to
+if-then-else your code based on whatever architecture you find.  This
+raspi 1 example is based on subpages enabled which is this legacy or
+compatibility mode across the three.
+
+I am mostly using the ARMv5 Architectural Reference Manual.
+ARM DDI0100I.
+
+It should be obvious that we cannot translate ANY virtual address into
+ANY physical address 0x12345678 into 0xAABBCCDD for example.  Why not?
+Well there are 32 bits, so 4GigaAddresses if it were possible to map
+every one of those to any arbitrary other 32 bit address we would need
+a 4 GigaWord table or 16 Gigabytes.  First off how would we access
+those 16 Gigabytes which is more than we can access on this system and
+then have other memory that those translate for also on this system.
+It just doesnt fit.  So obviously we have to reduce the problem and
+how you do that is you only modify the top address bits and leave the
+lower ones the same between virtual and physical.  How many upper
+bits gets into the design of the mmu and a balancing game of how
+many different things do we want to map.  If we were to only take
+the top 4 bits we could re-map 1/16th of the address space, that would
+make for a pretty small table to look up the translation, but would
+that make any sense?  You couldnt even have 16 different programs
+unless you had ram in each of those areas which certainly on the
+raspberry pi we dont.  All the ram we have is in the lower 16th.
+And we know we cant translate every address to every address so we
+have to find some middle ground.  ARM or at least in this legacy mode
+initially divides the world up into 1MB sections.  32 bit address space
+1MB is 20 bits, 32-20 is 12, or 4096 possible combinations.  To support
+1MB pages we would need an mmu table with 4096 entries.  That is
+managable.  But maybe there are times when we need to divide one or
+more of those 1MB sections up into smaller parts.  And they allow for
+that.  We will also look at what they call a small page which is in
+units of 4096 bytes.
+
+ARM uses the term Virtual Memory System Architecture or VMSA and
+they say things like VMSAv6 to talk about the ARMv6 VMSA.  There
+is a section in the ARM ARM titled Virtual Memory System Architecture.
+In there we see the coprocessor registers, specifically CP15 register
+2 is the translation table base register.
+
+So the ARMv5 ARM ARM (ARM Architectural Reference Manual) is what
+we need now.  See the top level README for finding this document,
+I have included a few pages in the form of postscript, any decent pdf
+viewer should be able to handle these files.  Before the pictures
+though, the section in quesiton is titled Virtual Memory System
+Architecture.  In the CP15 subsection register 2 is the the translation
+table base register.  There are three opcodes which give us access to
+three things, TTBR0, TTBR1 and the control register.
+
+First we read this comment
+
+If N = 0 always use TTBR0. When N = 0 (the reset case), the translation
+table base is backwards compatible with earlier versions of the
+architecture.
+
+That is the one we want, we will leave that as N = 0 and not touch it
+and use TTBR0
+
+Now what the TTBR0 description initially is telling me that bit 31
+down to 14-n or 14 in our case since n = 0 is the base address, in
+PHYSICAL address space.  Note the mmu cannot possibly go through the
+mmu to figure out how to go through the mmu, the mmu itself only
+operates on physical space and has direct access to it.  In a second
+we are going to see that we need the base address for the mmu table
+to be aligned to 16384 bytes (when n=0).  (2 to the power 14, the
+lower 14 bits of our TLB base address needs to be all zeros).
+
+We write that register using
+
+    mcr p15,0,r0,c2,c0,0 ;@ tlb base
+
+TLB = Translation Lookaside Buffer.  As far as we are concerned think
+of it as an array of 32 bit integers, each integer (descriptor) being
+used to completely or partially convert from virtual to physical and
+describe permissions and caching.
+
+My example is going to have a define called MMUTABLEBASE which will
+be where we start our TLB table.
+
+Here is the reality of the world.  Some folks struggle with bit
+manipulation, orring and anding and shifting and such, some dont.  The
+MMU is logic so it operates on these tables in the way that logic would,
+meaning from a programmers perspective it is a lot of bit manipulation
+but otherwise is relatively simple to something a program could do.  As
+programmers we need to know how the logic uses portions of the virtual
+address to look into this descriptor table or TLB, and then extracts
+from those bits the next thing it needs to do.  We have to know this so
+that for a particular virtual address we can place the descriptor we
+want in the place where the hardware is going to find it.  So we need
+a few lines of code plus some basic understanding of what is going on.
+Just like bit manipulation causes some folks to struggle, reading
+a chapter like this mmu chapter is equally daunting.  It is nice to
+have someone hold your hand through it.  Hopefully I am doing more
+good than bad in that respect.
+
+There is a file, section_translation.ps in this repo, you should be
+able to use a pdf viewer to open this file.  The figure on the
+second page shows just the address translation from virtual to physical
+for a 1MB section.  This picture uses X instead of N, we are using an
+N = 0 so that means X = 0.   The translation table base at the top
+of the diagram is our MMUTABLEBASE, the address in physical space
+of the beginning of our first level TLB or descriptor table.  The
+first thing we need to do is find the table entry for the virtual
+address in question (the Modified virtual address in this diagram,
+as far as we are concerned it is unmodified it is the virtual
+address we intend to use).  The first thing we see is the lower
+14 bits of the translation table base are SBZ = should be zero.
+Basically we need to have the translation table base aligned on a
+16Kbyte boundary (2 to the 14th is 16K).  It would not make sense
+to use all zeros as the translation table base, we have our reset
+and interrupt vectors at and near address zero in the arms address
+space so the first sane address would be 0x00004000.  The first
+level descriptor is based on the top 12 bits of the virtual address
+or 4096 entries, that is 16KBytes (not a coincidence), 0x4000 + 0x4000
+is 0x8000, where our arm programs entry point is, so we have space
+there if we want to use it.  But any address with the lower 14 bits
+being zero will work so long as you have enough memory at that address
+and you are not clobbering anything else that is using that memory
+space.
+
+So what this picture is showing us is that we take the top 12 bits
+of the virtual address, multiply by 4 or shift left 2, and add that
+to the translation table base, this gives the address for the first
+level descriptor for that virtual address.  The diagram shows the
+first level fetch which returns a 32 bit value that we have placed
+in the table.  We have to place a descriptor there that tells the
+mmu to do what we want.  If the lower 2 bits of that first level
+descriptor are 0b10 then this is a 1MB Section.  If a 1MB section
+then the top 12 bits of the first level descriptor replace the top
+12 bits of the virtual address to convert it into a physical address.
+Understand here first and foremost so long as we do the N = 0 thing,
+the first level descriptor or the first thing the mmu does is look at
+the top 12 bits of the virtual address, always.  If the lower two bits
+of the first level descriptor are not 0b10 then we get into
+a second level descriptor and more virtual bits come into play, but
+for now if we start by learning just 1MB sections, the conversion
+from virtual to physical only cares about the top 12 bits of the
+address.  So for 1MB sections we dont have to concentrate on every
+actual address we are going to access we only need to think about
+the 1MB aligned ranges.  The uart for example on the raspi 1 has
+a number of registers that start with 0x202150xx, if we use a 1MB
+section for those we only care about the 0x202xxxxx part of the
+address.  To not have to change our code we would want to have
+the virtual = physical for that and mark it as not cacheable.
+
+So if my MMUTABLEBASE was 0x00004000 and I had a virtual address of
+0x12345678 then the hardware is going to take the top 12 bits of that
+address 0x123, multiply by 4 and add that to the MMUTABLEBASE.
+0x4000+(0x123<<2) = 0x0000448C.  And that is the address the mmu is
+going to use for the first-level lookup.  Ignoring the other bits in
+the descriptor for now, if the first-level descriptor has the value
+0xABC00002, the lower two bits are 0x10, a 1MB section, so the top
+12 bits replace the virtual addresses top 12 bits and our 0x12345678
+is converted to the physical address 0xABC45678.
+
+Now they have this optional thing called a supersection which is a 16MB
+sized thing rather than 1MB and one might think that that would make
+life easier, right?  Wrong.  No matter what, assuming the N = 0 thing
+the first level descriptor is found using the top 12 bits of the
+virtual address, so in order to do some 16MB thing you need 16 entries
+one for each of the possible 1MB sections.  If you are already
+generating 16 descriptors anyway, you might as well just make them 1MB
+sections, you can read up on the differences between super sections and
+sections and try them if you want.  For what I am doing here dont need
+them, just wanted to point out you still need 16 entries per super
+section.
+
+Hopefully I have not lost you yet with this address manipulation,
+and maybe you are one step ahead of me, yes EVERY fetch, load or store
+with the mmu enabled requires at least one mmu table lookup, the mmu
+when it accesses this memory does not go through itself, but EVERY
+other fetch and load and store.  Which does have a performance hit,
+they do have a bit of a cache in the mmu to store the last so many tlb
+lookups.  That helps, but you cannot avoid the mmu having to do the
+conversion on every address.
+
+In the ARM ARM I am looking at the subsection on first-level
+descriptors has a table:
+
+Table B4-1 First-level descriptor format (VMSAv6, subpages enabled)
+
+What this is telling us is that if the first-level descriptor, the
+32 bit number we place in the right place in the TLB, has the lower
+two bits 0b10 then that entry defines a 1MB section and the mmu can get
+everything it needs from that first level descriptor.  But if the
+lower two bits are 0b01 then this is a coarse page table entry and
+we have to go to a second level descriptor to complete the
+conversion from virtual to physical.  Not every address will need
+this only the address ranges we want to be more coarsely divided than
+1MB.  Or the other way of saying it is of we want to control an
+address range in chunks smaller than 1MB then we need to use pages
+not sections.  You can certainly use pages for the whole world, but
+if you do the math, 4096Byte pages would mean your mmu table needs
+to be 4MB+16K worst case.  And you have to do more work to set that
+all up.
+
+The coarse_translation.ps file I have included in this repo starts
+off the same way as a section, it has to, the logic doesnt know what
+you want until it sees the first level descriptor.  If it sees a
+0b01 as the lower 2 bits of the first level descriptor then this is
+a coarse page table entry and it needs to do a second level fetch.
+The second level fetch does not use the mmu tlb table base address
+bits 31:10 of the second level address plus bits 19:12 of the
+virtual address (times 4) are where the second level descriptor lives.
+Note that is 8 more bits so the section is divided into 256 parts, this
+page table address is similar to the mmu table address, but it needs
+to be aligned on a 1K boundry (lower 10 bits zeros) and can be worst
+case 1KBytes in size.
+
+The second level descriptor format defined in the ARM ARM (small pages
+are most interesting here, subpages enabled) is a little different
+than a first level section, we had a domain in the first level
+descriptor to get here, but now have direct access to four sets of
+AP bits you/I would have to read more to know what the difference
+is between the domain defined AP and these additional four, for now
+I dont care this is bare metal, set them to full access (0b11) and
+move on (see below about domain and ap bits).
+
+So lets take the virtual address 0x12345678 and the MMUTABLEBASE of
+0x4000 again.  The first level descriptor address is the top three
+bits of the virtual address 0x123, times 4, added to the MMUTABLEBASE
+0x448C.  But this time when we look it up we find a value in the
+table that has the lower two bits being 0b01.  Just to be crazy lets
+say that descriptor was 0xABCDE001  (ignoring the domain and other
+bits just talking address right now).  That means we take 0xABCDE000
+the picture shows bits 19:12 (0x45) of the virtual address (0x12345678)
+so the address to the second level descriptor in this crazy case is
+0xABCDE000+(0x45<<2) = 0xABCDE114  why is that crazy?  because I
+chose an address where we in theory dont have ram on the raspberry pi
+maybe a mirrored address space, but a sane address would have been
+somewhere close to the MMUTABLEBASE so we can keep the whole of the
+mmu tables in a confined area.  Used this address simply for
+demonstration purposes not based on a workable solution.
+
+The "other" bits in the descriptors are the domain, the TEX bits,
+the C and B bits, domain and AP.
+
+The C bit is the simplest one to start with that means Cacheable.  For
+peripherals we absolutely dont want them to be cached.  For ram, maybe.
+
+The b bit, means bufferable, as in write buffer.  Something you may
+not have heard about or thought about ever.  It is kind of like a cache
+on the write end of things instead of read end.   I digress, when
+a processor writes something everything is known, the address and
+data.  So just like when you give a letter to the post(wo)man as
+far as you are concerned you are done, you dont need to wait for it
+to actually make it all the way to its destination.  You can go on with
+your day.  Likewise if you have 10 letters to send, if you keep going
+with this though you could fill up the mail truck then you would have
+to wait for another and then you could go on with your day.  A write
+buffer is the same deal.  For reads we have to wait for an answer so it
+doesnt work the same way but writes we have this option.  Why not use
+it all the time?  Well we dont have control over it, the writes happen
+at some unknown to us time in the future, we can possibly get into a
+cache coherency like problem of assuming something was written when
+it wasnt.
+
+Now the TEX bits you just have to look up and there is the rub, there
+are likely more than one set of tables for TEX C and B, I am going
+to stick with a TEX of 0b000 and not mess with any fancy features
+there.  Now depending on whether this is considered an older arm
+(ARMv5) or an ARMv6 or newer the combination of TEX, C and B have
+some subtle differences.  The cache bit in particular does enable
+or disable this space as cacheable.  That simply asserts bits on
+the AMDA/AXI (memory) bus that marks the transaction as cacheable,
+you still need a cache and need it setup and enabled for the
+transaction to actually get cached.  If you dont have the cache for
+that transaction type enabled then it just does a normal memory (or
+peripheral) operation.  So we set TEX to zeros to keep it out of the
+way.
+
+Lastly the domain and AP bits.  Now you will see a 4 bit domain thing
+and a 2 bit domain thing.  These are related.  There is a register in
+the MMU right next to the translation table base address register this
+one is a 32 bit register that contains 16 different domain definitions.
+
+The two bit domain controls are defined as such (these are AP bits)
+
+0b00 No access Any access generates a domain fault
+0b01 Client Accesses are checked against the access permission bits in the TLB entry
+0b10 Reserved Using this value has UNPREDICTABLE results
+0b11 Manager Accesses are not checked against the access permission bits in the TLB
+entry, so a permission fault cannot be generated
+
+For starters we are going to set all of the domains to 0b11 dont check
+cant fault.  What are these 16 domains though?  Notice it takes 4 bits
+to describe one of 16 things.  The different domains have no specific
+meaning other than that we can have 16 different definitions that we
+control for whatever reason.  You might allow for 16 different
+threads running at once in your operating system, or 16 different
+types of software running (kernel, application, ...) you can mark
+a bunch of sections as belonging to one parituclar domain, and with a
+simple change to that domain control register, a whole domain might
+go from one type of permission to another, from no checking to
+no access for example.  By just writing this domain register you can
+quickly change what address spaces have permission and which ones dont
+without necessarily changing the mmu table.
+
+Since I usually use the MMU in bare metal to enable data caching on ram
+I set my domain controls to 0b11, no checking and I simply make all
+the MMU sections domain number 0.
+
+So we end up with this simple function that allows us to add first level
+descriptors in the MMU translation table.
+
+unsigned int mmu_section ( unsigned int vadd, unsigned int padd, unsigned int flags )
+{
+    unsigned int ra;
+    unsigned int rb;
+    unsigned int rc;
+
+    ra=vadd>>20;
+    rb=MMUTABLEBASE|(ra<<2);
+    ra=padd>>20;
+    rc=(ra<<20)|flags|2;
+    PUT32(rb,rc);
+    return(0);
+}
+
+So what you have to do to turn on the MMU is to first figure out all
+the memory you are going to access, and make sure you have entries
+for that.  This is important, if you forget something, and dont have
+a valid entry there, then you fault, your fault handler, if you have
+chosen to write one, and it may also fault.
+
+So the smallest amount of ram on a raspi is 256MB or 0x10000000 bytes.
+
+Our program enters at address 0x8000, so that is within the first
+section 0x000xxxxx so we should make that section cacheable and
+bufferable.
+
+    mmu_section(0x00000000,0x00000000,0x0000|8|4);
+
+This is saying map the virtual 0x000xxxxx to the physical 0x000xxxxx
+enable the cache and write buffer. 0x8 is the C bit and 0x4 is the B
+bit.  tex, domain, etc are zeros.
+
+If we want to use all 256mb we would need to do this for all the
+sections from 0x000xxxxx to 0x100xxxxx.  Actually I changed the code
+and the first thing it does is map everything virtual = physical with
+no caching.
+
+We know that for the pi1 the peripherals, uart and such are in ARM
+physical space at 0x20xxxxxx.  So we either need 16 1MB section sized
+entries to cover that whole range or we look at specific sections for
+specific things we care to talk to and just add those.  The uart and
+the gpio it is associated with is in the 0x202xxxxx space.  There are
+a couple of timers in the 0x200xxxxx space so one entry can cover those.
+
+if we didnt want to allow those to be cached or write buffered then
+
+    mmu_section(0x20000000,0x20000000,0x0000); //NOT CACHED!
+    mmu_section(0x20200000,0x20200000,0x0000); //NOT CACHED!
+
+(yes we already did this when we had a loop map the whole world)
+
+Now you have to think on a system level here, there are a number
+of things in play.  We need to plan our memory space, where are we
+putting the MMU table, where are our peripherals, where is our program.
+
+If the only reason for using the mmu is to allow the use of the d cache
+then just map the whole world virtual = physical if you want with the
+peripherals not cached and the rest cached.
+
+So once our tables are setup then we need to actually turn the
+MMU on.  Now I cant figure out where I got this from, and I have
+modified it in this repo.  According to this manual it was with the
+ARMv6 that we got the DSB feature which says wait for either cache
+or MMU to finish something before continuing.  In particular when
+initializing a cache to start it up you want to clean out all the
+entries in a safe way you dont want to evict them and hose memory
+you want to invalidate everything, mark it such that the cache lines
+are empty/available by throwing away what was there, not saving it.
+Likewise that little bit of TLB caching the MMU has, we want to
+invalidate that too so we dont start up the mmu with entries in there
+that dont match our entries.
+
+Why are we invalidating the cache in mmu init code?  Because first we
+need the mmu to use the d cache (to protect the peripherals from
+being cached) and second the controls that enable the mmu are in the
+same register as the i and d controls so it made sense to do both
+mmu and cache stuff in one function.
+
+So after the DSB we set our domain control bits, now in this example
+I have done something different, 15 of the 16 domains have the 0b11
+setting which is dont fault on anything, manager mode.  I set domain
+1 such that it has no access, so in the example I will change one
+of the descriptor table entries to use domain one, then I will access
+it and then see the access violation.  I am also programming both
+translation table base addresses even though we are using the N = 0
+mode and only one is needed.  Depends on which manual you read I guess
+as to whether or not you see the N = 0 and the separate or shared
+i and d mmu tables.  (the reason for two registers is if you want your
+i and d address spaces to be managed separately).
+
+Understand I have been running on ARMv6 systems without the DSB and it
+just works, so maybe that was dumb luck...
+
+This code relies on the caller to pass in the MMU enable and I and D
+cache enables.  This is because this is derived from code where
+sometimes I turn things on or dont turn things on and wanted it
+generic.
+
+.globl start_MMU
+start_MMU:
+    mov r2,#0
+    mcr p15,0,r2,c7,c7,0 ;@ invalidate caches
+    mcr p15,0,r2,c8,c7,0 ;@ invalidate tlb
+    mcr p15,0,r2,c7,c10,4 ;@ DSB ??
+
+    mvn r2,#0
+    bic r2,#0xC
+    mcr p15,0,r2,c3,c0,0 ;@ domain
+
+    mcr p15,0,r0,c2,c0,0 ;@ tlb base
+    mcr p15,0,r0,c2,c0,1 ;@ tlb base
+
+    mrc p15,0,r2,c1,c0,0
+    orr r2,r2,r1
+    mcr p15,0,r2,c1,c0,0
+
+    bx lr
+
+I am going to mess with the translation tables after the MMU is started
+so the easiest way to deal with the TLB cache is to invalidate it, but
+dont need to mess with main L1 cache.  ARMv6 introduces a feature to
+help with this, but going with this solution.
+
+.globl invalidate_tlbs
+invalidate_tlbs:
+    mov r2,#0
+    mcr p15,0,r2,c8,c7,0  ;@ invalidate tlb
+    mcr p15,0,r2,c7,c10,4 ;@ DSB ??
+    bx lr
+
+Something to note here.  Debugging using the JTAG based on chip debugger
+makes life easier, that removing sd cards or the old days pulling an
+eeprom out and putting it it in an eraser then a programmer.  BUT,
+it is not completely without issue.  When and where and if you hit this
+depends heavily on the core you are using and the jtag tools and the
+commands you remember/prefer.  This is a basic cache coherency problem
+in a self modifying code kind of way.  When we use the jtag debugger
+to write instructions to memory the debugger uses the ARM bus and does
+a data write, which does not go through the instruction cache.  So if
+there is an instruction at address 0xD000 in the instruction cache when
+we stopped the ARM, and we write a new instruction from our new program
+to address 0xD000, when we start the ARM again if that 0xD000 doesnt
+get invalidated to make room for other instructions by the time we get
+to it, it will execute the old stale instrucion from one or more
+programs we ran in the past.  Randomly mixing instructions from
+different programs just doesnt work.  Again some of the debuggers and/or
+cores will disable caching when you use jtag, but some like this
+ARM11 may not, and this becomes a very real problem if you dont deal
+with it in some way (never I cache, never use the jtag debugger if
+using the I cache, see if your tools can disable the I cache before
+running the next program, etc).  You also have to be aware of if the
+I and D caches are shared, and if so does that help you or not.  Read
+your docs.
+
+So the example is going to start with the mmu off and write to
+addresses in four different 1MB address spaces.  So that later we
+can play with the section descriptors and demonstrate virtual to
+physical address conversion.
+
+So write some stuff and print it out on the uart.
+
+    PUT32(0x00045678,0x00045678);
+    PUT32(0x00145678,0x00145678);
+    PUT32(0x00245678,0x00245678);
+    PUT32(0x00345678,0x00345678);
+
+    hexstring(GET32(0x00045678));
+    hexstring(GET32(0x00145678));
+    hexstring(GET32(0x00245678));
+    hexstring(GET32(0x00345678));
+    uart_send(0x0D); uart_send(0x0A);
+
+then setup the mmu with at least those four sections and the peripherals
+
+    mmu_section(0x00000000,0x00000000,0x0000|8|4);
+    mmu_section(0x00100000,0x00100000,0x0000);
+    mmu_section(0x00200000,0x00200000,0x0000);
+    mmu_section(0x00300000,0x00300000,0x0000);
+    //peripherals
+    mmu_section(0x20000000,0x20000000,0x0000); //NOT CACHED!
+    mmu_section(0x20200000,0x20200000,0x0000); //NOT CACHED!
+
+actually the example now loops through the whole address space then
+does the two peripheral lines even though they are redundant.
+
+and start the mmu with the I and D caches enabled
+
+    start_mmu(MMUTABLEBASE,0x00000001|0x1000|0x0004);
+
+then if we read those four addresses again we get the same output
+as before since we maped virtual = physical.
+
+    hexstring(GET32(0x00045678));
+    hexstring(GET32(0x00145678));
+    hexstring(GET32(0x00245678));
+    hexstring(GET32(0x00345678));
+    uart_send(0x0D); uart_send(0x0A);
+
+but what if we swizzle things around.  make virtual 0x001xxxxx =
+physical 0x003xxxxx.  0x002 looks at 0x000 and 0x003 looks at 0x001
+(dont mess with the 0x00000000 section, that is where our program is
+running)
+
+    mmu_section(0x00100000,0x00300000,0x0000);
+    mmu_section(0x00200000,0x00000000,0x0000);
+    mmu_section(0x00300000,0x00100000,0x0000);
+
+and maybe we dont need to do this but do it anyway just in case
+
+    invalidate_tlbs();
+
+read them again.
+
+    hexstring(GET32(0x00045678));
+    hexstring(GET32(0x00145678));
+    hexstring(GET32(0x00245678));
+    hexstring(GET32(0x00345678));
+    uart_send(0x0D); uart_send(0x0A);
+
+the 0x000xxxxx entry was not modifed so we get 000045678 as the output
+but the 0x001xxxxx read is now coming from physical 0x003xxxxx so we
+get the 00345678 output, 0x002xxxxx comes from the 0x000xxxxx space
+so that read gives 00045678 and the 0x003xxxxx is mapped to 0x001xxxxx
+physical giving 00145678 as the output.
+
+So up to this point the output looks like this.
+
+DEADBEEF
+00045678
+00145678
+00245678
+00345678
+
+00045678
+00145678
+00245678
+00345678
+
+00045678
+00345678
+00045678
+00145678
+
+first blob is without the mmu enabled, second with the mmu but
+virtual = physical, third we use the mmu to show virtual != physical
+for some ranges.
+
+Now for some small pages, I made this function to help out, note that
+it sets up both the first and second level descriptor.
+
+unsigned int mmu_small ( unsigned int vadd, unsigned int padd, unsigned int flags, unsigned int mmubase )
+{
+    unsigned int ra;
+    unsigned int rb;
+    unsigned int rc;
+
+    ra=vadd>>20;
+    rb=MMUTABLEBASE|(ra<<2);
+    rc=(mmubase&0xFFFFFC00)/*|(domain<<5)*/|1;
+    //hexstrings(rb); hexstring(rc);
+    PUT32(rb,rc); //first level descriptor
+    ra=(vadd>>12)&0xFF;
+    rb=(mmubase&0xFFFFFC00)|(ra<<2);
+    rc=(padd&0xFFFFF000)|(0xFF0)|flags|2;
+    //hexstrings(rb); hexstring(rc);
+    PUT32(rb,rc); //second level descriptor
+    return(0);
+}
+
+So before turning on the mmu some physical addresses were written
+with some data.  The function takes the virtual, physical, flags and
+where you want the secondary table to be.  Remember secondary tables
+can be up to 1K in size and are aligned on a 1K boundary.
+
+    mmu_small(0x0AA45000,0x00145000,0,0x00000400);
+    mmu_small(0x0BB45000,0x00245000,0,0x00000800);
+    mmu_small(0x0CC45000,0x00345000,0,0x00000C00);
+    mmu_small(0x0DD45000,0x00345000,0,0x00001000);
+    mmu_small(0x0DD46000,0x00146000,0,0x00001000);
+    //put these back
+    mmu_section(0x00100000,0x00100000,0x0000);
+    mmu_section(0x00200000,0x00200000,0x0000);
+    mmu_section(0x00300000,0x00300000,0x0000);
+    invalidate_tlbs();
+
+Now why did I use different secondary table addresses most of the
+time but not all of the time?  All accesses go through the first level
+descriptor before determining if they need a second.  In order for
+two small page entries to work they have to have the same first level
+descriptor, and thus have to live in the same secondary table, so if
+you use this function with addresses whose top 12 bits match, their
+secondary table addresses have to match.  And unless you think through
+a safe way to do it, if the upper 12 bits dont match then just use a
+different secondary table address.
+
+If you were to do this instead
+
+    mmu_small(0x0DD45000,0x00345000,0,0x00001000);
+    mmu_small(0x0DD46000,0x00146000,0,0x00001400);
+
+That would be a bug, because the first line would have its secondary
+entry based on 0x1000, the second line would write the first level to
+point both of them at 0x1400, set its second level based on 0x1400 and
+now that first line's entry is not going to be used, it gets whatever
+it finds in the 0x1400 table.
+
+So this basically points some small pages at the memory we setup
+in the beginning.  Those last two small page entries demonstrating
+that we have separated from a section and now see small pages.
+
+The last example is just demonstrating an access violation.  Changing
+the domain to that one domain we did not set full access to
+
+    //access violation.
+
+    mmu_section(0x00100000,0x00100000,0x0020);
+    invalidate_tlbs();
+
+    hexstring(GET32(0x00045678));
+    hexstring(GET32(0x00145678));
+    hexstring(GET32(0x00245678));
+    hexstring(GET32(0x00345678));
+    uart_send(0x0D); uart_send(0x0A);
+
+The first 0x45678 read comes from that first level descriptor, with
+that domain
+
+00045678
+00000010
+
+How do I know what that means with that output.  Well from my blinker05
+example we touched on exceptions (interrupts).  I made a generic test
+fixture such that anything other than a reset prints something out
+and then hangs.   In no way shape or form is this a complete handler
+but what it does show is that it is the exception that is at address
+0x00000010 that gets hit which is data abort.  So figuring out it was
+a data abort (pretty much expected) have that then read the data fault
+status registers, being a data access we expect the data/combined one
+to show somthing and the instruction one to not.  Adding that
+instrumentation resulted in.
+
+00045678
+00000010
+00000019
+00000000
+00008110
+E5900000
+00145678
+
+Now I switched to the ARM1176JZF-S Technical Reference Manual for more
+detail and that shows the 0x01 was domain 1, the domain we used for
+that access. then the 0x9 means Domain Section Fault.
+
+The lr during the abort shows us the instruction, which you would need
+to disassemble to figure out the address, or at least that is one
+way to do it perhaps there is a status register for that.
+
+The instruction and the address match our expectations for this fault.
+
+This is simply a basic intro.  Just enough to be dangerous.  The MMU
+is one of the simplest peripherals to program so long as bit
+manipulation is not something that causes you to lose sleep.  What makes
+it hard is that if you mess up even one bit, or forget even one thing
+you can crash in spectacular ways (often silently without any way of
+knowing what happened).  Debugging can be hard at best.
+
+The ARM ARM indicates that the ARMv6 adds the feature of separating
+the I and D from an mmu perspective which is an interesting thought
+(see the jtag debugging comments, and think about how this can affect
+you re-loading a program into ram and running) you have enough ammo
+to try that.
