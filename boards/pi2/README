@@ -9,7 +9,7 @@ different, but I have decided it is easier to manage by grouping the
 examples by board type.
 
 The pi2 is not only a different board but the Broadcom chip is different
-as well. For the most part the cut out the ARM11 and replaced it with a
+as well. For the most part they cut out the ARM11 and replaced it with a
 Cortex A7.  Quad core.  The peripherals for the pi1 boards were in the
 ARM address space starting at 0x20xxxxxx, but to allow for more room
 to have more ram they moved the peripherals to 0x3Fxxxxxx.
