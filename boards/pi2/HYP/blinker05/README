@@ -1,0 +1,38 @@
+
+See the top level README for information on where to find documentation
+for the raspberry pi and the ARM processor inside.  Also find information
+on how to load and run these programs.
+
+This example is for the pi2, see other directories for other flavors
+of raspberry pi.
+
+Also note to make more room for ram the raspberry pi 2 uses a base
+address for peripherals of 0x3F000000 where the raspberry pi used
+0x20000000.
+
+Also note that for the raspberry pi 2 the arm file copied from the
+sd card to ram is kernel7.img  the older raspberry pis still use
+kernel.img.
+
+A new develoment late 2015 is that the raspberry pi start.elf code now
+puts the rpi 2 in HYP mode.  The two changes I needed to make were
+to set the HVBAR, might as well set it to 0x00008000 rather than copy
+the vector table to 0x00000000.  so the lines up front that copied
+the vector table are now replaced with remapping.
+
+    mov r0,#0x8000
+    MCR p15, 4, r0, c12, c0, 0
+
+The other change being you are supposed to return from hypervisor
+exceptions using the eret instruction.
+
+    ;@subs pc,lr,#4
+    eret
+
+For the purpose of this example my desire is to use the stock
+bootcode.bin and start.elf from the raspberry pi foundation, as well as
+running without a config.txt, so I have not gone backward to older
+files to see if there are any nuances or changes for the rpi2 with
+respect to exceptions (irq in this case).  My guess is if they leave
+you in supervisor mode instead of hypervisor mode, then it may work
+just like it used to.
