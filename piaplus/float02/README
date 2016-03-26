@@ -1,0 +1,17 @@
+
+See the top level README for information on where to find documentation
+for the raspberry pi and the ARM processor inside.  Also find information
+on how to load and run these programs.
+
+This example is for the pi A+, see other directories for other flavors
+of raspberry pi.
+
+Just having some fun.  Curious to know how the hardware fpu compared
+to TestFloat.  Extracted only the add function which is easy/boring
+and it looks good.  A NaN is not a fixed bit pattern so not surprising
+they dont match.  I guess I could have said if this is a nan and that
+is a nan then pass, instead I said if TestFloat says nan, continue;
+
+This was derived directly from a cortex-m4 example, both support the
+single precision instructions, didnt bother to change the function
+names from m4xxxx.
