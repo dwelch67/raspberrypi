@@ -26,3 +26,10 @@ Repeat as necessary.
 
 Or you can copy the blinker01.bin file to the kernel7.img file on your
 sd card, replace the sd card and turn the power on.
+
+In late 2015 the standard GPU bootloader would put the ARM in HYP mode
+on its way to running kernel7.img.  As of this writing that is still
+the case.  I now see how to switch back to SVC.  So there is a directory
+of examples for staying in HYP mode and a directory for switching
+to SVC mode.
+
