@@ -1,0 +1,129 @@
+
+See the top level README for information on where to find documentation
+for the raspberry pi and the ARM processor inside.  Also find information
+on how to load and run these programs.
+
+This example is for the pi2, see other directories for other flavors
+of raspberry pi.  This example switches back to SVC mode from HYP mode.
+
+This is an LED blinker example.
+
+The pi2 has two LEDs tied to gpios 35 and 47.
+
+Being the first example I will spend a little more time describing it.
+I have some other ramblings on baremetal and the gnu tools so I will
+try not to duplicate that.
+
+The primary use case for the raspberry pi is to run some version of
+linux.  The three main files to do that are bootloader.bin, start.elf
+and kernel.img.  The first two being GPU programs the last being ARM.
+If you have no other files (dont have a config.txt) they (starg.elf
+GPU code) copy the kernel.img file to 0x8000 in RAM, place some
+code at address 0x0000 that is intended to prepare the ARM for booting
+linux, then branch to 0x8000.  We simply replace the kernel.img file
+with our own program.  I prefer to not mess with config.txt stuff
+because it is not the primary use case, most pis out there do not use
+this, so without is significantly better tested.  Also over time the
+config.txt things you can play with come and go and change name, some
+of the popular ones are undocumented and so on.  So I really dont want
+to rely on that.  Simply replace the kernel.img and otherwise be stock.
+
+vectors.s is the entry point for this program, even an application on
+an operating system like linux has some assembly up front before
+calling the main function.  For this processor the minimum is to to
+set up the stack pointer and call the main function.  Because some
+compilers add extra stuff if they see a main() funtion I use some
+function name other than main() typically for embedded systems like this.
+I have adopted the habit of using notmain() both to not be named main()
+and to emphasize this is bare metal and not your average application.
+
+See my ramblings on .data and .bss, I dont need/use them so the
+bootstrap (little bit of assembly before calling the first C function)
+does not have to prepare those segments.  I only need to setup the
+stack and call the first C function in the project.
+
+I normally would set the stack pointer at the top of ram...Well that is
+a lie, normaly one would do such a thing, but with code like this that
+mostly ports across a number of boards, it becomes a pain keeping track
+of who has how much ram.  Instead for simple examples I set the stack
+somewhere where it doesnt collide with the code, but also I dont have to
+change every board.  Because I am using the 0x8000 entry point I can
+set the stack at 0x8000 and it will grow down toward 0x0000, and that
+is more than enough for these projects.  The way the ARM works it
+subtracts then writes stuff so the first thing on the stack will really
+be at 0x7FFC, you dont have to set it to 0x7FFC to avoid the code at
+0x8000.
+
+The gpio pin is setup as an output to drive the LED.  The blink rate
+appears to be around a couple-three times a second, but may vary based
+on your compiler and settings.  This program does not attempt to use
+any other peripherals (a timer) it relies on simply wasting time in a
+loop then changing the state of the LED.  If you were to use this line
+of code:
+
+for(ra=0;ra<0x1000;ra++) continue;
+
+The optimizer will replace that with this one assignment:
+
+ra = 0x1000;
+
+And actually since that value isnt used again, it is dead code the
+optimizer will likely remove that as well.
+
+One way to get around this is to make the loop variable volatile, this
+tells the compiler every time you use it grab it from and save it back
+to its home in ram.  I prefer a different approach.  I have a simple
+dummy function in assembly language, it simply returns.
+
+.globl dummy
+dummy:
+    bx lr
+
+The assembly is outside the visibility of the optimizer as would
+anything basically not in the same file (llvm is a little different it
+might "see" those other objects and optimize across them, gnu wont).
+
+So by having that external function and by passing the loop variable
+to it.
+
+for(ra=0;ra<0x1000;ra++) dummy(ra);
+
+We force the compiler to actually implement this code and run that loop
+that many times.  Dont need to declare the variable volatile.  If
+uncomfortable with assembly langauge you could create a dummy function
+in a separately compiled file
+
+void dummy ( void )
+{
+}
+
+Which produces the same code.
+
+00000000 <dummy>:
+   0:   e12fff1e    bx  lr
+
+Some toolchains have the ability to see across objects when they
+optimize so you still have to be careful.  I prefer the assembly approach
+to defeating the optimizer.
+
+So this program sets up the gpio to drive the LED.  Uses the loop to kill
+some time, changes state of the LED, repeat forever.  The blink rate
+will be the same for the same program.  But compiler differences and
+options can cause one build to be different from another in the blink
+rate.  It is not really deterministic, thus the desire to use timers in
+the examples that follow.  If you change the number the loop counts to
+and re-build with the same tools, you should see a change in the
+blink rate.
+
+Note the Broadcom documentation uses addresses 0x7Exxxxxx for the
+peripherals. That is we assume the GPU's address space to access those
+things.  The ARM window into that is to date either at 0x20xxxxxx or
+0x3Fxxxxxx depending on the specific broadcom chip for that board type
+the pi2 uses 0x3Fxxxxxx so when you see 0x7Exxxxxx replace that
+0x7E with 0x3F.
+
+I normally dont leave the compiled output in the repository, but you
+may need it to compare with your results to see why for example mine
+works and yours doesnt, so I will leave these here for this example.
+
+
