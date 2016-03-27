@@ -1,0 +1,4 @@
+
+will write more on this.  As of this time the GPU based bootstrap leaves
+the ARM in HYP mode when we get control at address 0x8000.  These
+examples leave the arm in that mode.

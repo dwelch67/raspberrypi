@@ -1,0 +1,16 @@
+
+See the top level README for information on where to find documentation
+for the raspberry pi and the ARM processor inside.  Also find information
+on how to load and run these programs.
+
+This example is for the pi2, see other directories for other flavors
+of raspberry pi.  This example switches back to SVC mode from HYP mode.
+
+This example uses the free running ARM timer, not the 64 bit system
+timer as in blinker02 but the so called ARM timer.  In free running mode
+which is a little different from blinker04 which uses the timer mode.
+
+The system clock appears to come up at 250MHz as documented.  Divide that
+by 250 to get 1Mhz on this free running ARM timer.  Then count to four
+million ticks between LED state changes and the led will change state
+every four seconds.  Count to 20 million, 20 seconds.
