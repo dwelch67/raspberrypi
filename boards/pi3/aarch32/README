@@ -1,1 +1,24 @@
-placeholder.  going to put 32 bit examples that run on the pi3 here.
+
+See the top level README for information on where to find documentation
+for the raspberry pi and the ARM processor inside.  Also find information
+on how to load and run these programs.
+
+These examples are for the pi3, see other directories for other
+flavors of raspberry pi.  The raspberry pi family is more similar than
+different, but I have decided it is easier to manage by grouping the
+examples by board type.
+
+The pi3 contains a cortex-a8 ARM core, which is 64 bit.  It also
+supports a legacy aarch32 mode which uses the traditional 32 bit
+instruction set.  This directory contains instructions for aarch32
+mode.
+
+The aarch64 examples for now have to use a config.txt file to stay
+in 64 bit mode.  These examples are like my normal examples where I
+do not use a config.txt file.  So if you have one and things dont work
+start by renaming it.
+
+As of this writing the standard GPU bootloader puts the ARM in HYP
+mode on its way to running kernel7.img. I now see how to switch back to
+SVC.  So there is a directory of examples for staying in HYP mode and a
+directory for switching to SVC mode.

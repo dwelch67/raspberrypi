@@ -1,0 +1,32 @@
+
+See the top level README for information on where to find documentation
+for the raspberry pi and the ARM processor inside.  Also find information
+on how to load and run these programs.
+
+These examples are for the pi3, see other directories for other
+flavors of raspberry pi.
+
+This directory is for aarch32 mode (dont use a config.txt) and switches
+from HYP back to SVC mode.
+
+I am going to run with this until it breaks.  The solution still doesnt
+work everywhere and way it should, so that is still a mystery.  Thanks
+to the folks at the raspberry pi bare metal forum and BSD and Linux and
+other sources that all use eret to change the spsr
+
+.globl _start
+_start:
+    ;@ b skip
+    mrs r0,cpsr
+    and r1,r0,#0x1F
+    cmp r1,#0x1A
+    bne skip
+    bic r0,r0,#0x1F
+    orr r0,r0,#0x13
+    msr spsr_cxsf,r0
+    add r0,pc,#4
+    msr ELR_hyp,r0 ;@ .word 0xe12ef300
+    eret           ;@ .word 0xe160006e
+
+So I cant access the VBAR or SCR or others yet so more work to be done.
+

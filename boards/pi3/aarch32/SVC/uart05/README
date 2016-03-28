@@ -1,0 +1,10 @@
+
+See the top level README for information on where to find documentation
+for the raspberry pi and the ARM processor inside.  Also find information
+on how to load and run these programs.
+
+This example is for the pi3, see other directories for other flavors
+of raspberry pi.  This example switches back to SVC mode from HYP mode.
+
+Derived from bootloader07.  This serves as a skeleton for bare metal
+programs using the uart.

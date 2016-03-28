@@ -1,0 +1,10 @@
+
+See the top level README for information on where to find documentation
+for the raspberry pi and the ARM processor inside.  Also find information
+on how to load and run these programs.
+
+These examples are for the pi3, see other directories for other
+flavors of raspberry pi.
+
+This directory is for aarch32 mode (dont use a config.txt) and leaves
+the ARM in HYP mode
