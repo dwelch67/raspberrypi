@@ -13,9 +13,10 @@ extern void PUT16 ( unsigned int, unsigned int );
 extern void PUT8 ( unsigned int, unsigned int );
 extern unsigned int GET32 ( unsigned int );
 extern unsigned int GETPC ( void );
+extern unsigned int GETCPSR ( void );
+extern unsigned int GETSCTLR ( void );
 extern void BRANCHTO ( unsigned int );
 extern void dummy ( unsigned int );
-extern unsigned int GETCPSR ( void );
 
 extern void uart_init ( void );
 extern unsigned int uart_lcr ( void );
@@ -50,6 +51,7 @@ int notmain ( void )
     hexstring(0x12345678);
     hexstring(GETPC());
     hexstring(GETCPSR());
+    hexstring(GETSCTLR());
 
     uart_send('I');
     uart_send('H');
@@ -148,11 +150,16 @@ int notmain ( void )
                     }
                     case 0x01:
                     {
+                        for(ra=0;ra<20;ra++)
                         hexstring(sum);
-                        state=0;
                         segment=0;
                         sum=0;
+                        data=0;
+                        record_type=0;
                         address=0;
+                        byte_count=0;
+
+                        state=0;
                         break;
                     }
                     case 0x02:

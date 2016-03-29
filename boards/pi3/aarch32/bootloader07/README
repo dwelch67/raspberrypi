@@ -3,9 +3,8 @@ See the top level README for information on where to find documentation
 for the raspberry pi and the ARM processor inside.  Also find information
 on how to load and run these programs.
 
-This example is for the pi3, see other directories for other flavors
-of raspberry pi.  I want to let the examples switch from HYP to SVC
-mode so this bootloader does not make a switch.
+This example is for the pi3 in aarch32 bit mode, see other directories
+for other flavors of raspberry pi.
 
 This is a very simple bootloader.  Instead of the sd dance (see
 top level README), this makes life a bit simpler and greatly reduces
@@ -48,4 +47,7 @@ will reset the board, and released allow it to boot again.  Then you
 can use this bootloader and simply press the button to try another
 program.
 
-
+Wow, forgot that the GPU planted bootstrap turns on the caches.  And
+I was seeing the cache coherency problems with doing that.  In theory
+I have that fixed, it invalidates I and D and branch prediction
+before launching the downloaded code.

@@ -17,6 +17,9 @@ extern void dummy ( unsigned int );
 extern unsigned int BRANCHTO ( unsigned int );
 
 extern unsigned int GETCPSR ( void );
+extern unsigned int GETVBAR ( void );
+extern unsigned int GETSCTLR ( void );
+extern unsigned int GETSCR ( void );
 
 extern void uart_init ( void );
 extern unsigned int uart_lcr ( void );
@@ -39,6 +42,11 @@ int notmain ( void )
     hexstring(0x12345678);
     hexstring(GETPC());
     hexstring(GETCPSR());
+    hexstring(GETVBAR());
+    hexstring(GETSCTLR());
+    hexstring(GETSCR()); //this one hangs if not in the right mode
+    hexstring(0x87654321);
+
     return(0);
 }
 //-------------------------------------------------------------------------

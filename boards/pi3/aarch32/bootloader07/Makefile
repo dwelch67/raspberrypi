@@ -31,3 +31,4 @@ kernel7.img : loader vectors.o periph.o bootloader07.o
 	$(ARMGNU)-objcopy bootloader07.elf -O ihex bootloader07.hex
 	$(ARMGNU)-objcopy bootloader07.elf -O binary kernel7.img
 
+

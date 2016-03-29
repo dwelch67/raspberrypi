@@ -138,24 +138,6 @@ unsigned int timer_tick ( void )
 //-------------------------------------------------------------------------
 void leds_off ( void )
 {
-#define GPFSEL3 0x3F20000C
-#define GPFSEL4 0x3F200010
-#define GPSET1  0x3F200020
-#define GPCLR1  0x3F20002C
-    unsigned int ra;
-
-    ra=GET32(GPFSEL4);
-    ra&=~(7<<21);
-    ra|=1<<21;
-    PUT32(GPFSEL4,ra);
-
-    ra=GET32(GPFSEL3);
-    ra&=~(7<<15);
-    ra|=1<<15;
-    PUT32(GPFSEL3,ra);
-
-    PUT32(GPCLR1,1<<(47-32));
-    PUT32(GPCLR1,1<<(35-32));
 }
 //-------------------------------------------------------------------------
 //-------------------------------------------------------------------------
