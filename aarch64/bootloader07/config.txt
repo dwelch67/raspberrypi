@@ -1,2 +1,0 @@
-arm_control=0x200
-kernel_old=1

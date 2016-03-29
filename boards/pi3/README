@@ -19,8 +19,8 @@ compatibility mode which runs the legacy 32 bit instruction set.  See
 the aarch32 directory for legacy 32 bit mode, and aarch64 for the
 64 bit mode.
 
-My preferred way to run examples is to use my bootloader07 kernel.img on
-the board with an ftdi usb to uart board or cable.  I also solder a
+My preferred way to run examples is to use my bootloader07 kernel7.img
+on the board with an ftdi usb to uart board or cable.  I also solder a
 momentary pushbutton on the RUN pins, which is basically a board reset.
 There are ways to do this without soldering, pins you can push in rather
 than solder.

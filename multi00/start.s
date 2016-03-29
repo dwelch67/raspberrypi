@@ -27,6 +27,12 @@ GETPC:
     mov r0,lr
     bx lr
 
+.globl showcpu0
+showcpu0:
+    mrc p15, 0, r0, c0, c0, 5
+    bx lr
+
+
 
 .globl start1
 start1:

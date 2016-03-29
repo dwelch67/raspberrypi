@@ -14,7 +14,7 @@ _start:
     ldr pc,fiq_handler
 reset_handler:      .word reset
 undefined_handler:  .word hang
-swi_handler:        .word hang
+swi_handler:        .word smc
 prefetch_handler:   .word hang
 data_handler:       .word hang
 hyp_handler:        .word hang
@@ -25,23 +25,48 @@ reset:
 
     ;@ b skip
     mrs r0,cpsr
-    and r1,r0,#0x1F
-    cmp r1,#0x1A
-    bne skip
     bic r0,r0,#0x1F
     orr r0,r0,#0x13
     msr spsr_cxsf,r0
     add r0,pc,#4
-    msr ELR_hyp,r0 ;@ .word 0xe12ef300
-    eret           ;@ .word 0xe160006e
+    msr ELR_hyp,r0
+    eret
 skip:
 
+    mrc p15, 0, r1, c12, c0, 0 ;@ get vbar
     mov r0,#0x8000
-    mov r1,#0x0000
+    ;@ mov r1,#0x0000
     ldmia r0!,{r2,r3,r4,r5,r6,r7,r8,r9}
     stmia r1!,{r2,r3,r4,r5,r6,r7,r8,r9}
     ldmia r0!,{r2,r3,r4,r5,r6,r7,r8,r9}
     stmia r1!,{r2,r3,r4,r5,r6,r7,r8,r9}
+
+    mov r12,#0
+    mcr p15, 0, r12, c7, c10, 1
+    dsb
+    mov r12, #0
+    mcr p15, 0, r12, c7, c5, 0
+    mov r12, #0
+    mcr p15, 0, r12, c7, c5, 6
+    dsb
+    isb
+    smc #0
+
+    mrc p15,0,r2,c1,c0,0
+    bic r2,#0x1000
+    bic r2,#0x0004
+    mcr p15,0,r2,c1,c0,0
+
+
+    mov r0,#0x8000
+    mcr p15, 0, r0, c12, c0, 0
+
+    ;@ mov r0,#0x8000
+    ;@ mov r1,#0x0000
+    ;@ ldmia r0!,{r2,r3,r4,r5,r6,r7,r8,r9}
+    ;@ stmia r1!,{r2,r3,r4,r5,r6,r7,r8,r9}
+    ;@ ldmia r0!,{r2,r3,r4,r5,r6,r7,r8,r9}
+    ;@ stmia r1!,{r2,r3,r4,r5,r6,r7,r8,r9}
 
     ;@ (PSR_IRQ_MODE|PSR_FIQ_DIS|PSR_IRQ_DIS)
     mov r0,#0xD2
@@ -60,6 +85,12 @@ skip:
 
     bl notmain
 hang: b hang
+
+smc:
+    mrc p15, 0, r1, c1, c1, 0
+    bic r1, r1, #1
+    mcr p15, 0, r1, c1, c1, 0
+    movs    pc, lr
 
 .globl PUT32
 PUT32:

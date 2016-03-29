@@ -32,27 +32,33 @@ extern unsigned int timer_tick ( void );
 extern void start1 ( void );
 extern void start2 ( void );
 extern void start3 ( void );
+
+extern unsigned int showcpu0 ( void );
+
 //------------------------------------------------------------------------
 int notmain ( void )
 {
     unsigned int ra;
     unsigned int rb;
+    unsigned int rc;
 
     uart_init();
     hexstring(0x12345678);
-
+    hexstring(showcpu0());
     PUT32(0x40,0);
     ra=GET32(0x40);
     start1();
     start2();
     start3();
-    while(1)
+    for(rc=0;rc<10;)
+    //while(1)
     {
         rb=GET32(0x40);
         if(rb!=ra)
         {
             ra=rb;
             hexstring(ra);
+            rc++;
         }
     }
     return(0);

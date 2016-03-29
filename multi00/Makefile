@@ -1,6 +1,6 @@
 
-#ARMGNU ?= arm-none-eabi
-ARMGNU ?= arm-linux-gnueabi
+ARMGNU ?= arm-none-eabi
+#ARMGNU ?= arm-linux-gnueabi
 
 COPS = -Wall -O2 -nostdlib -nostartfiles -ffreestanding 
 

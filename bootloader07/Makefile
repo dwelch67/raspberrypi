@@ -71,7 +71,8 @@ LLCOPS0 = -march=arm
 LLCOPS1 = -march=arm -mcpu=arm1176jzf-s
 LLCOPS = $(LLCOPS1)
 COPS = -Wall  -O2 -nostdlib -nostartfiles -ffreestanding
-OOPS = -std-compile-opts
+#OOPS = -std-compile-opts
+OOPS = -std-link-opts
 
 clang : bootloader07.clang.bin
 

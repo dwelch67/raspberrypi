@@ -15,6 +15,6 @@ sd card to ram is kernel7.img  the older raspberry pis still use
 kernel.img.
 
 So I have code that switches back to SVC mode, but still more work
-to do on this.  In theory all I have to do is change the VBAR, but
-that hangs.  So doing it the old fashioned way like I do with the
-ARM11 based pis and setting up the exception table at address 0x000
+to do on this.   I had the wrong instruction, so now it does change
+the VBAR rather than have to write stuff to 0x0000 to setup a new
+exception table.
