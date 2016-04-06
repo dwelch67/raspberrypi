@@ -1,0 +1,35 @@
+
+Normally I prefer to not use a config.txt.  The standard boot files
+bootcode.bin, start.elf, and kernel7.img are how most of the raspberry
+pis in the world are used, booting linux.  Well tested.  config.txt
+creates exceptions to that, and from the early days of the raspi to
+the present some of these have come and gone.
+
+But...As of this writing in order to run 64 bit, from what the folks
+on the bare metal forums say, you have to use a config.txt containing
+
+arm_control=0x200
+kernel_old=1
+
+The bit set in arm_control indicates boot 64 bit not 32 bit.
+kernel_old tells the bootloader to not provide any boot code for the
+ARM (as of this writing that code is 32 bit instructions so wont work).
+
+This means we have to build our program for address 0x0000 not address
+0x8000 like we would normally.  This also means we have to deal with
+the other four cores.  When all the affinity bits are zero in the
+MPIDR_EL1 register, that is the master core.
+
+This relies on some SBZ/RES0 bits, but works for now to put the other
+cores in an infinite loop.
+
+    mrs x0,mpidr_el1
+    mov x1,#0xC1000000
+    bic x0,x0,x1
+    cbz x0,master
+    b .
+master:
+
+My build_gcc repository has a build_arm64 script that will build a
+gnu based toolchain that can be/was used to build these examples.
+

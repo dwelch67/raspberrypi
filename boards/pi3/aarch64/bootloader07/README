@@ -1,0 +1,56 @@
+
+See the top level README file for more information on documentation
+and how to run these programs.
+
+This is a very simple bootloader.  Instead of the sd dance (see
+top level README), this makes life a bit simpler and greatly reduces
+physical wear and tear on the sd card socket.  Do the sd card dance one
+more time with this kernel.img.  Get some sort of serial solution to
+connect a dumb termial program with the ability to download raw/ascii
+files.
+
+bootloader01 was .hex based, this one is also .hex based but a
+different way to parse it.  bootloader02 through bootloader06
+expect binary files, a binary image of the memory starting at
+address 0x8000.  I intend to release bootloader08 at the same time
+and it will be .bin based but have the go feature.
+
+This bootloader07 parses intel hex formatted files.  Look that up at
+wikipedia, it is very simple and historically widely used for bare
+metal embedded work.  (S record is another format like intel hex but
+of course motorola had to have their own.  Intel hex and Motorola S-
+record).  I felt like doing another state machine and honestly had
+forgotten I did one before in bootloader01.  This bootloader does
+not make any of the others obsolete, it was just a fun exercise.
+
+The thing that annoyed me the most about my bootloader is that
+I use minicom and minicom spawns a separate program to do the file
+transfers, xmodem, ascii, kermit, etc, and there is a delay and
+a loss of data when the spawned program exits and minicom returns.
+The solution is that you hit the g key when you want the program
+to start so you are basically back in the terminal at that point.
+
+I normally do not deliver binaries.  In this case I have included all
+of the build files so that you can at least get started without having
+to build the bootloader.  This is specifically for the raspberry pi 3,
+compiled for aarch64.
+
+As of this writing for this to work you must in addition to the other
+files (bootcode.bin, start.elf, the kernel7.img from here) and a
+config.txt containing
+
+arm_control=0x200
+kernel_old=1
+
+The bit set in arm_control indicates boot 64 bit not 32 bit.
+kernel_old tells the bootloader to not provide any boot code for the
+ARM (as of this writing that code is 32 bit instructions so wont work).
+
+This means we have to build our program for address 0x0000 not address
+0x8000 like we would normally.  This also means we have to deal with
+the other four cores.  When all the affinity bits are zero in the
+MPIDR_EL1 register, that is the master core.  For now I put the other
+cores in an infinite loop.
+
+
+
