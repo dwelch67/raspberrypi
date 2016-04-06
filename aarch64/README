@@ -1,0 +1,6 @@
+
+These examples moved to boards/pi3/aarch64.
+
+Am trying to deal with some very stale examples written when there
+was only one board type.  Now there are many and the differences are
+anywhere from not at all to quite a bit.
