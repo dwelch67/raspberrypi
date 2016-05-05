@@ -29,7 +29,7 @@ Raspberry Pi B+
 Raspberry Pi Zero
 Cortex-A7 based (BCM2836)
 Raspberry Pi 2 B
-Cortex-A8 based
+Cortex-A53 based (BCM2837)
 Raspberry Pi 3 B
 
 There is also the compute module but I dont have one of those.
