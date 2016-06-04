@@ -1,0 +1,21 @@
+
+See the top level README file for more information on documentation
+and how to run these programs.
+
+So for my pi3, the MPIDR_EL1 register lower 2 bits indicate which
+core.
+
+So I sort the cores out and have them each do something different.
+
+As with other examples in this directory you have to not only have
+a kernel7.img (uart03.bin in this case) but you have to have config.txt
+
+arm_control=0x200
+kernel_old=1
+disable_commandline_tags=1
+
+http://elinux.org/RPiconfig describes each of these
+
+arm_control=0x200  processor in 64 bit mode
+kernel_old=1       load kernel7.img to 0x0000 instead of 0x8000
+disable_commandline_tags=1  do not write over my program with atags

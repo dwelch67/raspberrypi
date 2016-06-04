@@ -1,0 +1,35 @@
+
+See the top level README file for more information on documentation
+and how to run these programs.
+
+The natural extension to uart03.  This example isolates the four
+processor cores and then gives each something to do.  I use a timer
+so that I dont have to properly share the uart, well this is another
+way to share, I give each a time at which they can poke a character out.
+
+Still a little sketcy on my aarch64 instruction set, could just read
+the manual some more.  My hope is the mov x0,#0 sets all 64 bits to zero
+and the ldr only modifies the lower 32 (basically doesnt sign extend).
+Fortunately we dont have enough ram to set an address that high.
+
+    mov x0,#0
+core_one_loop:
+    ldr w0,[sp]
+
+Each core has its own stack pointer, for the non-zero cores I dip
+slightly into anothers space.
+
+core 0 watches 0x6000 for a non-zero value
+core 1 watches 0x4000 for a non-zero value
+core 2 watches 0x2000 for a non-zero value
+
+The non-zero value is an address to branch to.
+
+This program will print out
+
+0123
+0123
+
+forever.  Core zero prints the 0 and the cr/lf, core one prints the 1
+core two the 2, and core three the 3.
+
