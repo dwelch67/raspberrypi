@@ -1,0 +1,31 @@
+
+See the top level README for information on where to find documentation
+for the raspberry pi and the ARM processor inside.  Also find information
+on how to load and run these programs.
+
+This example is for the pi2, see other directories for other flavors
+of raspberry pi.
+
+This example requires a config.txt along with a kernel7.img.
+
+This example isolates the four cores into separate execution paths.
+Core zero moves forward and sets things up.  The other three sit and
+poll a memory location, when the value in that memory location changes
+from zero to something else they branch to that address assuming it
+is their entry point.
+
+This example has each core print something out the uart based on a
+timer.  Generally not a good idea to do it this way, you normally want
+the shared resource properly shared.  At the same time this is
+properly shared in that the timer is insuring each core touches the
+uart at a different time, and space out enough to not cause problems.
+
+The output should be
+
+0123
+0123
+0123
+0123
+
+repeated forever, core 0 prints out 0 and cr/lf, core 1 prints the 1
+core 2 the 2 and core 3 the 3.

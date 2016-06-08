@@ -1,0 +1,44 @@
+
+See the top level README for information on where to find documentation
+for the raspberry pi and the ARM processor inside.  Also find information
+on how to load and run these programs.
+
+This example is for the pi2, see other directories for other flavors
+of raspberry pi.
+
+Normally I prefer to not use a config.txt.  The standard boot files
+bootcode.bin, start.elf, and kernel7.img are how most of the raspberry
+pis in the world are used, booting linux.  Well tested.  config.txt
+creates exceptions to that, and from the early days of the raspi to
+the present some of these have come and gone.
+
+After messing with aarch64 on the pi3, I am slightly starting to warm
+to the idea of using a config.txt.  At least some of the time.  Have
+to for now for the pi3 to stay in aarch64 mode.  For the pi2 we can
+somewhat return the pi3 to SVC mode from HYP mode.
+
+See the uart01 example, I agree with the folks online.
+
+The MPIDR for the four cores are
+
+80000F00
+80000F01
+80000F02
+80000F03
+
+Which makes it pretty easy to separate the four cores execution paths.
+
+For these SVC_BOOT examples you will need a config.txt file in the
+same directory as kernel7.img containing
+
+kernel_old=1
+disable_commandline_tags=1
+
+The first line says please load kernel7.img to address 0x0000 instead
+of 0x8000.  The second line says please dont trash the first few hundred
+bytes of memory with ATAG nor device tree information.
+
+If you want to go back to using other examples not in the SVC_BOOT
+directory you need to delete or rename the config.txt file they will
+not work in general, maybe you get lucky but eventually that luck runs
+out.

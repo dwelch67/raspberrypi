@@ -33,3 +33,7 @@ the case.  I now see how to switch back to SVC.  So there is a directory
 of examples for staying in HYP mode and a directory for switching
 to SVC mode.
 
+I am warming to the idea of using a config.txt, the SVC_BOOT directory
+is examples that do not have to be switched back to SVC mode, instead
+a config.txt is used with settings that allow us to completely control
+the boot of the four cores (and not switch their modes).
