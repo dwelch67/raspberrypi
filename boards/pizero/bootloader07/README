@@ -19,6 +19,37 @@ pins great.  If not there are other ways, some pins can be shoved in
 rather than soldered.  Or balanced if nothing else (stick them in and
 lean them to the side so they touch), just dont short anything out.
 
+On the sd card end of the board the P1 connector pins are like this,
+same as other raspberry pi boards, but span the whole length of the
+board rather than orentied more toward one corner than another.
+
+|SD  |  12
+|CARD|  34
+        56
+        78
+        9.
+        ..
+        ..
+
+The pins we care about
+
+2
+4
+6
+8  TX out
+10 RX in
+
+The pi TX goes to the uart RX and the pi RX to the uart TX.
+
+Here are some examples of 3.3V level uarts, you need 3.3V level not 5V
+definitely not RS232C
+
+https://www.sparkfun.com/products/9873
+https://www.adafruit.com/products/954
+
+You can find these on ebay from china for a buck or two each with a
+jumper to select between 3.3V and 5V.
+
 This bootloader receives intel hex formatted files.
 
 https://en.wikipedia.org/wiki/Intel_HEX

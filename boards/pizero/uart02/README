@@ -1,0 +1,17 @@
+
+See the top level README for information on where to find the
+schematic and programmers reference manual for the ARM processor
+on the raspberry pi.  Also find information on how to load and run
+these programs.
+
+Based on uart01, this one enables the uart rxd1 receiver (gpio15).
+It starts by printing 12345678 then whatever you type on the terminal
+is echoed back.
+
+See the top level README file for information on how to connect the
+raspi uart to your host computer.
+
+Using a dumb terminal (minicom) 115200 board No parity 8 bits 1 stop
+bit, no flow control (might have to exit minicom and start again for
+the flow control setting to take).  What you type on the dumb terminal
+comes back.

@@ -1,0 +1,22 @@
+
+See the top level README for information on where to find the
+schematic and programmers reference manual for the ARM processor
+on the raspberry pi.  Also find information on how to load and run
+these programs.
+
+Based on uart02 and blinker05.  Like blinker05 this is a multi stage
+program killing three birds with one stone.  First it uses polling
+of the interrupt status lines to show what happens to the registers, etc
+when an rx based interrupt occurs.  Then it uses interrupt polling to
+receive characters rather than the uart status register.  Then it
+enables the interrupts to the arm and uses an interrupt service routine
+to receive characters from the uart.
+
+As with other parts of this mini uart, the documentation has errors,
+bits that are marked as not used were required to make this work.  When
+working with this mini uart also have as a reference a real 16550 manual
+if it doesnt work the way the BCM manual says, then pretend it is a
+real 16550 and see what happens.
+
+Note that the mini uart interrupt is not interrupt 57 uart_int, it is
+interrupt 29 aux_int.
