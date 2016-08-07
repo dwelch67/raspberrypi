@@ -20,7 +20,7 @@ this or not?
 Here is the punch line
 
 min      max      difference
-00016DDE 003E025D 003C947F 
+00016DDE 003E025D 003C947F
 
 Yes! The minimum is 0.71 clocks per loop on average, less than one
 clock per instruction!  How is that possible?
@@ -55,9 +55,9 @@ to adjust its alignment.
 Using the disassembly of the loop in start.s
 
 0000802c <ASMDELAY>:
-    802c:	e2500001 	subs	r0, r0, #1
-    8030:	1afffffd 	bne	802c <ASMDELAY>
-    8034:	e12fff1e 	bx	lr
+    802c:   e2500001    subs    r0, r0, #1
+    8030:   1afffffd    bne 802c <ASMDELAY>
+    8034:   e12fff1e    bx  lr
 
 We can see the raw instructions, the conditional branch is pc relative
 not absolute, basically position independent so can be used as is.
@@ -72,178 +72,926 @@ didnt know there was a prefetch flush you needed to do.  I went way
 overboard and used flushes and dmbs and dsbs liberally, needed or not.
 Prefetch flush made it so that the pi worked.
 
-should I dive into this or not?  hmm...
+---
+
+Cache.  For what we care about here a cache is a relatively small
+amount of memory that is faster than the main memory.  Being smaller it
+can only hold some things.  Ideally it holds the things you are using
+more than once, or, since programs tend to do things linearly programs
+run instructions sequentially at least for a little while before needing
+to do a branch.  When we read data, parsing strings, etc we often (enough)
+will read memory in order for at least a little while.  So the cache
+has tables (tags) used to know what is in cache, read transactions marked
+as cacheable are compared against those tags to see if the answer is in
+the cache, if so then the processor does not have to wait as long as
+cache is faster than main memory.  If there is a cache miss meaning
+the item is not in cache, the the cache will do a read, but it does
+not necessarily read just the item you want, it reads the amount of
+memory needed to fill a "cache line".  A cache line being an aligned
+amount of data, often larger than a normal sized access, the idea
+being is as above, if you are executing code you often have linear
+chunks, if you are reading data to processot you often have linear
+chunks.  So if you were to read two things back to back that are in
+the same cache line, the first one if there is a miss is pretty slow
+the whole line has to be read in, the line is not grossly inneficient
+with respect to a read from main memory, probably slower than a smaller
+size, but probably faster than multiple separate reads to gather the
+same amount.  So the first item read in a line is slow the second is
+significantly faster, so even if you read two things you might be
+faster than if you had no cache.
+
+This example is not doing anything with data, not anything that
+matters as far as the performance test.  As shown above there is a two
+instruction loop, these are instructions and instructions, when
+the (instruction) cache is enabled, will be marked as cacheable when
+fetched.  So the first interesting thing we see is one of these two
+loops.
+
+    invalidate_l1cache();
+    for(ra=0;ra<4;ra++)
+    {
+        beg=GET32(ARM_TIMER_CNT);
+        ASMDELAY(10);
+        end=GET32(ARM_TIMER_CNT);
+        hexstring(end-beg);
+    }
+
+The invalidate basically erases the cache in the sense that it forgets
+all the tags.  We run this loop 10 times, so the first time it fetches
+those instructions it comes from main memory.  The remaining 9 times
+ideally come from cache.  The outer loop runs 4 times, without an
+invalidate so all 10 ASMDELAY loops are ideally cached.  Assuming that
+
+0000004A
+00000031
+00000031
+00000031
+
+00000041
+00000031
+00000031
+00000031
+
+
+0x31 = 49
+49 / 10 = 4.9
+
+we are averaging 4.9 clocks per loop for the cached loops.
+
+0x4A = 74
+
+4.9 * 9 = 44
+74 - 44 = 30
+
+So based on those assumptions that first time through the loop took 30
+clocks.
+
+0x41 = 65
+65 - 44 = 21
+
+For some reason the second time the first pass is faster.  This could
+be as simple as dram accesses are not deterministic, also we are
+sharing the dram with the GPU so maybe there was contention for that
+resource there and one took longer.
+
+00045C3F
+00045C28
+00045C27
+00045C28
+
+Note so far we are talking about the L1 cache inside the ARM core.  We
+see here with 0x20000 loops it perhaps appears that the first pass
+was a little longer than the rest.
+
+2.18 on average for the latter loops.  If you work the math that
+first pass first instruction fetch was 25.18 ticks.  And that is
+on par with the the 10 loop experiments.  Just much more dramatic
+with the fewer loops, which matters depending on what you are doing.
+Timing a hundred thousand times through this loop is done to get an
+average, doing it multiple times hopes to erase the first fetch, that
+or say do a million or a billion loops so the first loop time get
+swampled by the average.  But if you are wanting to use this code
+as a timed loop of say a few times through the loop, it is important
+to know what the best and worst times are for whatever you are doing
+if you are bit banging i2c or spi or whatever, and you cannot go faster
+than some time period, you need to determine the best possible loop
+time and use that as the tuning value, because for that bit banging
+you can usually go slower, up to several times slower, but cannot
+go faster even once.
+
+Our understaning from the Broadcom ARM manual for this part, the only
+public one we have for the original pi processor which is the same one
+in the pi-zero, says that the ARM address space above 0xC0000000 is
+uncached.  There is a cache outside the ARM but in front of the dram
+in theory the cache is shared between us and the GPU but who knows?
+But like any other cache, esp one like this that likely does not care
+about ARM instruction fetches from data reads, should be caching
+our instruction reads all the time.  And I dont know how to invalidate.
+
+So these initial loops
+
+0019F158
+0019F149
+0019F0FE
+0019F142
+0019F1C6
+
+One would have expected the first to be slower than the others.  Perhaps
+code that preceeded this caused the cache to fill, perhaps we can
+create experiments to get a feel about the 0xC0000000 being uncached and
+assuming that the 0x00000000 arm space we are using is cached.  Pretty
+easy to write a small program that writes to some offset in our memory
+around 0x00000000 say 0x00001000 for example, then read 0x40001000 and
+0x80001000 and 0xC0001000 and you will see the same value you wrote
+to 0x00001000, demonstrating that at least as far as the ARM address
+space is it does wrap around.
+
+Note this is using the ARM TIMER which blinker03 shows is 250MHz based
+the ARM is in theory going 1000MHz.  So four processor clocks per timer
+tick.
+
+So based on what we saw so far we would assume that once in instruction
+cache then we always get the same performance yes?  Well then why does
+this happen (and why did I do this test)
+
+C0006000 0005B72B 0005B72B 0005B72B 00000000
+C0006000 0005B6F1 0005B6F1 0005B72B 0000003A
+C000601C 0005B731 0005B6F1 0005B731 00000040
+C0006058 0005B732 0005B6F1 0005B732 00000041
+C0006078 0005B73B 0005B6F1 0005B73B 0000004A
+
+What this is telling us for at least the range I tried, with the
+instructions most likely in cache our loop time still varies between
+0005B6F1 and 0005B73B a difference of 0000004A clocks.  That is not
+a lot but run this test again and again and you will see these strange
+boundaries where the timing changes.  How is this possible it is only
+two instructions the only thing, in theory, that is changing is what
+addresses they live in.
+
+Well think about this, this is a pipelined processor, a pipeline is
+basically the same as an assembly line instead of one employee or
+set of employees putting together a product like a car in one place
+all the tools and parts have to weave around each other to get in
+to that location where the car is.  Instead if you were to move the
+car from station to station, each station performs one or a few
+relatively simple tests, putting the tires on, mounting the doors,
+etc.  The tools for that station and no others are in that station
+and the supplies for that station are fed to that station faster than
+the assembly line is moving, on average.  Well you can make the car
+a little faster than keeping it stationary, but you can AVERAGE
+significantly more cars over time.  It may take you an hour to build
+one car from beginning to end, but the factor may pump out a new car
+every so many seconds.  A processor pipeline is similar to that the
+steps are broken out and performed per clock so that for linear code
+the average is much faster than only operating on one instruction at
+a time.
+
+Processors like this do not have the old fashioned bus like the 8088/86
+for example.  Where you sent out address and data if it is a write, you
+asserted a write signal or a read signal and some enables, then the memory
+responded the next clock cycle, the whole system was running at a speed
+that did not exceepd what the processor nor the SRAM could do.  At some
+point the thought of adding wait states, you could add slower ram or
+peripherals that couldnt keep up all the time but let you try to keep
+running, so some sort of wait scheme was added to allow a peripheral to
+say please wait.  What we use now with the AMBA/AXI/AHB busses on ARMs
+is a whole different strategy, it takes a few clock cycles even for
+the simplest thing, the L1 cache is buried in the core and doesnt
+necessarily need as many clocks as the edge of the core.  The AXI bus
+will say I would like to do a read, it is an instruction fetch, here
+is the address, here is how much data I want, and here is a transaction
+id.  The ARM has the ability to keep multiple transactions in flight
+it might perform a data read generated by code doing a data read then
+the next cycle start an instruction fetch. Eventually the memory or
+peripherals respond, and that feeds back into the AXI bus and the
+tag associated is put on the return bus along with the data.  I mentioned
+you specify the size.  The bus might be 64 bits wide or 32 bits wide
+and the size is likely in units of 32 bits for a processor like this,
+so in theory you can do a 1 word read, a 2 word read a 3 word read, etc
+on up to probably a number like 8 words per read.  If you have a 64 bit
+bus and depending on how it is designed, often it is based on 64 bit
+width alignments, a two word read and a one word read might take the
+same amount of time.  But two one word reads should take longer than
+two one word reads aligned or not.  Busses like this once they have
+the data ready they deliver it every clock cycle.  So an 8 word read
+there is the opening clock cycles to ask for the transaction.  Then
+some time passes as the data is located and/or gathered then when
+it starts coming back it takes 4 clock cycles assuming aligned.  Had
+it been 6 words, 64 bit aligned, then the difference between 6 and 8
+is ideally one clock cycle.  But three or four 2 word transactions
+should take longer you have the up front transaction handshake.
+
+So why bother to go through that?  Well the pipeline only works if we
+can keep it fed with instructions.  So the pipeline is some depth
+which can change from one core design/architecture to another and may
+or may not be documented outside ARM.  And one would expect that the
+logic fetches enough instructions to feed the pipe.  And one would
+expect that fetches are transactions of multiple instructions, say
+for example 4 words per fetch, and that is probably on 4 word aligned
+boundaries.  So say we branch to address 0x1000, and lets pretend
+there is a 6 deep pipeline.  One would expect the logic to bang out
+two 4 word instruction fetches one at address 0x1000 and one at address
+0x1010.  As those instructions roll in it starts to feed the pipe,
+there would also need to be some storage to hold those 8 instructions
+as they land, a cache or prefetch buffer or whatever you want to
+call it.  Once we get through either 4 or maybe 6 of those instructions
+and so far none of them being branches, one would expect the logic
+to then do a 4 word fetch to keep the prefetch buffer or pipe full.
+Once there is a branch then it starts all over, one or two immediate
+fetches to start to fill the pipe up again.  One would expect that
+even with two instructions in a loop, the logic would still need to
+perform those two fetches per loop.  But since all of this happens
+inside the chip we cant see it, without all the legal stuff to gain
+access to an ARM core and the tools to simulate we are not going
+to know for sure what is going on.  Stealing from the term cache line
+I like to call these fetches fetch lines.  Just like the situation
+where you have even a two instruction loop that lands on the last and
+first words of a cache line you would need to read two cache lines to
+cover the fetching of those two instructions where earlier in first
+cache line only one cache line read is needed.  We should be able to
+see situations where we hit that two cache line boundary and likewise
+we whould be able to see the effects of fetch lines and where the
+branches land, sometimes needing to fetch an extra fetch line.
+
+So even with the cache enabled and filled something is happening when
+we branch to address 0xC000601C extra fetch transactions are needed
+likewise there is sensitivity at the other addresses.  I wouldnt get
+worked up over a one timer tick difference necessarily that could be
+due to the non-deterministic nature of using something like dram and
+sharing resources with another processor where every so often we may
+have to wait longer for something.
+
+C0006000 0005B72B 0005B72B 0005B72B 00000000
+C0006000 0005B6F1 0005B6F1 0005B72B 0000003A
+C000601C 0005B731 0005B6F1 0005B731 00000040
+C0006058 0005B732 0005B6F1 0005B732 00000041
+C0006078 0005B73B 0005B6F1 0005B73B 0000004A
+
+We see from the first pass at 0x6000 to the second our time got faster
+that is likely the filling of the cache.  After that point we never
+get faster as we saw up above with the early tests.  The code only
+triggers a print if min or max changes.  So the rest of these output
+lines are due to the max getting bigger.
+
+Branch prediction.  Think about that processor pipeline, each step
+can do some stuff, but doesnt do everything, otherwise what is the
+point?  So even for our simple loop we have a subtraction and then
+a branch that relies on the result of that subtraction.  And that branch
+if taken "flushes" the pipe meaning we just toss those instructions
+but it takes time to first fetch the new instructions at the
+branch destination.  And then serially feed the pipe (assuming a
+serial pipeline, read on), all that time the processing part of the
+processor, the assembly line, is idle until instructions start moving
+in and moving from one stage in the pipe to another.  Branch prediction
+is looking at instructions that are not yet to the execution stage
+to see if they are branches and see if we can determine if they are
+going to happen.  If we have say a 5 instruction pipeline A,B,C,D,E
+and A is where instructions enter the pipe, and E is the last step when
+we are finished with it.  And lets say D is where we would normally
+figure out this is a branch and then act on that.  If we were to look
+at stage A and see that it is a branch, even better an unconditional
+branch, and we also by looking at the instructions at B and C and D
+that they are not unconditional branches, they might be branches but
+maybe not unconditional.  We might want to start an instruction fetch
+for the branch destination when the branch is going into B, saving us
+two clock cycles in starting that fetch.  Now we could also have a
+design that during A be it an unconditional or conditional branch
+start a fetch, there would be a lot of unused fetch bandwith going on
+but depending on our cache to processor performance main ram to
+cache performance, we might end up going faster overall, perhaps like
+our little test case that unconditional branch eventually happens, so
+fetching every branch we see would put that code ideally in the cache
+much earlier.  It is likely that the logic is not going to start
+fetches for every single possible branch that might happen, the logic
+is going to want more complication to not have too many fetches, if
+we save a clock or few here and there, and not cost more clocks than
+we save, then it is a win, so what if we cant accurately predict
+everything.  So using our A,B,C,D,E model above.  If we see that
+A is a conditional branch that relies on flags, and our logic is
+smart enough to see that B and C do not have instructions that affect
+flags, and D has one that affects flags, then it is possible that
+as D completes and the conditional branch in A moves into the B stage
+we could know at that time if the branch is going to happen and if so
+we can start fetching the branch destination, if we can determine
+the branch destination, depends on the instruction set.  It could be
+an unconditional bx r1, but the instruction in B is a load of r1
+so we cant figure out where to branch until we finish that load or
+move or whatever.  So what if we were to start adding nops in our loop
+
+
+ASMDELAY:
+    subs r0,r0,#1
+    nop
+    ...
+    nop
+    bne ASMDELAY
+    bx lr
+
+Eventually we would have so many that the pipeline is full of nops
+the thing that determines the branch and the thing that does the
+branch are not in the pipe at the same time.  But with nops we at
+least can hope/insure that once the pipe is full of these nops and then
+the branch comes in, when that branch reaches the magic point in
+the pipe everything in front of it is a nop, so the branch predictor
+should have everything it needs to fetch early.  Now add to this
+the herky jerky fetching do to fetch lines and cache lines.
+
+The first batch is with cache but with branch prediciton disabled.
+
+C0006000 0005B72B 0005B72B 0005B72B 00000000
+C0006000 0005B6F1 0005B6F1 0005B72B 0000003A
+C000601C 0005B731 0005B6F1 0005B731 00000040
+C0006058 0005B732 0005B6F1 0005B732 00000041
+C0006078 0005B73B 0005B6F1 0005B73B 0000004A
+00051078
+00051878
+
+this batch is with branch prediction enabled.
+
+C0006000 00016E12 00016E12 00016E12 00000000
+C0006000 00016DDE 00016DDE 00016E12 00000034
+C0006004 000224E4 00016DDE 000224E4 0000B706
+C000601C 000224F0 00016DDE 000224F0 0000B712
+
+Much faster, much faster than expected.
+
+And yes if you are doing the math, we are well within the realm of
+it taking fewer clocks than we have instructions per loop, so we are
+executing two instructions in theory less time that it takes to
+execute one.  This processor is super scaler, meaning it has multiple
+execution units.  The pipeline has forks in it.  The instructions
+coming in the front door are examined and sorted into separate lines
+as with branch prediciton this is not perfect, but the idea is to try
+to sort out instructions that dont have to happen in a certain order
+for example if we were to throw a useful instruction, but one that
+doesnt affect our loop:
+
+ASMDELAY:
+    subs r0,r0,#1
+    add r3,r3,#3
+    bne ASMDELAY
+    bx lr
+
+Ideally the logic will determine that the subs modifies flags that
+the bne needs so the bne must wait for the subs to complete far enough
+to start to execute the bne.  The add is not using the result of the subs
+nor is it affecting the bne, so ideally it gets sorted out into a
+separate execution pipe and it can possibly execute at the same time
+that the subs happens or maybe even before in a more compilicated
+loop.  Pipeline implementations are also deep in the processor,
+something that likely changes or improves from one architecture to
+another as years go by and new designs come out. (ARMv4 to ARMv5
+to ARMv6 and so on).  It may be that every instruction is dealt
+out like cards to different execution pipes, but there are tags of
+some sort associated with them so that the execution pipes can talk
+to each other to say "you cant do that one until I am finished", but
+pipes that dont have that baggage can push that instruction through
+as fast as they can.  So in a super scaler I would expect to be able
+to insert that add in there and not see a performance hit other than
+the cost of the extra fetch clock cycles.  But if I were to instead
+insert:
+
+ASMDELAY:
+    subs r0,r0,#1
+    and r0,r0,#0xFF
+    bne ASMDELAY
+    bx lr
+
+The processor cannot figure out that I am never using r3, so it has
+to do that add instruction, but the add has to wait for the subtract
+and the bne has to wait for both the subtract and the and, now obviously
+this loop cannot count down more than 255, so not enough counts for
+our experiments, but demonstrates the relationships that a super scaler
+processor looks for.  Like branch prediction, not expected in any
+way to be perfect, but if you can sometimes save one or a few clocks
+here and there those clocks will add up.
+
+I did not do this here, but you could also do some performance tests by
+adding that bunch of nops
+
+ASMDELAY:
+    subs r0,r0,#1
+    nop
+    ...
+    nop
+    bne ASMDELAY
+    bx lr
+
+And pushing the difference between fetch performance and execution
+performance, can also see if there are any herky jerky motions related
+to fetching and how the prefetch feeds the pipe, etc.
+
+Without actually seeing (in simulation) how the processor works per
+clock we can only guess as to what is going on by performing experiments
+like this.
+
+So I think we can see in this example the L1 caching, the first fetch
+through the loop having to go to main memory, which is dram so pretty
+slow, and then the rest of the loops fetching from the L1 cache which
+is the fastest/closest memory we have to the processor core.  Even
+with the code in cache we can see differences based on the alignment
+of the loop, and we can see differences with the branch prediction on.
+
+
+00016DDE 003E025D 003C947F
+
+The fastest 0x20000 count loop was 00016DDE or 0.71 timer ticks per
+loop on average.  And the worst 31 clocks per loop on average.
+
+The first dump below is based on having no config.txt, again this
+is a raspberry pi zero.
+
+
+config.txt contains
+DISABLE_L2CACHE=1
+
+some subtle changes, but not as much to note.
+
+
+Now changing the arm frequency to 250Mhz is quite useful as the
+timer we are using and the arm clock are in theory the same not
+necessarily in phase or anything but both are 250Mhz, so we dont have
+four processor clocks per timer tick.
+
+So the dump after this one is with the reduced arm clock, see comments
+there
 
 12345678 12345678 12345678 12345678 12345678
-0019F158 
-0019F149 
-0019F0FE 
-0019F142 
-0019F1C6 
-00045C3F 
-00045C28 
-00045C27 
-00045C28 
-0000004A 
-00000031 
-00000031 
-00000031 
-00000041 
-00000031 
-00000031 
-00000031 
-C0000000 C0000000 C0000000 C0000000 
-00050078 
-00050078 
-C0006000 002200D2 002200D2 002200D2 00000000 
-C0006000 002200A6 002200A6 002200D2 0000002C 
-C0006000 00220145 002200A6 00220145 0000009F 
-C0006008 00220173 002200A6 00220173 000000CD 
-C0006010 00280096 002200A6 00280096 0005FFF0 
-C0006010 00280104 002200A6 00280104 0006005E 
-C000601C 003E015C 002200A6 003E015C 001C00B6 
-C000601C 003E01AA 002200A6 003E01AA 001C0104 
-C000602C 0022009D 0022009D 003E01AA 001C010D 
-C000603C 003E01BC 0022009D 003E01BC 001C011F 
-C000603C 003E0211 0022009D 003E0211 001C0174 
-C0006060 0022005E 0022005E 003E0211 001C01B3 
-C00060FC 003E024D 0022005E 003E024D 001C01EF 
-00050078 
-00050878 
-C0006000 001E0119 001E0119 001E0119 00000000 
-C0006000 001E00FB 001E00FB 001E0119 0000001E 
-C0006000 001E00C0 001E00C0 001E0119 00000059 
-C0006004 00200101 001E00C0 00200101 00020041 
-C0006008 001E00AD 001E00AD 00200101 00020054 
-C000600C 0020015F 001E00AD 0020015F 000200B2 
-C0006010 001E00A0 001E00A0 0020015F 000200BF 
-C0006014 00200177 001E00A0 00200177 000200D7 
-C000601C 003C010A 001E00A0 003C010A 001E006A 
-C000601C 003C01C0 001E00A0 003C01C0 001E0120 
-C0006028 001E008D 001E008D 003C01C0 001E0133 
-C000603C 003C01EC 001E008D 003C01EC 001E015F 
-C0006040 001E0065 001E0065 003C01EC 001E0187 
-C000605C 003C0252 001E0065 003C0252 001E01ED 
-C000609C 003C0258 001E0065 003C0258 001E01F3 
-C00060B0 001E0064 001E0064 003C0258 001E01F4 
-00050878 
-00050078 
-C0006000 0005B72B 0005B72B 0005B72B 00000000 
-C0006000 0005B6F1 0005B6F1 0005B72B 0000003A 
-C000601C 0005B731 0005B6F1 0005B731 00000040 
-C0006058 0005B732 0005B6F1 0005B732 00000041 
-C0006078 0005B73B 0005B6F1 0005B73B 0000004A 
-00051078 
-00051878 
-C0006000 00016E12 00016E12 00016E12 00000000 
-C0006000 00016DDE 00016DDE 00016E12 00000034 
-C0006004 000224E4 00016DDE 000224E4 0000B706 
-C000601C 000224F0 00016DDE 000224F0 0000B712 
-00051878 
-00051078 
-80000000 80000000 80000000 80000000 
-00050078 
-00050078 
-80006000 002200E1 002200E1 002200E1 00000000 
-80006000 002200C5 002200C5 002200E1 0000001C 
-80006000 002200B8 002200B8 002200E1 00000029 
-80006000 002200E7 002200B8 002200E7 0000002F 
-80006004 002200E9 002200B8 002200E9 00000031 
-80006004 002200AE 002200AE 002200E9 0000003B 
-80006004 0022018A 002200AE 0022018A 000000DC 
-80006008 00220075 00220075 0022018A 00000115 
-8000600C 0022005F 0022005F 0022018A 0000012B 
-80006010 00280105 0022005F 00280105 000600A6 
-8000601C 003E0168 0022005F 003E0168 001C0109 
-8000601C 003E01B7 0022005F 003E01B7 001C0158 
-8000603C 003E024B 0022005F 003E024B 001C01EC 
-800060FC 003E025A 0022005F 003E025A 001C01FB 
-00050078 
-00050878 
-80006000 001E00B2 001E00B2 001E00B2 00000000 
-80006000 001E00CD 001E00B2 001E00CD 0000001B 
-80006000 001E0158 001E00B2 001E0158 000000A6 
-80006004 00200102 001E00B2 00200102 00020050 
-80006004 0020010F 001E00B2 0020010F 0002005D 
-80006004 002001FC 001E00B2 002001FC 0002014A 
-80006008 001E006F 001E006F 002001FC 0002018D 
-80006008 001E005C 001E005C 002001FC 000201A0 
-8000601C 003C0161 001E005C 003C0161 001E0105 
-8000601C 003C0267 001E005C 003C0267 001E020B 
-8000603C 003C026C 001E005C 003C026C 001E0210 
-80006048 001E005B 001E005B 003C026C 001E0211 
-00050878 
-00050078 
-80006000 0005B711 0005B711 0005B711 00000000 
-80006000 0005B6F3 0005B6F3 0005B711 0000001E 
-80006004 0005B721 0005B6F3 0005B721 0000002E 
-80006018 0005B732 0005B6F3 0005B732 0000003F 
-80006018 0005B6F1 0005B6F1 0005B732 00000041 
-80006058 0005B733 0005B6F1 0005B733 00000042 
-00051078 
-00051878 
-80006000 00016E0A 00016E0A 00016E0A 00000000 
-80006000 00016DDF 00016DDF 00016E0A 0000002B 
-80006000 00016DDE 00016DDE 00016E0A 0000002C 
-80006004 000224E4 00016DDE 000224E4 0000B706 
-8000601C 000224F0 00016DDE 000224F0 0000B712 
-00051878 
-00051078 
-40000000 40000000 40000000 40000000 
-00050078 
-00050078 
-40006000 002200C8 002200C8 002200C8 00000000 
-40006000 00220118 002200C8 00220118 00000050 
-40006004 002200BB 002200BB 00220118 0000005D 
-40006004 00220190 002200BB 00220190 000000D5 
-40006008 002200A2 002200A2 00220190 000000EE 
-4000600C 00220073 00220073 00220190 0000011D 
-40006010 0028009C 00220073 0028009C 00060029 
-40006010 002800AF 00220073 002800AF 0006003C 
-40006010 002800BC 00220073 002800BC 00060049 
-40006014 002800DD 00220073 002800DD 0006006A 
-4000601C 003E014D 00220073 003E014D 001C00DA 
-4000601C 003E015F 00220073 003E015F 001C00EC 
-4000601C 003E0175 00220073 003E0175 001C0102 
-4000601C 003E0255 00220073 003E0255 001C01E2 
-4000603C 003E025D 00220073 003E025D 001C01EA 
-400060AC 0022005F 0022005F 003E025D 001C01FE 
-00050078 
-00050878 
-40006000 001E010C 001E010C 001E010C 00000000 
-40006000 001E0109 001E0109 001E010C 00000003 
-40006000 001E00DD 001E00DD 001E010C 0000002F 
-40006004 002000D4 001E00DD 002000D4 0001FFF7 
-40006004 00200103 001E00DD 00200103 00020026 
-40006004 00200196 001E00DD 00200196 000200B9 
-40006008 001E00AD 001E00AD 00200196 000200E9 
-40006010 001E007C 001E007C 00200196 0002011A 
-4000601C 003C025F 001E007C 003C025F 001E01E3 
-40006020 001E0073 001E0073 003C025F 001E01EC 
-40006020 001E006F 001E006F 003C025F 001E01F0 
-4000603C 003C0267 001E006F 003C0267 001E01F8 
-40006040 001E0069 001E0069 003C0267 001E01FE 
-400060B0 001E0066 001E0066 003C0267 001E0201 
-400060D0 001E0057 001E0057 003C0267 001E0210 
-00050878 
-00050078 
-40006000 0005B712 0005B712 0005B712 00000000 
-40006000 0005B6F3 0005B6F3 0005B712 0000001F 
-40006000 0005B6F1 0005B6F1 0005B712 00000021 
-40006008 0005B716 0005B6F1 0005B716 00000025 
-4000600C 0005B71E 0005B6F1 0005B71E 0000002D 
-40006018 0005B729 0005B6F1 0005B729 00000038 
-4000601C 0005B72F 0005B6F1 0005B72F 0000003E 
-4000605C 0005B730 0005B6F1 0005B730 0000003F 
-40006078 0005B733 0005B6F1 0005B733 00000042 
-00051078 
-00051878 
-40006000 00016E0A 00016E0A 00016E0A 00000000 
-40006000 00016DDE 00016DDE 00016E0A 0000002C 
-40006004 000224E5 00016DDE 000224E5 0000B707 
-4000601C 000224F0 00016DDE 000224F0 0000B712 
-4000603C 000224F2 00016DDE 000224F2 0000B714 
-00051878 
-00051078 
-00016DDE 003E025D 003C947F 
-12345678 
+0019F158
+0019F149
+0019F0FE
+0019F142
+0019F1C6
+00045C3F
+00045C28
+00045C27
+00045C28
+0000004A
+00000031
+00000031
+00000031
+00000041
+00000031
+00000031
+00000031
+C0000000 C0000000 C0000000 C0000000
+00050078
+00050078
+C0006000 002200D2 002200D2 002200D2 00000000
+C0006000 002200A6 002200A6 002200D2 0000002C
+C0006000 00220145 002200A6 00220145 0000009F
+C0006008 00220173 002200A6 00220173 000000CD
+C0006010 00280096 002200A6 00280096 0005FFF0
+C0006010 00280104 002200A6 00280104 0006005E
+C000601C 003E015C 002200A6 003E015C 001C00B6
+C000601C 003E01AA 002200A6 003E01AA 001C0104
+C000602C 0022009D 0022009D 003E01AA 001C010D
+C000603C 003E01BC 0022009D 003E01BC 001C011F
+C000603C 003E0211 0022009D 003E0211 001C0174
+C0006060 0022005E 0022005E 003E0211 001C01B3
+C00060FC 003E024D 0022005E 003E024D 001C01EF
+00050078
+00050878
+C0006000 001E0119 001E0119 001E0119 00000000
+C0006000 001E00FB 001E00FB 001E0119 0000001E
+C0006000 001E00C0 001E00C0 001E0119 00000059
+C0006004 00200101 001E00C0 00200101 00020041
+C0006008 001E00AD 001E00AD 00200101 00020054
+C000600C 0020015F 001E00AD 0020015F 000200B2
+C0006010 001E00A0 001E00A0 0020015F 000200BF
+C0006014 00200177 001E00A0 00200177 000200D7
+C000601C 003C010A 001E00A0 003C010A 001E006A
+C000601C 003C01C0 001E00A0 003C01C0 001E0120
+C0006028 001E008D 001E008D 003C01C0 001E0133
+C000603C 003C01EC 001E008D 003C01EC 001E015F
+C0006040 001E0065 001E0065 003C01EC 001E0187
+C000605C 003C0252 001E0065 003C0252 001E01ED
+C000609C 003C0258 001E0065 003C0258 001E01F3
+C00060B0 001E0064 001E0064 003C0258 001E01F4
+00050878
+00050078
+C0006000 0005B72B 0005B72B 0005B72B 00000000
+C0006000 0005B6F1 0005B6F1 0005B72B 0000003A
+C000601C 0005B731 0005B6F1 0005B731 00000040
+C0006058 0005B732 0005B6F1 0005B732 00000041
+C0006078 0005B73B 0005B6F1 0005B73B 0000004A
+00051078
+00051878
+C0006000 00016E12 00016E12 00016E12 00000000
+C0006000 00016DDE 00016DDE 00016E12 00000034
+C0006004 000224E4 00016DDE 000224E4 0000B706
+C000601C 000224F0 00016DDE 000224F0 0000B712
+00051878
+00051078
+80000000 80000000 80000000 80000000
+00050078
+00050078
+80006000 002200E1 002200E1 002200E1 00000000
+80006000 002200C5 002200C5 002200E1 0000001C
+80006000 002200B8 002200B8 002200E1 00000029
+80006000 002200E7 002200B8 002200E7 0000002F
+80006004 002200E9 002200B8 002200E9 00000031
+80006004 002200AE 002200AE 002200E9 0000003B
+80006004 0022018A 002200AE 0022018A 000000DC
+80006008 00220075 00220075 0022018A 00000115
+8000600C 0022005F 0022005F 0022018A 0000012B
+80006010 00280105 0022005F 00280105 000600A6
+8000601C 003E0168 0022005F 003E0168 001C0109
+8000601C 003E01B7 0022005F 003E01B7 001C0158
+8000603C 003E024B 0022005F 003E024B 001C01EC
+800060FC 003E025A 0022005F 003E025A 001C01FB
+00050078
+00050878
+80006000 001E00B2 001E00B2 001E00B2 00000000
+80006000 001E00CD 001E00B2 001E00CD 0000001B
+80006000 001E0158 001E00B2 001E0158 000000A6
+80006004 00200102 001E00B2 00200102 00020050
+80006004 0020010F 001E00B2 0020010F 0002005D
+80006004 002001FC 001E00B2 002001FC 0002014A
+80006008 001E006F 001E006F 002001FC 0002018D
+80006008 001E005C 001E005C 002001FC 000201A0
+8000601C 003C0161 001E005C 003C0161 001E0105
+8000601C 003C0267 001E005C 003C0267 001E020B
+8000603C 003C026C 001E005C 003C026C 001E0210
+80006048 001E005B 001E005B 003C026C 001E0211
+00050878
+00050078
+80006000 0005B711 0005B711 0005B711 00000000
+80006000 0005B6F3 0005B6F3 0005B711 0000001E
+80006004 0005B721 0005B6F3 0005B721 0000002E
+80006018 0005B732 0005B6F3 0005B732 0000003F
+80006018 0005B6F1 0005B6F1 0005B732 00000041
+80006058 0005B733 0005B6F1 0005B733 00000042
+00051078
+00051878
+80006000 00016E0A 00016E0A 00016E0A 00000000
+80006000 00016DDF 00016DDF 00016E0A 0000002B
+80006000 00016DDE 00016DDE 00016E0A 0000002C
+80006004 000224E4 00016DDE 000224E4 0000B706
+8000601C 000224F0 00016DDE 000224F0 0000B712
+00051878
+00051078
+40000000 40000000 40000000 40000000
+00050078
+00050078
+40006000 002200C8 002200C8 002200C8 00000000
+40006000 00220118 002200C8 00220118 00000050
+40006004 002200BB 002200BB 00220118 0000005D
+40006004 00220190 002200BB 00220190 000000D5
+40006008 002200A2 002200A2 00220190 000000EE
+4000600C 00220073 00220073 00220190 0000011D
+40006010 0028009C 00220073 0028009C 00060029
+40006010 002800AF 00220073 002800AF 0006003C
+40006010 002800BC 00220073 002800BC 00060049
+40006014 002800DD 00220073 002800DD 0006006A
+4000601C 003E014D 00220073 003E014D 001C00DA
+4000601C 003E015F 00220073 003E015F 001C00EC
+4000601C 003E0175 00220073 003E0175 001C0102
+4000601C 003E0255 00220073 003E0255 001C01E2
+4000603C 003E025D 00220073 003E025D 001C01EA
+400060AC 0022005F 0022005F 003E025D 001C01FE
+00050078
+00050878
+40006000 001E010C 001E010C 001E010C 00000000
+40006000 001E0109 001E0109 001E010C 00000003
+40006000 001E00DD 001E00DD 001E010C 0000002F
+40006004 002000D4 001E00DD 002000D4 0001FFF7
+40006004 00200103 001E00DD 00200103 00020026
+40006004 00200196 001E00DD 00200196 000200B9
+40006008 001E00AD 001E00AD 00200196 000200E9
+40006010 001E007C 001E007C 00200196 0002011A
+4000601C 003C025F 001E007C 003C025F 001E01E3
+40006020 001E0073 001E0073 003C025F 001E01EC
+40006020 001E006F 001E006F 003C025F 001E01F0
+4000603C 003C0267 001E006F 003C0267 001E01F8
+40006040 001E0069 001E0069 003C0267 001E01FE
+400060B0 001E0066 001E0066 003C0267 001E0201
+400060D0 001E0057 001E0057 003C0267 001E0210
+00050878
+00050078
+40006000 0005B712 0005B712 0005B712 00000000
+40006000 0005B6F3 0005B6F3 0005B712 0000001F
+40006000 0005B6F1 0005B6F1 0005B712 00000021
+40006008 0005B716 0005B6F1 0005B716 00000025
+4000600C 0005B71E 0005B6F1 0005B71E 0000002D
+40006018 0005B729 0005B6F1 0005B729 00000038
+4000601C 0005B72F 0005B6F1 0005B72F 0000003E
+4000605C 0005B730 0005B6F1 0005B730 0000003F
+40006078 0005B733 0005B6F1 0005B733 00000042
+00051078
+00051878
+40006000 00016E0A 00016E0A 00016E0A 00000000
+40006000 00016DDE 00016DDE 00016E0A 0000002C
+40006004 000224E5 00016DDE 000224E5 0000B707
+4000601C 000224F0 00016DDE 000224F0 0000B712
+4000603C 000224F2 00016DDE 000224F2 0000B714
+00051878
+00051078
+00016DDE 003E025D 003C947F
+12345678
+
+config.txt contains
+DISABLE_L2CACHE=1
+
+Nothing major to note
+
+config.txt contains
+arm_freq=250
+
+00040046 0062022A 005E01E4
+
+At best 2 clocks per loop and worst 49 clocks per loop.
+
+12345678 12345678 12345678 12345678 12345678
+002F4E30
+002F4E98
+002F4E13
+002F4E27
+002F4E08
+000C3558
+000C3526
+000C3525
+000C3526
+000000A2
+00000075
+00000075
+00000075
+0000008E
+00000075
+00000075
+00000075
+C0000000 C0000000 C0000000 C0000000
+00050078
+00050078
+C0006000 003A00E4 003A00E4 003A00E4 00000000
+C0006000 003A011E 003A00E4 003A011E 0000003A
+C0006000 003A00DE 003A00DE 003A011E 00000040
+C0006004 003A01A2 003A00DE 003A01A2 000000C4
+C0006004 003A00C1 003A00C1 003A01A2 000000E1
+C000600C 003E012A 003A00C1 003E012A 00040069
+C000601C 00620180 003A00C1 00620180 002800BF
+C000601C 00620193 003A00C1 00620193 002800D2
+C0006038 003A00BD 003A00BD 00620193 002800D6
+C000603C 006201D5 003A00BD 006201D5 00280118
+C0006040 003A00BB 003A00BB 006201D5 0028011A
+C0006078 003A00B7 003A00B7 006201D5 0028011E
+C00060DC 00620209 003A00B7 00620209 00280152
+C00060E4 003A00B5 003A00B5 00620209 00280154
+00050078
+00050878
+C0006000 002E010F 002E010F 002E010F 00000000
+C0006000 002E0151 002E010F 002E0151 00000042
+C0006000 002E00E7 002E00E7 002E0151 0000006A
+C0006004 0034013E 002E00E7 0034013E 00060057
+C0006004 00340192 002E00E7 00340192 000600AB
+C0006008 002E00E2 002E00E2 00340192 000600B0
+C0006010 002E00E1 002E00E1 00340192 000600B1
+C000601C 005C0144 002E00E1 005C0144 002E0063
+C000601C 005C01BC 002E00E1 005C01BC 002E00DB
+C000601C 005C01E3 002E00E1 005C01E3 002E0102
+C0006020 002E00D8 002E00D8 005C01E3 002E010B
+C0006020 002E00CE 002E00CE 005C01E3 002E0115
+C0006030 002E00C6 002E00C6 005C01E3 002E011D
+C000605C 005C0203 002E00C6 005C0203 002E013D
+C0006060 002E00C0 002E00C0 005C0203 002E0143
+C0006078 002E00BF 002E00BF 005C0203 002E0144
+00050878
+00050078
+C0006000 00100072 00100072 00100072 00000000
+C0006000 0010002B 0010002B 00100072 00000047
+C0006000 0010002A 0010002A 00100072 00000048
+C0006018 00100079 0010002A 00100079 0000004F
+C0006018 00100029 00100029 00100079 00000050
+C0006038 0010007D 00100029 0010007D 00000054
+C00060B8 0010007F 00100029 0010007F 00000056
+00051078
+00051878
+C0006000 0004008C 0004008C 0004008C 00000000
+C0006000 00040047 00040047 0004008C 00000045
+C0006000 00040046 00040046 0004008C 00000046
+C0006004 0006008C 00040046 0006008C 00020046
+C000601C 0006009C 00040046 0006009C 00020056
+C000609C 0006009D 00040046 0006009D 00020057
+00051878
+00051078
+80000000 80000000 80000000 80000000
+00050078
+00050078
+80006000 003A00F2 003A00F2 003A00F2 00000000
+80006000 003A012B 003A00F2 003A012B 00000039
+80006000 003A00D4 003A00D4 003A012B 00000057
+80006004 003A0130 003A00D4 003A0130 0000005C
+80006004 003A00CA 003A00CA 003A0130 00000066
+80006004 003A0147 003A00CA 003A0147 0000007D
+80006008 003A00BF 003A00BF 003A0147 00000088
+8000600C 003E010D 003A00BF 003E010D 0004004E
+8000600C 003E019B 003A00BF 003E019B 000400DC
+80006018 003A00BC 003A00BC 003E019B 000400DF
+8000601C 0062017F 003A00BC 0062017F 002800C3
+8000601C 0062022A 003A00BC 0062022A 0028016E
+80006038 003A00AE 003A00AE 0062022A 0028017C
+00050078
+00050878
+80006000 002E00FB 002E00FB 002E00FB 00000000
+80006000 002E0145 002E00FB 002E0145 0000004A
+80006000 002E00EA 002E00EA 002E0145 0000005B
+80006004 00340113 002E00EA 00340113 00060029
+80006004 00340132 002E00EA 00340132 00060048
+80006008 002E00E4 002E00E4 00340132 0006004E
+80006010 002E00BE 002E00BE 00340132 00060074
+80006014 00340145 002E00BE 00340145 00060087
+8000601C 005C018D 002E00BE 005C018D 002E00CF
+8000601C 005C01E4 002E00BE 005C01E4 002E0126
+8000603C 005C0217 002E00BE 005C0217 002E0159
+80006040 002E00BD 002E00BD 005C0217 002E015A
+80006068 002E00BC 002E00BC 005C0217 002E015B
+800060DC 005C022A 002E00BC 005C022A 002E016E
+00050878
+00050078
+80006000 00100060 00100060 00100060 00000000
+80006000 0010002B 0010002B 00100060 00000035
+80006004 00100061 0010002B 00100061 00000036
+80006008 0010002A 0010002A 00100061 00000037
+8000600C 00100062 0010002A 00100062 00000038
+80006018 00100076 0010002A 00100076 0000004C
+8000601C 00100078 0010002A 00100078 0000004E
+80006058 0010007D 0010002A 0010007D 00000053
+80006058 00100029 00100029 0010007D 00000054
+80006098 00100080 00100029 00100080 00000057
+00051078
+00051878
+80006000 0004008D 0004008D 0004008D 00000000
+80006000 00040047 00040047 0004008D 00000046
+80006000 00040046 00040046 0004008D 00000047
+80006004 0006008B 00040046 0006008B 00020045
+8000601C 0006009D 00040046 0006009D 00020057
+00051878
+00051078
+40000000 40000000 40000000 40000000
+00050078
+00050078
+40006000 003A0102 003A0102 003A0102 00000000
+40006000 003A0143 003A0102 003A0143 00000041
+40006000 003A00C5 003A00C5 003A0143 0000007E
+40006004 003A0168 003A00C5 003A0168 000000A3
+40006008 003A00C1 003A00C1 003A0168 000000A7
+4000600C 003E010F 003A00C1 003E010F 0004004E
+4000600C 003E0137 003A00C1 003E0137 00040076
+4000601C 00620118 003A00C1 00620118 00280057
+4000601C 00620199 003A00C1 00620199 002800D8
+4000601C 0062019E 003A00C1 0062019E 002800DD
+40006028 003A00B2 003A00B2 0062019E 002800EC
+4000603C 00620216 003A00B2 00620216 00280164
+40006078 003A00B1 003A00B1 00620216 00280165
+40006098 003A00AD 003A00AD 00620216 00280169
+00050078
+00050878
+40006000 002E0108 002E0108 002E0108 00000000
+40006000 002E0149 002E0108 002E0149 00000041
+40006000 002E00D7 002E00D7 002E0149 00000072
+40006004 003400EC 002E00D7 003400EC 00060015
+40006004 00340160 002E00D7 00340160 00060089
+4000600C 00340186 002E00D7 00340186 000600AF
+40006010 002E00D1 002E00D1 00340186 000600B5
+40006018 002E00C8 002E00C8 00340186 000600BE
+4000601C 005C014D 002E00C8 005C014D 002E0085
+4000601C 005C01AA 002E00C8 005C01AA 002E00E2
+4000601C 005C0209 002E00C8 005C0209 002E0141
+4000603C 005C0219 002E00C8 005C0219 002E0151
+400060A0 002E00C7 002E00C7 005C0219 002E0152
+00050878
+00050078
+40006000 00100061 00100061 00100061 00000000
+40006000 0010002B 0010002B 00100061 00000036
+40006008 00100062 0010002B 00100062 00000037
+40006008 0010002A 0010002A 00100062 00000038
+40006018 0010007A 0010002A 0010007A 00000050
+40006078 00100081 0010002A 00100081 00000057
+00051078
+00051878
+40006000 0004008D 0004008D 0004008D 00000000
+40006000 00040047 00040047 0004008D 00000046
+40006000 00040046 00040046 0004008D 00000047
+40006004 0006008B 00040046 0006008B 00020045
+4000601C 0006009D 00040046 0006009D 00020057
+00051878
+00051078
+00040046 0062022A 005E01E4
+12345678
+
+So with the same hardware and the same machine code, well arguably
+the time reading surrounding the HOP instruction, could vary.  But
+that is inthe noise, and probably the overhead where we get the
+46 in a time like 00040046.  Anyway, even with that, and a test
+loop of the exact same two instructions in a loop, the large number
+of different results we get is fascinating.
+
+Think about that and then think about compiler variations for
+the same source code:
+
+extern unsigned int more_fun ( unsigned int, unsigned int );
+unsigned int fun ( unsigned int a, unsigned int b )
+{
+    return(more_fun(a+1,b+2)+3);
+}
+
+this
+
+00000000 <fun>:
+   0:   e92d4800    push    {fp, lr}
+   4:   e28db004    add fp, sp, #4
+   8:   e24dd008    sub sp, sp, #8
+   c:   e50b0008    str r0, [fp, #-8]
+  10:   e50b100c    str r1, [fp, #-12]
+  14:   e51b3008    ldr r3, [fp, #-8]
+  18:   e2832001    add r2, r3, #1
+  1c:   e51b300c    ldr r3, [fp, #-12]
+  20:   e2833002    add r3, r3, #2
+  24:   e1a01003    mov r1, r3
+  28:   e1a00002    mov r0, r2
+  2c:   ebfffffe    bl  0 <more_fun>
+  30:   e1a03000    mov r3, r0
+  34:   e2833003    add r3, r3, #3
+  38:   e1a00003    mov r0, r3
+  3c:   e24bd004    sub sp, fp, #4
+  40:   e8bd4800    pop {fp, lr}
+  44:   e12fff1e    bx  lr
+
+or this
+
+00000000 <fun>:
+   0:   e92d4010    push    {r4, lr}
+   4:   e2811002    add r1, r1, #2
+   8:   e2800001    add r0, r0, #1
+   c:   ebfffffe    bl  0 <more_fun>
+  10:   e8bd4010    pop {r4, lr}
+  14:   e2800003    add r0, r0, #3
+  18:   e12fff1e    bx  lr
+
+or this
+
+     00000000 <fun>:
+   0:   e92d4010    push    {r4, lr}
+   4:   e2811002    add r1, r1, #2
+   8:   e2800001    add r0, r0, #1
+   c:   ebfffffe    bl  0 <more_fun>
+  10:   e2800003    add r0, r0, #3
+  14:   e8bd8010    pop {r4, pc}
+
+or this
+
+00000000 <fun>:
+   0:   b510        push    {r4, lr}
+   2:   3102        adds    r1, #2
+   4:   3001        adds    r0, #1
+   6:   f7ff fffe   bl  0 <more_fun>
+   a:   3003        adds    r0, #3
+   c:   bc10        pop {r4}
+   e:   bc02        pop {r1}
+  10:   4708        bx  r1
+  12:   46c0        nop         ; (mov r8, r8)
+
+or this
+
+  00000000 <fun>:
+   0:   b510        push    {r4, lr}
+   2:   3102        adds    r1, #2
+   4:   3001        adds    r0, #1
+   6:   f7ff fffe   bl  0 <more_fun>
+   a:   3003        adds    r0, #3
+   c:   bd10        pop {r4, pc}
+
+or this using a different compiler
+
+00000000 <fun>:
+   0:   e92d4800    push    {fp, lr}
+   4:   e1a0b00d    mov fp, sp
+   8:   e2800001    add r0, r0, #1
+   c:   e2811002    add r1, r1, #2
+  10:   ebfffffe    bl  0 <more_fun>
+  14:   e2800003    add r0, r0, #3
+  18:   e8bd4800    pop {fp, lr}
+  1c:   e1a0f00e    mov pc, lr
+
+or this
+
+00000000 <fun>:
+   0:   e92d4800    push    {fp, lr}
+   4:   e1a0b00d    mov fp, sp
+   8:   e2800001    add r0, r0, #1
+   c:   e2811002    add r1, r1, #2
+  10:   ebfffffe    bl  0 <more_fun>
+  14:   e2800003    add r0, r0, #3
+  18:   e8bd8800    pop {fp, pc}
+
+So we saw how vastly different execution times could be for the
+same two instructions in machine code.  Now take essentially one
+line of C and look at how many machine code variations came from
+that, and try to ponder how many different execution times we could
+come up with those variations.  Then ponder how it is possible to
+actually come up with a benchmark, not only for one machine with
+one test written in C or higher, but when comparing machines to each
+other.  Even the same binary used across them depending on the system
+settings or cache sizes or speeds or ram or motherboard nuances.
+
+Ill just leave it at that.
