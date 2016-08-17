@@ -1,0 +1,10 @@
+
+See the top level README file for more information on documentation
+and how to run these programs.
+
+I didnt realize that the swd information has been documented in the
+stm32 and other places for a while now.  Despite that I am only
+getting so far, can read the DP id register, but cannot turn on the
+debugger to read the ap id register.  or even read back the stat
+after writing control.   WIP.
+
