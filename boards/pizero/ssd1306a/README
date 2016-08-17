@@ -1,0 +1,39 @@
+
+See the top level README file for more information on documentation
+and how to run these programs.
+
+Derived from a microcontroller i2c version derived from a spi raspiberry
+pi version.
+
+If you search for ssd1306 at adafruit or micro oled atsparkfun you will
+find similar displays.
+
+On ebay though there are gobzillions, search for I2C serial oled this is
+a 128x64.  I paid under $4 shipping included each.
+
+Looking at the top if the raspberry pi oriented with the two rows of
+pins on your right, the top right pin of those is pin number 2, the
+one below that on the outside is pin 4, 6, 8, and so on.  Where the
+uart TX and RX are.
+
+The left side is pin 1,3,5,7 and so on.  We are using those:
+
+//inner corner
+// 1 3.3v
+// 3 GPIO2 SDA
+// 5 GPIO3 SCL
+// 7 GPOI4 (not used here)
+// 9 Ground
+
+// vcc gnd scl sda
+
+Connect the display to the pi like this
+
+OLED  PI
+------------
+VCC   PIN 1
+GND   PIN 9
+SCL   PIN 3
+SDA   PIN 2
+
+You can google SSD1306 to find a datasheet.
