@@ -338,6 +338,10 @@ jtag solution is the most powerful and useful.  My typical setup is the
 armjtag binary as kernel.img, a usb to jtag board like the amontec
 jtag-tiny and a usb to serial using minicom.
 
+Update, amontec is history their website is gone.  But you can
+get j-link (or clone) boxes from asia on ebay for around $11, so far
+I have tried them with ARM JTAG and ARM SWD.  Very pleased so far.
+
 If you can solder, the A+, B+, Zero and Pi 2 all have a pair of holes
 sometimes with the text RUN next to them.  I use buttons like this
 https://www.sparkfun.com/products/97

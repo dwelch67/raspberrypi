@@ -472,3 +472,18 @@ replace amontec.cfg with one of the other files or make your own.
 
 
 
+Update: amontec is history their website is gone.  But you can
+get j-link (or clone) boxes from asia on ebay for around $11, so far
+I have tried them with ARM JTAG and ARM SWD.  Very pleased so far.
+YMMV.
+
+As of this writing the signalyer at least the $50 one is long gone
+that company still makes something but it is pricy.  flyswatter?
+I think they are still out there.  Bus pirate, still out there, I
+think I got a $18 one on ebay and I think it works fine for jtag
+as well, the serial port i didnt get figured out, some soldering
+required.  (the j-link, no soldering required).  And the FT2232H
+and 4232 mini modules should still be out there too, have to use
+a number of jumpers to get VDDIO and such powered.
+
+
