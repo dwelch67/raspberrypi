@@ -233,7 +233,7 @@ mode.  How do you get into interrupt mode?  Well you modify the cpsr
 which contains the mode bits and that magically changes you to that mode.
 You can do this from any mode to any mode except from user mode, you cant
 get out of user mode by changing the bits.  We are not in user mode on
-boot and never swtich to it in any of my examples do we dont have to
+boot and never switch to it in any of my examples do we dont have to
 worry about getting out of it (normally you use an svc/swi instruction and
 have a software interrupt handler that does things that are protected
 from user mode).  So the next bit of code after copying the exception
