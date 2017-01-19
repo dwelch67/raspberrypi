@@ -1,0 +1,62 @@
+
+See the top level README file for more information on documentation
+and how to run these programs.
+
+Sounds like this happened a while ago now, months, so I am just catching
+up so they have provided a way to allow for 64 bit kernels without
+having to load from zero and manage the cores and switching modes.
+
+So what they are saying is it looks for the file kernel8.img then
+kernel8-32.img then kernel7.img and last kernel.img and in that order
+whichever it finds is the one it uses.  So with only a current
+bootcode.bin, start.elf and one or all of the files built here on
+the flash whichever it finds in that order it uses, so you can put
+all four .img files and it uses kernel8.img then delete that one and
+then it uses kernel8-32.img and so on.
+
+Yes you have to do the sd card dance.
+
+So the output is below, interesting that in 64 bit mode either my
+code to read the pc is wrong or they are starting at 0x80000 instead
+of 0x8000.
+
+There are no doubt other registers I could dump (note as this time I
+didnt do the work to read the CPSR in 64 bit mode so it is just zero)
+to see if there are any actual differences between the kernel8-32.img
+and kernel7.img and kernel.img as far as how it loads, etc.  I guess
+I (you, we) could just dump the 0x0000 code they place to see if it
+varies.
+
+kernel8.img
+
+12345678
+00000800
+00080264
+00000000
+12345678
+
+kernel8-32.img
+
+12345678
+00008320
+00008224
+200001DA
+12345678
+
+kernel7.img
+
+12345678
+00000700
+00008224
+200001DA
+12345678
+
+kernel.img
+
+12345678
+00000000
+00008224
+200001DA
+12345678
+
+
