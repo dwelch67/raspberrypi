@@ -1,0 +1,18 @@
+
+See the top level README for information on where to find documentation
+for the raspberry pi and the ARM processor inside.  Also find information
+on how to load and run these programs.
+
+It was asked how to detect which board you are on, specifically how to
+know which peripheral base, they used a different cpu core on each
+the pi1/zero armv6 based, pi2 armv7 based and pi3 armv8 based.  You
+can just look at one of the cpuid registers.
+
+This is a simple program, that can be run on any of the boards (so
+far) and it will detect what base address it needs to use and then
+print out some info.
+
+Now that the bootloader (bootcode.bin + start.elf) support various
+file names (kernel.img, kernel7.img, etc) and will grab the lesser
+name if it cant find the one most relevant to that board, we can make
+this just kernel.img and it works on all of them.
