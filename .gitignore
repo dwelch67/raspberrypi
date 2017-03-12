@@ -1,0 +1,7 @@
+raspberrypi/
+*.o
+*.elf
+*.bin
+*.hex
+*.img
+kernel.img

@@ -1,7 +1,7 @@
 
 //-------------------------------------------------------------------------
 //-------------------------------------------------------------------------
-
+#include "periph.h"
 extern void PUT32 ( unsigned int, unsigned int );
 extern void PUT16 ( unsigned int, unsigned int );
 extern void PUT8 ( unsigned int, unsigned int );
@@ -52,6 +52,14 @@ unsigned int uart_check ( void )
 {
     if(GET32(AUX_MU_LSR_REG)&0x01) return(1);
     return(0);
+}
+void uart_puts(char str[]){
+	int i;
+	i=0;
+	while(str[i] != '\0'){
+		uart_send(str[i]);
+		i++;
+	}
 }
 //------------------------------------------------------------------------
 void uart_send ( unsigned int c )
