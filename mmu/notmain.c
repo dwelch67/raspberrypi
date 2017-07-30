@@ -6,10 +6,9 @@ extern void PUT32 ( unsigned int, unsigned int );
 extern void PUT16 ( unsigned int, unsigned int );
 extern unsigned int GET32 ( unsigned int );
 
-extern void start_mmu ( unsigned int, unsigned int );
+extern void mmu_init ( uint32_t );
 extern void stop_mmu ( void );
-extern void invalidate_tlbs ( void );
-extern void invalidate_caches ( void );
+extern void invalidate_tlb ( void );
 
 extern void uart_init ( void );
 extern void uart_send ( unsigned int );
@@ -17,43 +16,66 @@ extern void uart_send ( unsigned int );
 extern void hexstrings ( unsigned int );
 extern void hexstring ( unsigned int );
 
-unsigned int system_timer_low ( void );
+#include <stdint.h>
 
 #define MMUTABLEBASE 0x00004000
 
-//-------------------------------------------------------------------
-unsigned int mmu_section ( unsigned int vadd, unsigned int padd, unsigned int flags )
-{
-    unsigned int ra;
-    unsigned int rb;
-    unsigned int rc;
+#define CACHEABLE 0x08
+#define BUFFERABLE 0x04
 
-    ra=vadd>>20;
-    rb=MMUTABLEBASE|(ra<<2);
-    rc=(padd&0xFFF00000)|0xC00|flags|2;
-    //hexstrings(rb); hexstring(rc);
-    PUT32(rb,rc);
+/**
+ * \brief creates an translation table entry (for sections of size 1 MiB)
+ * \param[in] vadd the virtual address (only top 12 bits used)
+ * \param[in] padd the physical address (only top 12 bits used)
+ * \param[in] flags the flags for the section
+ **/
+uint32_t mmu_section ( uint32_t virtual, uint32_t physical, uint32_t flags )
+{
+    uint32_t offset = virtual >> 20;
+    // plus and or are the same thing here, as MMUTABLEBASE is 14 bit aligned
+    uint32_t* entry = MMUTABLEBASE | (offset<<2);
+    
+    // mask lower 20 bits of physical address then ORR flags and 0x02 for 1 MiB
+    physval = (physval & 0xfff00000) | (flags & 0x7ffa) | 0x02; 
+
+    *entry = physval;
     return(0);
 }
-//-------------------------------------------------------------------
-unsigned int mmu_small ( unsigned int vadd, unsigned int padd, unsigned int flags, unsigned int mmubase )
-{
-    unsigned int ra;
-    unsigned int rb;
-    unsigned int rc;
 
-    ra=vadd>>20;
-    rb=MMUTABLEBASE|(ra<<2);
-    rc=(mmubase&0xFFFFFC00)/*|(domain<<5)*/|1;
-    //hexstrings(rb); hexstring(rc);
-    PUT32(rb,rc); //first level descriptor
-    ra=(vadd>>12)&0xFF;
-    rb=(mmubase&0xFFFFFC00)|(ra<<2);
-    rc=(padd&0xFFFFF000)|(0xFF0)|flags|2;
-    //hexstrings(rb); hexstring(rc);
-    PUT32(rb,rc); //second level descriptor
+
+/**
+ * \brief creates an translation table entry (for sections of size 1 MiB)
+ * \param[in] virtual the virtual address (only top 12 bits used)
+ * \param[in] physical the physical address (only top 12 bits used)
+ * \param[in] flags the flags for the section
+ **/
+uint32_t mmu_page ( uint32_t virtual, uint32_t physical, uint32_t flags, uint32_t secondbase )
+{
+    uint32_t offset = virtual >> 20;
+    // plus and or are the same thing here, as MMUTABLEBASE is 14 bit aligned
+    uint32_t* entry = MMUTABLEBASE | (offset<<2);
+    // mask lower 20 bits of physical address then ORR flags and 0x01 for coarse translation
+    uint32_t entryval = (secondbase & 0xfffffc00) | (flags & 0xf0) | 0x01; 
+
+    // set first level descriptor
+    *entry = entryval;
+    
+    // mask everything except bits 19:12
+    offset = (virtual >> 12) & 0xff;
+    // form the second level
+    uint32_t* secondLevelEntry = (secondbase & 0xfffffc00) | (offset << 2);
+    
+    // form the value of the second level descriptor
+    // bytes 31:12 are the page base address, flags contain B,C, AP_x = 0b11 
+    // for all and the 0x02 at the end to identify the entry as small page
+    uint32_t physval = (physical & 0xfffff000) | 0xff0 | (flags & 0xc) | 0x02;
+    
+    // set the second level descriptor
+    *secondLevelEntry = physval;
     return(0);
 }
+
+    
 //------------------------------------------------------------------------
 int notmain ( void )
 {
@@ -95,7 +117,7 @@ int notmain ( void )
     mmu_section(0x20000000,0x20000000,0x0000); //NOT CACHED!
     mmu_section(0x20200000,0x20200000,0x0000); //NOT CACHED!
 
-    start_mmu(MMUTABLEBASE,0x00000001|0x1000|0x0004); //[23]=0 subpages enabled = legacy ARMv4,v5 and v6
+    mmu_init( MMUTABLEBASE );
 
     hexstring(GET32(0x00045678));
     hexstring(GET32(0x00145678));
@@ -106,7 +128,7 @@ int notmain ( void )
     mmu_section(0x00100000,0x00300000,0x0000);
     mmu_section(0x00200000,0x00000000,0x0000);
     mmu_section(0x00300000,0x00100000,0x0000);
-    invalidate_tlbs();
+    invalidate_tlb();
 
     hexstring(GET32(0x00045678));
     hexstring(GET32(0x00145678));
@@ -123,7 +145,7 @@ int notmain ( void )
     mmu_section(0x00100000,0x00100000,0x0000);
     mmu_section(0x00200000,0x00200000,0x0000);
     mmu_section(0x00300000,0x00300000,0x0000);
-    invalidate_tlbs();
+    invalidate_tlb();
 
     hexstring(GET32(0x0AA45678));
     hexstring(GET32(0x0BB45678));
@@ -139,7 +161,7 @@ int notmain ( void )
     //access violation.
 
     mmu_section(0x00100000,0x00100000,0x0020);
-    invalidate_tlbs();
+    invalidate_tlb();
 
     hexstring(GET32(0x00045678));
     hexstring(GET32(0x00145678));

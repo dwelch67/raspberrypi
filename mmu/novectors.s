@@ -74,22 +74,32 @@ handler:
     b hang
 
 data_abort:
+    // save the link-register
     mov r6,lr
+    // get the last executed instruction
     ldr r8,[r6,#-8]
+    
+    // reading the status register
     mrc p15,0,r4,c5,c0,0 ;@ data/combined
     mrc p15,0,r5,c5,c0,1 ;@ instruction
     mov sp,#0x00004000
-    bl hexstring
+    
+    // print data fault status register
     mov r0,r4
     bl hexstring
+    
+    // print instruction fault status register
     mov r0,r5
     bl hexstring
+    
+    // print the link register
     mov r0,r6
     bl hexstring
+    
+    // print the bit-representation of the last executed instruction
     mov r0,r8
     bl hexstring
-    mov r0,r7
-    bl hexstring
+    
     b hang
 
 .globl PUT32
@@ -106,25 +116,30 @@ GET32:
 dummy:
     bx lr
 
-.globl start_mmu
-start_mmu:
-    mov r2,#0
-    mcr p15,0,r2,c7,c7,0 ;@ invalidate caches
-    mcr p15,0,r2,c8,c7,0 ;@ invalidate tlb
-    mcr p15,0,r2,c7,c10,4 ;@ DSB ??
-
-    mvn r2,#0
-    bic r2,#0xC
-    mcr p15,0,r2,c3,c0,0 ;@ domain
-
+.global mmu_init
+mmu_init:
+    mov r1,#0
+    // invalidate caches
+    mcr p15,0,r1,c7,c7,0 
+    // invalidate TLB entries
+    mcr p15,0,r1,c8,c7,0 
+    // data synchronisation barrier
+    mcr p15,0,r1,c7,c10,4 
+    
+    // set all domains to 0b11
+    ldr r1, =0xffffffff
+    mcr p15,0,r1,c3,c0,0
+    
+    // set the translation table base address (remember to align 16 KiB!)
     mcr p15,0,r0,c2,c0,0 ;@ tlb base
-    mcr p15,0,r0,c2,c0,1 ;@ tlb base
-
+    
+    // set the bits mentioned above
+    ldr r1, =0x00401805
     mrc p15,0,r2,c1,c0,0
     orr r2,r2,r1
     mcr p15,0,r2,c1,c0,0
-
-    bx lr
+    
+    mov pc, lr
 
 .globl stop_mmu
 stop_mmu:
@@ -135,8 +150,8 @@ stop_mmu:
     mcr p15,0,r2,c1,c0,0
     bx lr
 
-.globl invalidate_tlbs
-invalidate_tlbs:
+.globl invalidate_tlb
+invalidate_tlb:
     mov r2,#0
     mcr p15,0,r2,c8,c7,0  ;@ invalidate tlb
     mcr p15,0,r2,c7,c10,4 ;@ DSB ??

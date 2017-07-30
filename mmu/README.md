@@ -270,12 +270,13 @@ will be triggered, but for now let's focus on the simpler part.
 ##### An example
 
 ```
-    MMUTABLEBASE = 0x00004000
-    virtual address = 0x12345678
+    MMUTABLEBASE                    = 0x00004000
+    virtual address                 = 0x12345678
     -> first 12 bit (moved to right): 0x00000123
-    descriptor for the section: 0x000448c
-    let's assume the descriptor was 0xABC00002
-    -> physical address 0xABC45678
+    -> multiplied by 4:               0x0000048c
+    descriptor for the section:       0x0000448c
+    let's assume the descriptor was   0xABC00002
+    -> physical address               0xABC45678
 ```
 
 #### 16 MiB Supersections
@@ -376,12 +377,12 @@ all of our sections can have the domain number 0.
         uint32_t* entry = MMUTABLEBASE | (offset<<2);
         
         // mask lower 20 bits of physical address then ORR flags and 0x02 for 1 MiB
-        physval = (physval & 0xfff00000) | (flags & 0x7ffa) | 0x02; 
+        uint32_t physval = (physical & 0xfff00000) | (flags & 0x7ffa) | 0x02; 
 
         *entry = physval;
         return(0);
     }
-    
+
     #define CACHEABLE 0x08
     #define BUFFERABLE 0x04
 ```
@@ -456,367 +457,419 @@ All of the above can be done using the C15 [co-processor]. So, to summarise:
 6. Enable level 1 caches and the MMU in the control register (`0,c1,c0,0`) and some other useful things:
   - bit 0 (M) enables MMU
   - bit 2 (C) enables level 1 data cache
-  - bit 11 (Z) enabled branch prediction
+  - bit 11 (Z) enables branch prediction
   - bit 12 (I) enables instruction cache
-  - bit 22 (U) enabled non-aligned data access as well as mixed big-/little-endian data access
+  - bit 22 (U) enables non-aligned data access as well as mixed big-/little-endian data access
 
-So simple example code implementing the the MMU-enabling process might be this:
+What bits of these you want to set is up to you. I would recommend M, C and I, 
+but I am going ahead and set them all. So simple example code implementing the 
+the MMU-enabling process might be this: 
 
 ```armasm
-.global mmu_init
-mmu_init:
-    mov r1,#0
-    // invalidate caches
-    mcr p15,0,r1,c7,c7,0 
-    // invalidate TLB entries
-    mcr p15,0,r1,c8,c7,0 
-    // data synchronisation barrier
-    mcr p15,0,r1,c7,c10,4 
-    
-    // set all domains to 0b11
-    ldr r1, =0xffffffff
-    mcr p15,0,r1,c3,c0,0
-    
-    // set the translation table base address (remember to align 16 KiB!)
-    mcr p15,0,r0,c2,c0,0 ;@ tlb base
-    
-    // set the bits mentioned above
-    ldr r1, =0x00401805
-    mrc p15,0,r2,c1,c0,0
-    orr r2,r2,r1
-    mcr p15,0,r2,c1,c0,0
-    
-    mov pc, lr
+    .global mmu_init
+    mmu_init:
+        mov r1,#0
+        // invalidate caches
+        mcr p15,0,r1,c7,c7,0 
+        // invalidate TLB entries
+        mcr p15,0,r1,c8,c7,0 
+        // data synchronisation barrier
+        mcr p15,0,r1,c7,c10,4 
+        
+        // set all domains to 0b11
+        ldr r1, =0xffffffff
+        mcr p15,0,r1,c3,c0,0
+        
+        // set the translation table base address (remember to align 16 KiB!)
+        mcr p15,0,r0,c2,c0,0
+        
+        // set the bits mentioned above
+        ldr r1, =0x00401805
+        mrc p15,0,r2,c1,c0,0
+        orr r2,r2,r1
+        mcr p15,0,r2,c1,c0,0
+        
+        mov pc, lr
 ```
 
-// TODO
+For messing with the translation tables after the MMU is started, you will need
+to invalidate the TLB cache again, so let's put this part into its own function.
+We don't need to care about the L1 cache, this time. Also ARMv6 introduces a 
+feature to help with invlidating the TLB, but I'm going with this solution:
 
-I am going to mess with the translation tables after the MMU is started
-so the easiest way to deal with the TLB cache is to invalidate it, but
-dont need to mess with main L1 cache.  ARMv6 introduces a feature to
-help with this, but going with this solution.
+```armasm
+    .globl tlb_invalidate
+    tlb_invalidate:
+        mov r2,#0
+        // invalidate TLB entries
+        mcr p15,0,r1,c8,c7,0 
+        // data synchronisation barrier
+        mcr p15,0,r1,c7,c10,4 
+        mov pc,lr
+```
 
-.globl invalidate_tlbs
-invalidate_tlbs:
-    mov r2,#0
-    mcr p15,0,r2,c8,c7,0  ;@ invalidate tlb
-    mcr p15,0,r2,c7,c10,4 ;@ DSB ??
-    bx lr
+#### (JTAG) Debugging and caching
 
-Something to note here.  Debugging using the JTAG based on chip debugger
-makes life easier, that removing sd cards or the old days pulling an
-eeprom out and putting it it in an eraser then a programmer.  BUT,
-it is not completely without issue.  When and where and if you hit this
-depends heavily on the core you are using and the jtag tools and the
-commands you remember/prefer.  The basic problem is caches can and
-often do separate instruction I fetches from data D reads and writes.
-So if you have test run A of a program that has executed the instruction
-at address 0xD000.  So that instruction is in the I cache.  You have
-also executed the instruction at 0xC000 but it has been evicted, but
-you dont actually know what is in the I cache or not, shouldnt even
-try to assume.  You stop the processor, you write a new program to
-memory, now these are data D writes, and go through the D cache.  Then
-you set the start address and run again.  Now there are a number of
-combinations here and only one if them works, the rest can lead to
-failure.
+Something to note here. Debugging using the JTAG based on-chip-debugger
+makes life easier. No SD-card swapping and no more EEPROM-flashing. BUT,
+it is not completely without issue. The basic problem is that caches often 
+seperate instruction fetches from data reads and writes. Let's say you execute 
+instructions at 0xD0000 (which is cached) and an instruction 0xC000. So you
+transfer your programm, set the start address and run again. 
 
-For each instruction/address in the program, if the prior instruction
-at that address was in the i cache, and since data writes do not go
-through the i cache then the new instruction for that address is either
-in the d cache or in main ram.  When you run the new program you will
-get the stale/old instruction from a prior run when you fetch that
-address (unless an invalidate happens, if a flush happens then you
-write back, but why would an I cache flush?), and if the new instruction
-at that address is not the same as the old one unpredictable results
-will occur.  You can start to see the combinations, did the data
-write go through to d cache or to ram, will it flush to ram and is the
-i cache invalid for that address, etc.
+For each instruction in the program the prior instruction in that address might 
+still be in the instruction cache and the new one in main RAM (or data cache). 
+So, when running the new program you might still be running the old 
+instructions, which are fetched back from the instruction cache, not the RAM, 
+unless an invalidate or flush happens).
 
-There is also the quesiton of are the I and D caches shared, they can
-be but that is both specific to the core and your setup.  Also does
-the jtag debugger have the ability to disable the caches, has it done
-it for you, can you do it manually.
+There is also the question of are the instruction and data caches shared? 
+They can be specific to the core and your setup. Is your JTAG-debugger able to 
+disable the caches, has it done that for you, or can you do it manually.
 
-Any time you are using the i or d caches you need to be careful using
-a jtag debugger or even a bootloader type approach depending on its
+Any time you are using the instruction or data caches you need to be careful 
+using a JTAG-debugger or even a bootloader type approach depending on its
 design as you might end up doing data writes of instructions and going
-around the i cache or worse.  So for this kind of work using a chip
-reset and non volitle rom/flash based bootloader can/will save you
-a lot of headaches.  If you know your debugger is solving this for you,
-great, but always make sure as you change from the raspi 2 back to
-a raspi 1 for example it might not be doing it and it will drive you
-nuts when you keep downloading a new program and it either crashes
-in a strange way or simply just keeps running the old program and
-not appearing to take your new changes.
+around the instruction cache or worse. This may be done by your JTAG debugger,
+but keep in mind to change back to / from Raspberry Pi 2 when switching between 
+the Pis. Otherwise this might driver you mad, when you keep downloading new 
+code but the Pi crashes or behaves unexpectedly.
 
-So the example is going to start with the mmu off and write to
-addresses in four different 1MB address spaces.  So that later we
-can play with the section descriptors and demonstrate virtual to
-physical address conversion.
+## Having fun with address translation
 
-So write some stuff and print it out on the uart.
+So the example is going to start with the MMU off and write to
+addresses in four different 1MB address spaces, so we can play with the section 
+descriptors and demonstrate virtual to physical address conversion later.
 
+```c
+    // write data to four different 1 MiB sections
     PUT32(0x00045678,0x00045678);
     PUT32(0x00145678,0x00145678);
     PUT32(0x00245678,0x00245678);
     PUT32(0x00345678,0x00345678);
 
+    // write the data back to UART
     hexstring(GET32(0x00045678));
     hexstring(GET32(0x00145678));
     hexstring(GET32(0x00245678));
     hexstring(GET32(0x00345678));
-    uart_send(0x0D); uart_send(0x0A);
+    // 0D    CR  '\r' (carriage ret)
+    uart_send(0x0D); 
+    // 0A    LF  '\n' (new line)
+    uart_send(0x0A);
 
-then setup the mmu with at least those four sections and the peripherals
-
-    mmu_section(0x00000000,0x00000000,0x0000|8|4);
+    // Then setup the MMU with at least those four sections
+    mmu_section(0x00000000,0x00000000,CACHEABLE | BUFFERABLE);
     mmu_section(0x00100000,0x00100000,0x0000);
     mmu_section(0x00200000,0x00200000,0x0000);
     mmu_section(0x00300000,0x00300000,0x0000);
-    //peripherals
+    
+    //  and the peripherals:
     mmu_section(0x20000000,0x20000000,0x0000); //NOT CACHED!
     mmu_section(0x20200000,0x20200000,0x0000); //NOT CACHED!
 
-and start the mmu with the I and D caches enabled
+    // Start the MMU with the instruction and data caches enabled:
+    mmu_init ( MMUTABLEBASE );
 
-    start_mmu(MMUTABLEBASE,0x00000001|0x1000|0x0004);
-
-then if we read those four addresses again we get the same output
-as before since we maped virtual = physical.
-
+    // when we read those four addresses back we get the same output
+    // as we wrote before because we mapped virtual = physical
     hexstring(GET32(0x00045678));
     hexstring(GET32(0x00145678));
     hexstring(GET32(0x00245678));
     hexstring(GET32(0x00345678));
     uart_send(0x0D); uart_send(0x0A);
+```
 
-but what if we swizzle things around.  make virtual 0x001xxxxx =
-physical 0x003xxxxx.  0x002 looks at 0x000 and 0x003 looks at 0x001
-(dont mess with the 0x00000000 section, that is where our program is
-running)
+But what if we swizzle things around? Don't mess with the 0x00000000-section, 
+because that is where our code is.
 
+```c
+    // change the table entries
     mmu_section(0x00100000,0x00300000,0x0000);
     mmu_section(0x00200000,0x00000000,0x0000);
     mmu_section(0x00300000,0x00100000,0x0000);
 
-and maybe we dont need to do this but do it anyway just in case
-
+    // invalidate the TLB
     invalidate_tlbs();
 
-read them again.
-
+    // and read the addresses again, which we wrote to above
     hexstring(GET32(0x00045678));
     hexstring(GET32(0x00145678));
     hexstring(GET32(0x00245678));
     hexstring(GET32(0x00345678));
     uart_send(0x0D); uart_send(0x0A);
+```
 
-the 0x000xxxxx entry was not modifed so we get 000045678 as the output
-but the 0x001xxxxx read is now coming from physical 0x003xxxxx so we
-get the 00345678 output, 0x002xxxxx comes from the 0x000xxxxx space
-so that read gives 00045678 and the 0x003xxxxx is mapped to 0x001xxxxx
-physical giving 00145678 as the output.
+The 0x000xxxxx entry was not modified, so we get 0x000045678 as the output. The
+section 0x001xxxxx will read from physical addresses 0x003xxxxx so we get the 
+0x00345678 output, 0x002xxxxx will translate to the 0x000xxxxx space
+so that read gives 0x00045678 and the 0x003xxxxx is mapped to physical 
+0x001xxxxx giving 0x00145678 as the output.
 
-So up to this point the output looks like this.
+So up to this point the output looks like this:
 
-DEADBEEF
-00045678
-00145678
-00245678
-00345678
+```
+    00045678
+    00145678
+    00245678
+    00345678
 
-00045678
-00145678
-00245678
-00345678
+    00045678
+    00145678
+    00245678
+    00345678
 
-00045678
-00345678
-00045678
-00145678
+    00045678
+    00345678
+    00045678
+    00145678
+```
 
-first blob is without the mmu enabled, second with the mmu but
-virtual = physical, third we use the mmu to show virtual != physical
-for some ranges.
+The first block is with the MMU disabled, the second one with MMU enabled but 
+1:1 virtual to physical translation, the third one with the non 1:1 translation.
 
-Now for some small pages, I made this function to help out.
+## Coarse paging
 
-unsigned int mmu_small ( unsigned int vadd, unsigned int padd, unsigned int flags, unsigned int mmubase )
-{
-    unsigned int ra;
-    unsigned int rb;
-    unsigned int rc;
+With coarse paging the logic does not know what kind of translation will be done
+until the first level read, so the first step is identical to the translation
+above. If it sees a `0b01` as the lower 2 bits of the first level descriptor, 
+then it knows, it's a coarse page entry and it needs as second level fetch. 
+Table B4-5 Accessing coarse page table second-level descriptors (pg. B4-30) 
+shows the logic fetching the second level descriptor. 
 
-    ra=vadd>>20;
-    rb=MMUTABLEBASE|(ra<<2);
-    rc=(mmubase&0xFFFFFC00)/*|(domain<<5)*/|1;
-    //hexstrings(rb); hexstring(rc);
-    PUT32(rb,rc); //first level descriptor
-    ra=(vadd>>12)&0xFF;
-    rb=(mmubase&0xFFFFFC00)|(ra<<2);
-    rc=(padd&0xFFFFF000)|(0xFF0)|flags|2;
-    //hexstrings(rb); hexstring(rc);
-    PUT32(rb,rc); //second level descriptor
-    return(0);
-}
+### Second level descriptor format
 
-So before turning on the mmu some physical addresses were written
-with some data.  The function takes the virtual, physical, flags and
-where you want the secondary table to be.  Remember secondary tables
-can be up to 1K in size and are aligned on a 1K boundary.
+There are two things to the two level translation. At first we need to set the 
+first level descriptors accordingly. The format is as follows Table B4-1 
+(pg. B4-27, First-level descriptor format (VMSAv6, subpages enabled)).
 
+|   | Bits 31:10 | 9 | 8:5 | 4,3,2 | 1,0 |
+|---|------------|---|-----|-------|-----|
+| Coarse Page Table | Coarse Page Table base Address | IMP | Domain | IMP | `01` |
 
+The bits 4:2 are implementation defined and should be zero (SBZ) for VMSAv6. 
+The domain-bits are used as above. The bits 31:10 are used as the base address 
+of the second level page table. This second level page table needs to be 
+aligned to 1 KiB in memory. 
+
+So after fetching the first level descriptor the bits 31:10 of the entry will 
+be used as bits 31:10 of the second level descriptor, i.e. it will be used as 
+base address for the second level table. The virtual address bits 19:12 will be
+used to navigate inside that second level table, i.e. shift completely to the 
+right, multiplied by 4 then used added onto the base address. The lowest 2 bits
+of the address of the second level entry is always zero. Note that there are 
+256 possibilities to fill the bits 19:12 of the virtual address, i.e. the 
+section is divided into 256 parts, i.e. 4 KiB pages.
+
+The second level descriptor looks like this (for small pages, for more see 
+Table 4-3 Second level descriptor format (subpages enabled), pg. 4-31):
+
+|   | Bits 31:12 | 11,10 | 9,8 | 7,6 | 5,4 | 3 | 2 | 1,0 |
+|---|------------|-------|-----|-----|-----|---|---|-----|
+| Small page | Small page base address | AP3 | AP2 | AP1 | AP0 | C | B | `10` |
+
+Note, that there are four **AP**-fields here. The small page is divided further 
+into four blocks of the same size (i.e. in the case of small pages 1 KiB), which
+have their own AP-Access control. AP0 applies to the block with the lowest base 
+address. You can set them all to `0b11` - full access and not care, or have 
+fine grained access control over the blocks of that page.
+
+### An example
+
+This example is a bit crazy, as the address of the second level descriptor is
+an address, where we don't even have RAM anymore on the Raspberry Pi. Normally
+you want to keep your second level tables somewhere near the first level table, 
+so you have the memory managment information in a confined space. 
+
+```
+    MMUTABLEBASE                          = 0x00004000
+    virtual address                       = 0x12345678
+    -> bits 19:12 of the virtual address:   0x00000045
+    address of the first level descriptor:  0x0000448c
+    let's assume a descriptor value of:     0xABCDE001
+    base address of second level table:     0xABCDE000
+    offset to the second level table:       0x00000114
+    address of the second level descriptor: 0xABCDE114
+```
+
+### A simple implementation
+
+```c
+    /**
+     * \brief creates an translation table entry (for sections of size 1 MiB)
+     * \param[in] virtual the virtual address (only top 12 bits used)
+     * \param[in] physical the physical address (only top 12 bits used)
+     * \param[in] flags the flags for the section
+     **/
+    uint32_t mmu_page ( uint32_t virtual, uint32_t physical, uint32_t flags, uint32_t secondbase )
+    {
+        uint32_t offset = virtual >> 20;
+        // plus and or are the same thing here, as MMUTABLEBASE is 14 bit aligned
+        uint32_t* entry = MMUTABLEBASE | (offset<<2);
+        // mask lower 20 bits of physical address then ORR flags and 0x01 for coarse translation
+        uint32_t entryval = (secondbase & 0xfffffc00) | (flags & 0xf0) | 0x01; 
+
+        // set first level descriptor
+        *entry = entryval;
+        
+        // mask everything except bits 19:12
+        offset = (virtual >> 12) & 0xff;
+        // form the second level
+        uint32_t* secondLevelEntry = (secondbase & 0xfffffc00) | (offset << 2);
+        
+        // form the value of the second level descriptor
+        // bytes 31:12 are the page base address, flags contain B,C, AP_x = 0b11 
+        // for all and the 0x02 at the end to identify the entry as small page
+        uint32_t physval = (physical & 0xfffff000) | 0xff0 | (flags & 0xc) | 0x02;
+        
+        // set the second level descriptor
+        *secondLevelEntry = physval;
+        return(0);
+    }
+```
+
+So let's assign some sections to coarse translation:
+
+```c
     mmu_small(0x0AA45000,0x00145000,0,0x00000400);
     mmu_small(0x0BB45000,0x00245000,0,0x00000800);
     mmu_small(0x0CC45000,0x00345000,0,0x00000C00);
     mmu_small(0x0DD45000,0x00345000,0,0x00001000);
     mmu_small(0x0DD46000,0x00146000,0,0x00001000);
-    //put these back
-    mmu_section(0x00100000,0x00100000,0x0000);
-    mmu_section(0x00200000,0x00200000,0x0000);
-    mmu_section(0x00300000,0x00300000,0x0000);
-    invalidate_tlbs();
+    
+    invalidate_tlb();
+```
 
-Now why did I use different secondary table addresses most of the
-time but not all of the time?  A secondary table lookup is the same
-first level descriptor for the top 12 bits of the address, if the
-top 12 bits of the address are different it is a different secondary
-table.  So to demonstrate that we actually have separation within a
-section I have two small pages within a 1MB section that I point
-at two different physical address spaces.  So in short if the top
-12 bits of the virtual address are the same then they share the same
-coarse page table, the way the function works it writes both first
-and second level descriptors so if you were to do this
+Let's look in the last two `mmu_small`-statements here. you will notice, that
+the `secondbase`-parameter is the same here. This is in fact wanted, as I want 
+to add an entry into the secondary table I assigned before, not set a new one, 
+i.e. orphaning the old one. So let's assume I would set a new secondary table 
+base address like this:
 
+```c
     mmu_small(0x0DD45000,0x00345000,0,0x00001000);
     mmu_small(0x0DD46000,0x00146000,0,0x00001400);
+```
 
-Then both of those virtual addresses would go to the 0x1400 table, and
-the first virtual address would not have a secondary entry its
-secondary entry would be in a table at 0x1000 but the first level
-no longer points to 0x1000 so the mmu would get whatever it finds
-in the 0x1400 table.    
+When I try to access an address in the page 0x0DD45xxx, then the MMU would look
+inside a secondary table located at 0x00001400, which of course does not contain 
+our previously set entry for the small page. But it will definitely find 
+something there, and probably behave unexpected, if we are not aware of our 
+mistake here. So always make sure the secondary table base addresses of the 
+pages in the same section are the same. 
 
+## Access violation
 
-The last example is just demonstrating an access violation.  Changing
-the domain to that one domain we did not set full access to
+First we want to set a domain to 0x00, so accessing a section with that domain 
+will definitely trigger an access violation. I will assume we wrote that to 
+domain number 1. 
 
-    //access violation.
-
+```c
+    // set the domain of a section to 0x01
     mmu_section(0x00100000,0x00100000,0x0020);
-    invalidate_tlbs();
+    invalidate_tlb();
 
+    // then read the data from the sections
     hexstring(GET32(0x00045678));
     hexstring(GET32(0x00145678));
     hexstring(GET32(0x00245678));
     hexstring(GET32(0x00345678));
     uart_send(0x0D); uart_send(0x0A);
+```
 
-The first 0x45678 read comes from that first level descriptor, with
-that domain
+I expect that second read-statement to trigger a Data Abort-Exception, so I 
+want to write an exception handler, to read the status information of that 
+exception. We need to following registers of the C15 co-processor:
+- `0,c5,c0,0` - Data Fault Status Register
+- `0,c5,c0,1` - Instruction Fault Status Register
 
-00045678
-00000010
+### Data Fault Status Register
 
-How do I know what that means with that output.  Well from my blinker07
-example we touched on exceptions (interrupts).  I made a generic test
-fixture such that anything other than a reset prints something out
-and then hangs.   In no way shape or form is this a complete handler
-but what it does show is that it is the exception that is at address
-0x00000010 that gets hit which is data abort.  So figuring out it was
-a data abort (pretty much expected) have that then read the data fault
-status registers, being a data access we expect the data/combined one
-to show somthing and the instruction one to not.  Adding that
-instrumentation resulted in.
+This register holds the source of the last data fault. The bits have the 
+following functions:
 
-00045678
-00000010
-00000019
-00000000
-00008110
-E5900000
-00145678
+| Bit 31:13 | 12 | 11 | 10 | 9 | 8 | 7:4 | 3:0 |
+|-----|----------|----|----|---|---|-----|-----|
+| SBZ | SD | RW | S | 0 | 0 | Domain | Status |
 
-Now I switched to the ARM1176JZF-S Technical Reference Manual for more
-detail and that shows the 0x01 was domain 1, the domain we used for
-that access. then the 0x9 means Domain Section Fault.
+**SD** indicates an AXI Decode or Slave error caused the abort (only valid for 
+external aborts, for all other should be zero). **RW** indicates whether a read 
+(0) or a write (1) access caused the abort. The **S**-flag is part of the status 
+field. The **Domain** bits indicate the domain which was accessed when the abort
+occurred. The **Status** bits show the type of fault generated. See the 
+[Data Fault Status Register]-manual for a list.
 
-The lr during the abort shows us the instruction, which you would need
-to disassemble to figure out the address, or at least that is one
-way to do it perhaps there is a status register for that.
+### Instruction Fault Status Register
 
-The instruction and the address match our expectations for this fault.
+This register holds the source of the last instruction fault. The bits have the following functions:
 
-This is simply a basic intro.  Just enough to be dangerous.  The MMU
-is one of the simplest peripherals to program so long as bit
-manipulation is not something that causes you to lose sleep.  What makes
-it hard is that if you mess up even one bit, or forget even one thing
-you can crash in spectacular ways (often silently without any way of
-knowing what happened).  Debugging can be hard at best.
+| Bit 31:13 | 12 | 11 | 10 | 9 :4 | 3:0 |
+|-----|----------|----|----|------|-----|
+| SBZ | SD | SBZ | 0  | SBZ | Status |
 
-The ARM ARM indicates that the ARMv6 adds the feature of separating
-the I and D from an mmu perspective which is an interesting thought
-(see the jtag debugging comments, and think about how this can affect
-you re-loading a program into ram and running) you have enough ammo
-to try that.  The ARMv7 doesnt seem to have a legacy mode yet, still
-reading, the descriptors and how they are addresses looks basically
-the same but this code doesnt yet work on the raspi 2, so I will
-continue to work on that and update this repo when I figure it out.
+See the [Instruction Fault Status Register]-manual for the list of status combinations.
 
-## Coarse paging (TODO)
+### Reading the status registers
 
-The coarse_translation.ps file I have included in this repo starts
-off the same way as a section, has to the logic doesnt know what
-you want until it sees the first level descriptor.  If it sees a
-0b01 as the lower 2 bits of the first level descriptor then this is
-a coarse page table entry and it needs to do a second level fetch.
-The second level fetch does not use the mmu tlb table base address
-bits 31:10 of the second level address plus bits 19:12 of the
-virtual address (times 4) are where the second level descriptor lives.
-Note that is 8 more bits so the section is divided into 256 parts, this
-page table address is similar to the mmu table address, but it needs
-to be aligned on a 1K boundry (lower 10 bits zeros) and can be worst
-case 1KBytes in size.
+```armasm
+    data_abort:
+        // save the link-register
+        mov r6,lr
+        // get the last executed instruction
+        ldr r8,[r6,#-8]
+        
+        // reading the status register
+        mrc p15,0,r4,c5,c0,0 ;@ data/combined
+        mrc p15,0,r5,c5,c0,1 ;@ instruction
+        mov sp,#0x00004000
+        
+        // print data fault status register
+        mov r0,r4
+        bl hexstring
+        
+        // print instruction fault status register
+        mov r0,r5
+        bl hexstring
+        
+        // print the link register
+        mov r0,r6
+        bl hexstring
+        
+        // print the bit-representation of the last executed instruction
+        mov r0,r8
+        bl hexstring
+        
+        b hang
+```
 
-The second level descriptor format defined in the ARM ARM (small pages
-are most interesting here, subpages enabled) is a little different
-than a first level section, we had a domain in the first level
-descriptor to get here, but now have direct access to four sets of
-AP bits you/I would have to read more to know what the difference
-is between the domain defined AP and these additional four, for now
-I dont care this is bare metal, set them to full access (0b11) and
-move on (see below about domain and ap bits).
+Running the code results in:
 
-So lets take the virtual address 0x12345678 and the MMUTABLEBASE of
-0x4000 again.  The first level descriptor address is the top three
-bits of the virtual address 0x123, times 4, added to the MMUTABLEBASE
-0x448C.  But this time when we look it up we find a value in the
-table that has the lower two bits being 0b01.  Just to be crazy lets
-say that descriptor was 0xABCDE001  (ignoring the domain and other
-bits just talking address right now).  That means we take 0xABCDE000
-the picture shows bits 19:12 (0x45) of the virtual address (0x12345678)
-so the address to the second level descriptor in this crazy case is
-0xABCDE000+(0x45<<2) = 0xABCDE114  why is that crazy?  because I
-chose an address where we in theory dont have ram on the raspberry pi
-maybe a mirrored address space, but a sane address would have been
-somewhere close to the MMUTABLEBASE so we can keep the whole of the
-mmu tables in a confined area.  Used this address simply for
-demonstration purposes not based on a workable solution.
+```
+    00045678
+    00000019
+    00000000
+    00008110
+    E5900000
+    00145678
+```
 
-### Raspberry Pi 2
+The first line is the one correct data-read we do in our code above. The 
+next value is the data fault status register, which indicates that the domain
+0x01 was accessed and aborted with an 0x09 fault, i.e. a Domain Section fault. 
 
-If you are on the raspi 2 with multiple arm cores and are using
-the multiple arm cores you need to do more reading if you want one
-core to talk to another by sharing some of the memory between
-them.  Same problem as peripherals basically with multiple masters
-of the ram/peripheral on the far side of my cache, how do I insure
-what is in my cache maches the far side?  Easiest way is to not
-cache that space.  You need to read up on if the cores share a cache
-or have their own (or if l2 if present is shared but l1 is not),
-ldrex/strex were implemented specifically for multi core, but you
-need to understand the cache effects on these instructions (<grin>
-not documented well, I have an example on just this one topic).
+# Conclusion
 
+This is just a simple intro to MMUs, just enough to be dangerous. The MMU is one
+of the simplest peripherals to program so long as bit manipulations are not 
+something that causes you to lose sleep. But if you mess it up even a bit, or 
+forget something, you can crash in spectacular ways (often silently without any 
+way of knowing what really happened. Debugging can be hard at best.
+
+The ARM ARM indicates that ARMv6 adds a feature of separating the data from the
+instructions from the MMUs perspective, which is an interesting thought (see the 
+JTAG-debugging comments). 
 
 [ARM ARM]: https://www.scss.tcd.ie/~waldroj/3d1/arm_arm.pdf
-[co-processor]: http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0301h/index.html
+[co-processor]: http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0301h/ch03s02s01.html
+[Data Fault Status Register]: http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0301h/Bgbiaghh.html
+[Instruction Fault Status Register]: http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0301h/Bgbccfgi.html
