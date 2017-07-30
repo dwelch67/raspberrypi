@@ -116,6 +116,11 @@ GET32:
 dummy:
     bx lr
 
+.global mmu_domain
+mmu_domain:
+    mcr p15, 0, r0, c3, c0, 0
+    mov pc, lr
+
 .global mmu_init
 mmu_init:
     mov r1,#0

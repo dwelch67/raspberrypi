@@ -366,8 +366,8 @@ all of our sections can have the domain number 0.
 ```c
     /**
      * \brief creates an translation table entry (for sections of size 1 MiB)
-     * \param[in] vadd the virtual address (only top 12 bits used)
-     * \param[in] padd the physical address (only top 12 bits used)
+     * \param[in] virtual the virtual address (only top 12 bits used)
+     * \param[in] physical the physical address (only top 12 bits used)
      * \param[in] flags the flags for the section
      **/
     uint32_t mmu_section ( uint32_t virtual, uint32_t physical, uint32_t flags )
@@ -845,17 +845,28 @@ See the [Instruction Fault Status Register]-manual for the list of status combin
 Running the code results in:
 
 ```
-    00045678
-    00000019
-    00000000
-    00008110
+    00045678 
+    00000019 
+    00000000 
+    00008104 
     E5900000
-    00145678
 ```
 
 The first line is the one correct data-read we do in our code above. The 
 next value is the data fault status register, which indicates that the domain
 0x01 was accessed and aborted with an 0x09 fault, i.e. a Domain Section fault. 
+The third line is the value of the instruction fault status register, which
+indicates a status of 0x0, i.e. "no function, reset value". That probably means 
+no fault happened.
+
+The fourth line is the link register, i.e. the address to the instruction which 
+would have been executed next, and the last line is the binary representation 
+of the instruction which caused the fault. Use a disassembler to view the 
+instruction in all its mnemonic glory:
+
+```
+    80fc:	e5900000 	ldr	r0, [r0]
+```
 
 # Conclusion
 
