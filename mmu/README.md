@@ -191,7 +191,7 @@ address is all zeroes (TLB=Translation Look-Aside Buffer)).
 
 We write that register using
 
-```armasm
+```c
     mcr p15,0,r0,c2,c0,0 ;@ tlb base
 ```
 
@@ -208,7 +208,7 @@ registers with the normal `mov` instruction.
 The co-processor has several registers, which can be accessed by the `mcr` or 
 the `mrc` instruction. The parameters are:
 
-```armasm
+```c
     MCR{cond} P15,<Opcode_1>,<Rd>,<CRn>,<CRm>,<Opcode_2>
     MRC{cond} P15,<Opcode_1>,<Rd>,<CRn>,<CRm>,<Opcode_2>
 ```
@@ -465,7 +465,7 @@ What bits of these you want to set is up to you. I would recommend M, C and I,
 but I am going ahead and set them all. So simple example code implementing the 
 the MMU-enabling process might be this: 
 
-```armasm
+```c
     .global mmu_init
     mmu_init:
         mov r1,#0
@@ -497,7 +497,7 @@ to invalidate the TLB cache again, so let's put this part into its own function.
 We don't need to care about the L1 cache, this time. Also ARMv6 introduces a 
 feature to help with invlidating the TLB, but I'm going with this solution:
 
-```armasm
+```c
     .globl tlb_invalidate
     tlb_invalidate:
         mov r2,#0
@@ -811,7 +811,7 @@ See the [Instruction Fault Status Register]-manual for the list of status combin
 
 ### Reading the status registers
 
-```armasm
+```c
     data_abort:
         // save the link-register
         mov r6,lr
