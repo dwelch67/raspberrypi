@@ -377,7 +377,7 @@ all of our sections can have the domain number 0.
         uint32_t* entry = MMUTABLEBASE | (offset<<2);
         
         // mask lower 20 bits of physical address then ORR flags and 0x02 for 1 MiB
-        uint32_t physval = (physical & 0xfff00000) | (flags & 0x7ffa) | 0x02; 
+        uint32_t physval = (physical & 0xfff00000) | (flags & 0x7ffc) | 0x02; 
 
         *entry = physval;
         return(0);
