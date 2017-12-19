@@ -1,4 +1,15 @@
 
+The main directory examples are for the older/est pi1 boards maybe
+some attempts at newer boards.  These are retained for legacy reasons
+some folks have direct links.  They are still valid for those boards.
+The boards directory has the first attempt at solving the too many
+boards issue and that is where I recommend you go.  My third string
+attempt is I have a raspberrypi-zero and raspberrypi-three repos that
+are for those boards specifically.  Little to no verbage though, the
+rambling text is mostly in this repo.
+
+--------------
+
 This repo is getting a bit messy starting with the first released to
 the public pi and then all that came after.  I want to rework it but
 it is going slowly.  Recently started creating directories pi1, piaplus
