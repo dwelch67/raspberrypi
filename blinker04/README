@@ -1,4 +1,11 @@
 
+This is NOT for the pi3 nor pi2, look in the boards directory or in my
+separate raspberrypi-three repo.  If you are new to interrupts
+I recommend first buying a pi-zero and learning there.  Then aarch32
+mode on the pi3 then lastly aarch64 mode on the pi3.
+
+---------
+
 See the top level README for information on where to find the
 schematic and programmers reference manual for the ARM processor
 on the raspberry pi.  Also find information on how to load and run
