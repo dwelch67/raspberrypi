@@ -50,10 +50,10 @@ int notmain ( void )
     hexstring(0x12345678);
     hexstring(GETPC());
 
-    uart_send('i');
-    uart_send('h');
-    uart_send('e');
-    uart_send('x');
+    uart_send('I');
+    uart_send('H');
+    uart_send('E');
+    uart_send('X');
     uart_send(0x0D);
     uart_send(0x0A);
 
