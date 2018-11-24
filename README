@@ -169,7 +169,7 @@ https://launchpad.net/gcc-arm-embedded
 to get a cross compiler.  Building your own toolchain from gnu sources
 (binutils and gcc) is fairly straight forward see my build_gcc
 repository for a build script (Linux only but from that you might get
-other platforms to build).  And also rememeber that you can run linux
+other platforms to build).  And also remember that you can run linux
 on the pi and on that it has a native, not cross, gnu toolchain.
 
 As far as we know so far the Raspberry Pi is not "brickable".  Normally
