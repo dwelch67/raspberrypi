@@ -39,6 +39,8 @@ GPIO8  SPI0_CE0_N  P1-24
 GPIO10 SPI0_MOSI   P1-19
 GPIO11 SPI0_SCLK   P1-23
 
+
+
 these are set gpio outputs
 GPIO7  SPI0_CE1_N  P1-26
 GPIO25 GPIO_GEN6   P1-22
@@ -61,6 +63,7 @@ SCK/CLK            P1-23    spi clock
 D/C                P1-22    data/command
 RST                P1-26    reset
 CS/CE              P1-24    spi chip select
+LED   with330ohm   P1-17     LED ON pin
 
 Your board may have a row of pins above and below the display, they
 are the same you only need one row.
