@@ -6,7 +6,6 @@ extern void PUT32 ( unsigned int, unsigned int );
 extern void PUT16 ( unsigned int, unsigned int );
 extern void PUT8 ( unsigned int, unsigned int );
 extern unsigned int GET32 ( unsigned int );
-extern void BRANCHTO ( unsigned int );
 extern void dummy ( unsigned int );
 
 #define SYSTIMERCLO     (0x20003004)
@@ -120,13 +119,7 @@ void uart_init ( void )
     PUT32(GPPUDCLK0,0);
     PUT32(AUX_MU_CNTL_REG,3);
 }
-//-------------------------------------------------------------------------
-unsigned int system_timer_low ( void )
-{
-    return(GET32(SYSTIMERCLO));
-}
-//-------------------------------------------------------------------------
-//-------------------------------------------------------------------------
+
 
 
 //-------------------------------------------------------------------------

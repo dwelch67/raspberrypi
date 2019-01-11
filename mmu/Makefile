@@ -30,9 +30,3 @@ notmain.hex : memmap novectors.o periph.o notmain.o
 	$(ARMGNU)-objdump -D notmain.elf > notmain.list
 	$(ARMGNU)-objcopy notmain.elf -O ihex notmain.hex
 
-
-
-
-
-
-
