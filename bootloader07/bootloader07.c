@@ -41,6 +41,10 @@ int notmain ( void )
     unsigned int data;
     unsigned int sum;
     unsigned int ra;
+    // Keeps track of byte_count when reading data
+    unsigned int counter;
+    // Keeps track of number of characters read
+    unsigned int unit_counter;    
 
     uart_init();
     hexstring(0x12345678);
@@ -60,6 +64,8 @@ int notmain ( void )
     record_type=0;
     address=0;
     byte_count=0;
+    counter=0;
+    unit_counter=0;
     while(1)
     {
         ra=uart_recv();
@@ -138,6 +144,8 @@ int notmain ( void )
                 {
                     case 0x00:
                     {
+                        counter = 0;
+                        unit_counter = 0;
                         state=14;
                         break;
                     }
@@ -187,20 +195,32 @@ int notmain ( void )
             case 20:
             case 21:
             {
+                if (counter > 2 * byte_count) {
+                    break;
+                }
+                unit_counter++;
+                counter++;
                 data<<=4;
                 if(ra>0x39) ra-=7;
                 data|=(ra&0xF);
-                if(state==21)
+                if(unit_counter == 8 || counter == 2 * byte_count)
                 {
                     ra=(data>>24)|(data<<24);
                     ra|=(data>>8)&0x0000FF00;
                     ra|=(data<<8)&0x00FF0000;
                     data=ra;
+                    // 8 * 4bits = 32 bits
+                    if (unit_counter != 8) {
+                        // Left with a value that is not 32bits wide
+                        int left=byte_count%sizeof(int);
+                        data>>=32-left*8;
+                    }                    
                     PUT32(address,data);
                     sum+=address;
                     sum+=data;
                     address+=4;
                     state=14;
+                    unit_counter=0;                    
                 }
                 else
                 {
