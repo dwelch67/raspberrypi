@@ -111,7 +111,7 @@ int notmain ( void )
     id=GETCPUID();
     if((id&0xFFFFFFFF)==0x410FB767) PBASE=0x20000000;
     else                            PBASE=0x3F000000;
-    PBASE=0x20000000;
+
     uart_init();
     hexstring(0x12345678);
     hexstring(GETPC());
