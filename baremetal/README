@@ -1638,14 +1638,14 @@ fun passes 5+3 = 8 to morefun
 
 morefun returns 8+7 = 15
 
-fun saves 15 in pear
-then returns 15+1 = 16
+fun saves 22 in pear //initial value of pear is 7, plus the 15 of fun and morefun
+then returns 22+1 = 23
 
 So if we wanted to optimize this code and had visibility to all of the
 functions we could optimize all of this code to be:
 
-pear = 15;
-x=16;
+pear = 22; //pear = 7 + 15
+x=23; //pear + 1
 
 Actually notice how we dont do anything with the x variable in the
 notmain function, we compute it but dont do anything with it?  There
